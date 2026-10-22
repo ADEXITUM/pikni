@@ -11,8 +11,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ADEXITUM/pikni/api/internal/app"
+	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/platform/httpx"
 	"github.com/ADEXITUM/pikni/api/internal/platform/logging"
 )
@@ -36,8 +38,22 @@ func run() error {
 	log := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
 	slog.SetDefault(log)
 
+	pool, err := db.NewPool(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	// Сервер стартует и без базы: пока она недоступна, /readyz отвечает 503.
+	pingCtx, cancelPing := context.WithTimeout(context.Background(), 3*time.Second)
+	if err := pool.Ping(pingCtx); err != nil {
+		log.Warn("database is not reachable yet", "error", err)
+	}
+	cancelPing()
+
 	e := httpx.NewServer(log)
 	httpx.RegisterHealth(e, version)
+	httpx.RegisterReady(e, log, map[string]httpx.Check{"database": pool.Ping})
 
 	ln, err := net.Listen("tcp", cfg.HTTPAddr)
 	if err != nil {

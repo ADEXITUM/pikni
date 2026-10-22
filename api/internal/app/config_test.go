@@ -41,6 +41,18 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	}
 }
 
+func TestMigratorURLFallsBackToDatabaseURL(t *testing.T) {
+	cfg := Config{DatabaseURL: "postgres://app"}
+	if got := cfg.MigratorURL(); got != "postgres://app" {
+		t.Errorf("MigratorURL() = %q, want DatabaseURL", got)
+	}
+
+	cfg.DatabaseMigratorURL = "postgres://owner"
+	if got := cfg.MigratorURL(); got != "postgres://owner" {
+		t.Errorf("MigratorURL() = %q, want DatabaseMigratorURL", got)
+	}
+}
+
 func TestLoadConfigRejectsUnknownMode(t *testing.T) {
 	t.Setenv("PIKNI_ENV", "production")
 

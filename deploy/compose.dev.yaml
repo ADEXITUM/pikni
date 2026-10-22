@@ -1,0 +1,24 @@
+name: pikni-dev
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: pikni
+      POSTGRES_PASSWORD: pikni
+      POSTGRES_DB: pikni
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # С версии 18 образ хранит данные в подкаталоге /var/lib/postgresql/18/docker,
+      # поэтому том монтируется на уровень выше.
+      - pgdata:/var/lib/postgresql
+      - ../api/db/seed:/seed:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pikni -d pikni"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

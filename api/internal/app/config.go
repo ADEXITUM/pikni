@@ -15,6 +15,16 @@ type Config struct {
 	LogLevel        slog.Level    `env:"LOG_LEVEL" envDefault:"info"`
 	LogFormat       string        `env:"LOG_FORMAT" envDefault:"json"`
 	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"15s"`
+
+	DatabaseURL         string `env:"DATABASE_URL" envDefault:"postgres://pikni:pikni@localhost:5432/pikni?sslmode=disable"`
+	DatabaseMigratorURL string `env:"DATABASE_MIGRATOR_URL"`
+}
+
+func (c Config) MigratorURL() string {
+	if c.DatabaseMigratorURL != "" {
+		return c.DatabaseMigratorURL
+	}
+	return c.DatabaseURL
 }
 
 func LoadConfig() (Config, error) {
