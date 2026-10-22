@@ -1,6 +1,6 @@
 # Проект инфраструктуры АС «Пикни»
 
-Документ детализирует ТЗ ([../../../TZ_sistema.md](../../../TZ_sistema.md)) для развёртывания, сборки и эксплуатации. Компоненты описаны в [backend.md](backend.md), [frontend.md](frontend.md) и [govsim.md](govsim.md).
+Документ детализирует ТЗ ([tz.md](../tz.md)) для развёртывания, сборки и эксплуатации. Компоненты описаны в [backend.md](backend.md), [frontend.md](frontend.md) и [govsim.md](govsim.md).
 
 ## 1 Окружения и репозиторий
 

@@ -21,6 +21,7 @@
 
 | Документ | Содержание |
 |---|---|
+| [docs/tz.md](docs/tz.md) | Техническое задание (ГОСТ 34.602-2020) |
 | [docs/plan.md](docs/plan.md) | План итераций |
 | [docs/design/backend.md](docs/design/backend.md) | Сервер: модули, модель данных, учёт, ЕГАИС, кассовый API |
 | [docs/design/govsim.md](docs/design/govsim.md) | Имитатор ЕГАИС, «Честного знака» и поставщика |
