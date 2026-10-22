@@ -38,7 +38,7 @@
 - [x] 0.1 Установка инструментов: WSL 2, Docker Desktop, Go, Task, mkcert, GitHub CLI
 - [x] 0.2 Репозиторий: структура папок, `.gitignore`, README, репозиторий на GitHub
 - [x] 0.3 Сервер на Go: Echo, конфигурация из переменных окружения, `/healthz`
-- [ ] 0.4 PostgreSQL в Docker, первая миграция (goose), подключение (pgx), `/readyz`
+- [x] 0.4 PostgreSQL в Docker, первая миграция (goose), подключение (pgx), `/readyz`
 - [ ] 0.5 Контракт: `openapi.yaml` с первым методом, генерация серверного кода (oapi-codegen), первый запрос sqlc
 - [ ] 0.6 Клиент: Vite + Vue + TypeScript + Vuetify, тема, сгенерированный клиент API, вывод данных с сервера
 - [ ] 0.7 Наблюдаемость с первого дня: OpenTelemetry в сервере, локальный `otel-lgtm`, первая трассировка «страница → API → БД» в Grafana
