@@ -12,6 +12,7 @@ func NewServer(log *slog.Logger) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.HTTPErrorHandler = errorHandler
 
 	e.Use(middleware.RequestID())
 	e.Use(requestLogger(log))

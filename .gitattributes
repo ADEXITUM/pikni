@@ -7,6 +7,10 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
+# Сгенерированный код: GitHub сворачивает его в диффах и не учитывает в статистике языков
+api/internal/apispec/*.gen.go linguist-generated=true
+api/internal/*/store/*.go linguist-generated=true
+
 # Двоичные файлы не трогаем
 *.png binary
 *.jpg binary
