@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -12 192 170" width="192" height="170" role="img" aria-labelledby="title">
+  <title id="title">Пикни: паспорт покажите</title>
+  <defs>
+    <filter id="pk-sticker" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="3" result="grown"/>
+      <feFlood flood-color="#FFFDF8"/>
+      <feComposite in2="grown" operator="in" result="outline"/>
+      <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="146" rx="42" ry="5" fill="#221D17" opacity=".12"/>
+  <g filter="url(#pk-sticker)">
+    <rect x="52" y="118" width="20" height="18" rx="6" fill="#7A4A1F" stroke="#221D17" stroke-width="4"/><rect x="88" y="118" width="20" height="18" rx="6" fill="#7A4A1F" stroke="#221D17" stroke-width="4"/>
+    <path d="M45 98Q50 115 39 116" fill="none" stroke="#221D17" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M68 34H92V44Q92 54 104 58Q116 62 116 72V114Q116 126 104 126H56Q44 126 44 114V72Q44 62 56 58Q68 54 68 44Z" fill="#D6E6E8"/>
+    <path d="M51 76V110" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+    <path d="M68 34H92V44Q92 54 104 58Q116 62 116 72V114Q116 126 104 126H56Q44 126 44 114V72Q44 62 56 58Q68 54 68 44Z" fill="none" stroke="#221D17" stroke-width="5" stroke-linejoin="round"/>
+    <rect x="50" y="68" width="60" height="44" rx="4" fill="#FFFDF8" stroke="#221D17" stroke-width="3"/>
+    <rect x="65" y="16" width="30" height="20" rx="4" fill="#A7ADB5" stroke="#221D17" stroke-width="4"/>
+    <path d="M72 21v10M78 21v10M84 21v10M90 21v10" fill="none" stroke="#6E747C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M55 81v-6q0-5 5-5h6M94 70h6q5 0 5 5v6M55 97v6q0 5 5 5h6M94 108h6q5 0 5-5v-6" fill="none" stroke="#221D17" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="62" cy="97" rx="3.5" ry="2.6" fill="#A3302B" opacity=".35"/><ellipse cx="98" cy="97" rx="3.5" ry="2.6" fill="#A3302B" opacity=".35"/><path d="M62.5 87h9M61.5 78l10 3" fill="none" stroke="#221D17" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="93" cy="86" rx="4.5" ry="6" fill="#221D17"/><circle cx="94.6" cy="83.6" r="1.5" fill="#FFFDF8"/><path d="M87.5 74q5.5 -6 11 0" fill="none" stroke="#221D17" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M75.2 100q4.800000000000001 -3 9.600000000000001 -6" fill="none" stroke="#221D17" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M115 98Q126 87 125 64" fill="none" stroke="#221D17" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="113" y="26" width="26" height="34" rx="3" fill="#7B1E2B" stroke="#221D17" stroke-width="3"/><circle cx="126" cy="39" r="5.5" fill="none" stroke="#E6BF88" stroke-width="2"/><path d="M119 51h14" fill="none" stroke="#E6BF88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="126" y="21" text-anchor="middle" font-family="Manrope, 'Segoe UI', sans-serif" font-weight="700" font-size="15" fill="#221D17">18+</text>
+  </g>
+</svg>

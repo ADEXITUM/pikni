@@ -1,0 +1,20 @@
+# Все текстовые файлы хранятся с переводами строк LF, как в Linux,
+# даже если редактируются в Windows. Иначе git будет видеть «изменения» там, где их нет.
+* text=auto eol=lf
+
+# Скрипты Windows оставляем с CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Двоичные файлы не трогаем
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.wav binary
+*.y4m binary

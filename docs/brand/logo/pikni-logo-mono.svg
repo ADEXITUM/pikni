@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" width="240" height="64" role="img" aria-label="Пикни">
+  <path d="M18 12H30V17Q30 21 36 23Q44 26 44 32V54Q44 60 38 60H10Q4 60 4 54V32Q4 26 12 23Q18 21 18 17Z" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"/>
+  <rect x="14" y="2" width="20" height="11" rx="2.5" fill="currentColor"/>
+  <rect x="9" y="30" width="30" height="24" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+  <path d="M12.5 37.5v-2q0-2 2-2h2.5M31 33.5h2.5q2 0 2 2v2M12.5 47.5v2q0 2 2 2h2.5M31 51.5h2.5q2 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="20.5" cy="41" rx="1.9" ry="2.6" fill="currentColor"/>
+  <ellipse cx="27.5" cy="41" rx="1.9" ry="2.6" fill="currentColor"/>
+  <path d="M21.5 46q2.5 2 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <g transform="translate(64 8) scale(.8)"><path d="M5 50V10h26v40M51 10v40l26-40v40M97 10v40M97 30h6l18-20M103 30l20 20M143 10v40M143 30h26M169 10v40M189 10v40l26-40v40" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Пикни">
+  <rect width="512" height="512" rx="112" fill="#2D3A8C"/>
+  <g transform="translate(136 96) scale(5)">
+  <path d="M18 12H30V17Q30 21 36 23Q44 26 44 32V54Q44 60 38 60H10Q4 60 4 54V32Q4 26 12 23Q18 21 18 17Z" fill="#D6E6E8"/>
+  <path d="M8 35v15" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+  <path d="M18 12H30V17Q30 21 36 23Q44 26 44 32V54Q44 60 38 60H10Q4 60 4 54V32Q4 26 12 23Q18 21 18 17Z" fill="none" stroke="#221D17" stroke-width="3.2" stroke-linejoin="round"/>
+  <rect x="14" y="2" width="20" height="11" rx="2.5" fill="#A7ADB5" stroke="#221D17" stroke-width="3"/>
+  <path d="M19.5 5v5M24 5v5M28.5 5v5" stroke="#6E747C" stroke-width="1.6" stroke-linecap="round"/>
+  <rect x="9" y="30" width="30" height="24" rx="2" fill="#FFFDF8" stroke="#221D17" stroke-width="2"/>
+  <path d="M12.5 37.5v-2q0-2 2-2h2.5M31 33.5h2.5q2 0 2 2v2M12.5 47.5v2q0 2 2 2h2.5M31 51.5h2.5q2 0 2-2v-2" fill="none" stroke="#221D17" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="20.5" cy="41" rx="1.9" ry="2.6" fill="#221D17"/>
+  <ellipse cx="27.5" cy="41" rx="1.9" ry="2.6" fill="#221D17"/>
+  <path d="M21.5 46q2.5 2 5 0" fill="none" stroke="#221D17" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+</svg>

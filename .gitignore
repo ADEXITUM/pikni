@@ -1,0 +1,28 @@
+# Секреты и локальные настройки
+.env
+.env.*
+!.env.example
+
+# Go
+bin/
+*.test
+*.out
+coverage.*
+
+# Node и сборки фронтенда
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Результаты тестов
+test-results/
+playwright-report/
+
+# Редакторы и ОС
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini

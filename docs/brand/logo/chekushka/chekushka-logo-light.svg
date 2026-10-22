@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 48" width="230" height="48" role="img" aria-label="Чекушка">
+  <rect width="48" height="48" rx="8" fill="#221D17"/>
+  <path d="M15 11V25H33M33 11V37" fill="none" stroke="#FFFDF8" stroke-width="6" stroke-linecap="square"/>
+  <g transform="translate(62 6) scale(0.6)"><path d="M4 10V30H28M28 10V50M66 10H44V50H66M44 30H62M82 10V50M106 10L85 30L106 50M122 10L134 31M146 10L129 50M162 10V50H194V10M178 10V50M210 10V50M234 10L213 30L234 50M250 50L263 10L276 50M255 37H271" fill="none" stroke="#221D17" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/></g>
+</svg>

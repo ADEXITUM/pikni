@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -12 192 170" width="192" height="170" role="img" aria-labelledby="title">
+  <title id="title">Пикни после боя: бой — тоже учёт</title>
+  <defs>
+    <filter id="pk-sticker" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="3" result="grown"/>
+      <feFlood flood-color="#FFFDF8"/>
+      <feComposite in2="grown" operator="in" result="outline"/>
+      <feMerge><feMergeNode in="outline"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="80" cy="146" rx="42" ry="5" fill="#221D17" opacity=".12"/>
+  <g filter="url(#pk-sticker)">
+    <rect x="52" y="118" width="20" height="18" rx="6" fill="#7A4A1F" stroke="#221D17" stroke-width="4"/><rect x="88" y="118" width="20" height="18" rx="6" fill="#7A4A1F" stroke="#221D17" stroke-width="4"/>
+    <path d="M45 98Q37 113 37 120" fill="none" stroke="#221D17" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M68 34H92V44Q92 54 104 58Q116 62 116 72V114Q116 126 104 126H56Q44 126 44 114V72Q44 62 56 58Q68 54 68 44Z" fill="#D6E6E8"/>
+    <path d="M51 76V110" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+    <path d="M68 34H92V44Q92 54 104 58Q116 62 116 72V114Q116 126 104 126H56Q44 126 44 114V72Q44 62 56 58Q68 54 68 44Z" fill="none" stroke="#221D17" stroke-width="5" stroke-linejoin="round"/>
+    <rect x="50" y="68" width="60" height="44" rx="4" fill="#FFFDF8" stroke="#221D17" stroke-width="3"/>
+    <rect x="65" y="16" width="30" height="20" rx="4" fill="#A7ADB5" stroke="#221D17" stroke-width="4"/>
+    <path d="M72 21v10M78 21v10M84 21v10M90 21v10" fill="none" stroke="#6E747C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M55 81v-6q0-5 5-5h6M94 70h6q5 0 5 5v6M55 97v6q0 5 5 5h6M94 108h6q5 0 5-5v-6" fill="none" stroke="#221D17" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="62" cy="97" rx="3.5" ry="2.6" fill="#A3302B" opacity=".35"/><ellipse cx="98" cy="97" rx="3.5" ry="2.6" fill="#A3302B" opacity=".35"/><path d="M62.5 86a4.5 4.800000000000001 0 0 0 9 0z" fill="#221D17"/><path d="M88.5 86a4.5 4.800000000000001 0 0 0 9 0z" fill="#221D17"/><path d="M61.5 86h11M87.5 86h11" fill="none" stroke="#221D17" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M74 99q3 -3 6 0t6 0" fill="none" stroke="#221D17" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M139 48L121 128" fill="none" stroke="#7A4A1F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M111 126h20l8 18h-36z" fill="#D9B44A" stroke="#221D17" stroke-width="3" stroke-linejoin="round"/><path d="M117 130l-3 12M123 130v12M129 130l4 12" fill="none" stroke="#9A7A22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M115 98Q126 99 129 92" fill="none" stroke="#221D17" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><g transform="rotate(-30 56 60)"><rect x="45" y="56" width="22" height="8" rx="4" fill="#F1D3B0" stroke="#221D17" stroke-width="2.2"/></g><g transform="rotate(30 56 60)"><rect x="45" y="56" width="22" height="8" rx="4" fill="#F1D3B0" stroke="#221D17" stroke-width="2.2"/></g><path d="M31 146l8-9 5 9z" fill="#A9CFA0" stroke="#221D17" stroke-width="2.5" stroke-linejoin="round"/><path d="M47 148l5-12 7 10z" fill="#9ED8E0" stroke="#221D17" stroke-width="2.5" stroke-linejoin="round"/><path d="M63 147l9-6 2 8z" fill="#A9CFA0" stroke="#221D17" stroke-width="2.5" stroke-linejoin="round"/>
+  </g>
+</svg>

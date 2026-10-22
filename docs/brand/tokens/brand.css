@@ -1,0 +1,146 @@
+/*
+ * Бренд «Пикни»: правила, которые не выражаются темой и defaults Vuetify.
+ *
+ * Подключать после стилей Vuetify. Файл намеренно без @layer: в Vuetify 4
+ * стили вне слоёв сильнее слоёв vuetify-*, поэтому правила здесь короткие
+ * и точечные — только то, что нельзя сделать темой.
+ *
+ * Шрифты подключаются в main.ts, без запросов к внешним серверам:
+ *   import '@fontsource-variable/manrope'
+ *   import '@fontsource/jetbrains-mono/500.css'
+ */
+
+:root {
+  /* Vuetify 4 берёт шрифты из этих переменных */
+  --v-font-body: 'Manrope Variable', 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --v-font-heading: var(--v-font-body);
+  --pk-font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --pk-touch: 48px;        /* обычная цель касания (ТЗ требует не меньше 44) */
+  --pk-touch-glove: 56px;  /* экраны сканирования: склад, перчатки */
+}
+
+body {
+  font-family: var(--v-font-body);
+}
+
+/* Цифры одинаковой ширины: столбцы количеств и сумм не «пляшут» */
+.v-table,
+.pk-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Таблицы: 15 px вместо 14 px по умолчанию — пользователи просили не мельчить */
+.v-table {
+  font-size: 0.9375rem;
+}
+
+.v-table th {
+  font-weight: 700;
+}
+
+/* Коды: штрихкоды, акцизные марки, артикулы. Моноширинный шрифт различает 0 и O, 1 и l */
+.pk-code {
+  font-family: var(--pk-font-mono);
+  font-size: 0.9375em;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* Кнопки: полужирные, без разрядки и без капса */
+.pk-btn {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/*
+ * Рамка поля ввода в покое. У Vuetify по умолчанию непрозрачность .38 —
+ * это около 2 : 1, меньше порога 3 : 1 (WCAG 1.4.11). Ставим .6 и заново
+ * задаём состояния наведения и фокуса, которые иначе перекрылись бы.
+ */
+.v-field__outline {
+  --v-field-border-opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .v-field:hover .v-field__outline {
+    --v-field-border-opacity: var(--v-high-emphasis-opacity);
+  }
+}
+
+.v-field.v-field--focused .v-field__outline,
+.v-input.v-input--error .v-field__outline {
+  --v-field-border-opacity: 1;
+}
+
+/* Кольцо фокуса с клавиатуры: видно и на крафте, и в тёмной теме */
+:where(.v-btn, .v-chip, .v-list-item, .v-tab, .v-field, a, [tabindex]):focus-visible {
+  outline: 3px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Сенсорные экраны: кнопки не ниже 44 px (п. 4.4.5 ТЗ) */
+@media (pointer: coarse) {
+  .v-btn.v-btn--size-default,
+  .v-btn.v-btn--size-small {
+    --v-btn-height: 44px;
+  }
+}
+
+/* Экраны сканирования: класс на корневом элементе экрана */
+.pk-glove .v-btn {
+  --v-btn-height: var(--pk-touch-glove);
+  min-width: var(--pk-touch-glove);
+}
+
+/* Крупный счётчик «3 из 5» на экране скана: читается с вытянутой руки */
+.pk-scan-count {
+  font-size: clamp(2.5rem, 11vw, 4rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Статус-штамп: оттиск печати на накладной.
+ * Использование: <v-chip class="pk-stamp" variant="outlined" :color :prepend-icon>.
+ */
+.pk-stamp.v-chip {
+  border-width: 2px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Большой штамп в шапке документа — единственное место, где штамп повёрнут */
+.pk-stamp--hero.v-chip {
+  --v-chip-height: 40px;
+  font-size: 1rem;
+  transform: rotate(-3deg);
+}
+
+/* «Своя точка» в матрице наличия: заливка и полоса слева, а не только цвет */
+.pk-own-point {
+  background: rgb(var(--v-theme-surface-light));
+  box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
+}
+
+/* Персонаж в пустых состояниях и ошибках */
+.pk-mascot {
+  display: block;
+  width: 120px;
+  height: auto;
+  margin-inline: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
