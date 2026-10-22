@@ -6,14 +6,16 @@
 
 ### 1.1 Общая схема
 
-Сервер «Пикни» — модульный монолит на Go. Один исполняемый файл `pikni` с подкомандами:
+Сервер «Пикни» — модульный монолит на Go. Из одного модуля `api/` собираются несколько исполняемых файлов, у каждого своя точка входа в `cmd/`:
 
-| Подкоманда | Назначение |
-|---|---|
-| `serve` | REST API для приложения сотрудников, кассовый API, WebSocket |
-| `worker` | Фоновые и периодические задачи из очереди River, включая обмен с ЕГАИС |
-| `migrate` | Применение миграций БД (goose и миграции River) |
-| `seed` | Заполнение демонстрационными данными, согласованно с имитатором |
+| Бинарник | Точка входа | Назначение |
+|---|---|---|
+| `pikni-api` | `cmd/api` | REST API для приложения сотрудников, кассовый API, WebSocket |
+| `pikni-worker` | `cmd/worker` | Фоновые и периодические задачи из очереди River, включая обмен с ЕГАИС |
+| `pikni-migrate` | `cmd/migrate` | Применение миграций БД (goose и миграции River) |
+| `pikni-seed` | `cmd/seed` | Заполнение демонстрационными данными, согласованно с имитатором |
+
+API и обработчик задач — разные процессы в разных контейнерах. Тяжёлая задача не тормозит ответы API, они масштабируются независимо, а обработчик можно вынести на другой сервер. Все бинарники собираются в один образ Docker, поэтому версии API и обработчика всегда совпадают. Это важно: формат задач, которые ставит API, должен понимать обработчик той же версии.
 
 Имитатор `govsim` — отдельная программа со своей базой данных. «Пикни» обращается к нему только по HTTP через адаптеры, как к настоящим внешним системам.
 
@@ -26,8 +28,8 @@ flowchart LR
   end
   C[Caddy: HTTPS, статика, прокси]
   subgraph Пикни
-    API[pikni serve: REST, кассовый API, WebSocket]
-    WRK[pikni worker: очередь River]
+    API[pikni-api: REST, кассовый API, WebSocket]
+    WRK[pikni-worker: очередь River]
   end
   DB[(PostgreSQL: база pikni)]
   G[Gotenberg: HTML → PDF]
@@ -65,12 +67,13 @@ flowchart LR
 
 ```
 api/
-  cmd/pikni/              точка входа, подкоманды
+  cmd/api, cmd/worker, cmd/migrate, cmd/seed   точки входа бинарников
   internal/
     app/                  конфигурация, сборка зависимостей, запуск
     platform/             инфраструктурный код без бизнес-логики
       db/                 пул pgx, помощник транзакций, повтор при deadlock
-      httpx/              настройка Echo, middleware, ошибки RFC 9457
+      httpx/              настройка Echo, middleware, ошибки RFC 9457, /healthz и /readyz
+      logging/            журнал на log/slog (JSON или text)
       queue/              клиент River, регистрация обработчиков
       realtime/           хаб WebSocket, LISTEN/NOTIFY
       pdf/                клиент Gotenberg
@@ -151,7 +154,9 @@ openapi/
 
 | Таблица | Ключевые поля |
 |---|---|
-| `locations` | `code` (уник.), `name`, `kind` (warehouse, store), `city`, `address`, `lat`, `lon`, `timezone`, `fsrar_id`, `kpp`, `license_no`, `license_valid_to`, `alcohol_sale_from`, `alcohol_sale_to` (по умолчанию 08:00 и 23:00), `extra_restrictions` jsonb (региональные: дни, часы), `opening_hours` jsonb, `is_public`, `is_active` |
+| `locations` | `code` (уник.), `name`, `kind` (warehouse, store), `city`, `address`, `lat`, `lon`, `timezone`, `fsrar_id`, `kpp`, `license_no`, `license_valid_to`, `subject_code` (код субъекта РФ: 28 — Амурская область, 27 — Хабаровский край, 25 — Приморский край), `opening_hours` jsonb, `is_public`, `is_active` |
+| `alcohol_sale_rules` | `subject_code`, `valid_from`, `sale_from`, `sale_to` (местное время), `scope` (all — вся алкогольная продукция, strong — крепче 15 %), `source` (закон-основание). Несколько правил на регион — разные `scope` или новые редакции закона; действует правило с наибольшей `valid_from` не позже текущей даты |
+| `alcohol_sale_bans` | `subject_code`, `date` или `month_day` (ежегодно), `name` («День знаний»), `scope` — дни полного запрета |
 | `zones` | `location_id`, `kind` (warehouse, backroom, floor), `name`. У склада одна зона, у магазина две: склад магазина и торговый зал |
 | `suppliers` | `name`, `inn`, `kpp`, `fsrar_id`, `license_no`, `default_receiving_mode` (document, boxes, sample, piece), `contacts` jsonb |
 | `categories` | `parent_id`, `name`, `sort` (глубина не больше трёх уровней) |
@@ -657,7 +662,7 @@ sequenceDiagram
 | Нагрузочные | k6, сценарии п. 4.4.2 ТЗ, включая поток чеков с касс (П-33); результаты сверяются с метриками в Grafana |
 | Отказоустойчивость | Два экземпляра `api` и `worker`, принудительная остановка одного во время потока чеков и приёмки (П-36) |
 
-**Демонстрационные данные** (`pikni seed`) создаются детерминированно, с фиксированным зерном случайности:
+**Демонстрационные данные** (`pikni-seed`) создаются детерминированно, с фиксированным зерном случайности:
 - шесть точек и около 1 800 позиций;
 - год истории: поставки, перемещения, около 400 тысяч чеков, бой, ревизии.
 
