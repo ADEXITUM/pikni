@@ -995,6 +995,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/catalog/import/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Шаблон импорта номенклатуры */
+        get: operations["getImportTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Предпросмотр импорта номенклатуры
+         * @description Проверяет файл так же, как загрузку, но ничего не сохраняет.
+         */
+        post: operations["previewImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Импорт номенклатуры
+         * @description Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+         */
+        post: operations["runImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -1828,6 +1885,23 @@ export interface components {
         };
         SupplierList: {
             items: components["schemas"]["Supplier"][];
+        };
+        ImportError: {
+            /** @description Номер строки в файле; 0 — ошибка файла целиком */
+            row: number;
+            message: string;
+        };
+        ImportReport: {
+            /** @description true — данные сохранены; при предпросмотре всегда false */
+            committed: boolean;
+            rows: number;
+            /** @description Позиций создано (или будет создано) */
+            products: number;
+            variants: number;
+            newProducers: string[];
+            newBrands: string[];
+            newLines: string[];
+            errors: components["schemas"]["ImportError"][];
         };
         RuSubject: {
             /** @example 28 */
@@ -3618,6 +3692,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getImportTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл XLSX с колонками, примером и справкой */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Отчёт об импорте */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    runImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Отчёт об импорте */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
                 };
             };
             default: components["responses"]["Problem"];

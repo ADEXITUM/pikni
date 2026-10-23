@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { mdiFilterRemoveOutline, mdiMagnify, mdiPlus } from '@mdi/js'
+import { mdiFileUploadOutline, mdiFilterRemoveOutline, mdiMagnify, mdiPlus } from '@mdi/js'
 import { api, ApiError, type Product } from '@pikni/api'
-import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { categoryItems } from '@/categories'
+import ImportDialog from '@/components/ImportDialog.vue'
 import { accountingLabels, formatAbv, scanLabels } from '@/products'
 import { brandsQuery, categoriesQuery } from '@/queries'
 import { useMe } from '@/session'
 
 const router = useRouter()
+const queryClient = useQueryClient()
+const importOpen = ref(false)
 const { data: me } = useMe()
 const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? false)
 
@@ -89,6 +92,15 @@ function open(_: Event, { item }: { item: Product }) {
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
       <h1 class="text-h5 flex-grow-1">Товары</h1>
+      <v-btn
+        v-if="canEdit"
+        variant="tonal"
+        :prepend-icon="mdiFileUploadOutline"
+        data-test="import-open"
+        @click="importOpen = true"
+      >
+        Импорт
+      </v-btn>
       <v-btn
         v-if="canEdit"
         color="primary"
@@ -187,5 +199,9 @@ function open(_: Event, { item }: { item: Product }) {
         Показать ещё
       </v-btn>
     </div>
+    <ImportDialog
+      v-model="importOpen"
+      @imported="queryClient.invalidateQueries({ queryKey: ['products'] })"
+    />
   </v-container>
 </template>
