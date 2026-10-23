@@ -605,6 +605,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Дерево категорий с характеристиками */
+        get: operations["listCategories"];
+        put?: never;
+        /** Добавить категорию */
+        post: operations["createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить категорию */
+        put: operations["updateCategory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories/{id}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Добавить характеристику категории */
+        post: operations["createCategoryAttribute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/category-attributes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Изменить характеристику категории
+         * @description Код и тип не меняются. Значения списка можно добавлять и отправлять в архив, но не удалять.
+         */
+        put: operations["updateCategoryAttribute"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -1031,6 +1103,90 @@ export interface components {
         };
         WriteoffReasonList: {
             items: components["schemas"]["WriteoffReason"][];
+        };
+        CategoryFields: {
+            /** @example Водка */
+            name: string;
+            /**
+             * Format: int32
+             * @description Порядок среди соседних категорий
+             */
+            sort: number;
+        };
+        NewCategory: components["schemas"]["CategoryFields"] & {
+            /**
+             * Format: uuid
+             * @description Родитель; без него — категория верхнего уровня. После создания не меняется.
+             */
+            parentId?: string;
+        };
+        CategoryUpdate: components["schemas"]["CategoryFields"] & {
+            isActive: boolean;
+        };
+        Category: components["schemas"]["CategoryFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            parentId?: string;
+            /** Format: int32 */
+            depth: number;
+            isActive: boolean;
+        };
+        /**
+         * @description enum — выбор из списка, number — число, text — строка, bool — да/нет
+         * @enum {string}
+         */
+        AttributeType: "enum" | "number" | "text" | "bool";
+        AttributeOption: {
+            /** @example пшеница */
+            value: string;
+            /** @description Архивное значение остаётся у заведённых позиций, но не предлагается для новых */
+            archived: boolean;
+        };
+        CategoryAttributeFields: {
+            /** @example Сырьё */
+            name: string;
+            /**
+             * @description Единица измерения, только для чисел
+             * @example лет
+             */
+            unit?: string;
+            /** @description Показывать в фильтрах поиска */
+            filterable: boolean;
+            /** @description Учитывать при подборе аналогов */
+            usedForAnalogs: boolean;
+            /** Format: int32 */
+            sort: number;
+        };
+        NewCategoryAttribute: components["schemas"]["CategoryAttributeFields"] & {
+            /**
+             * @description Латиница в нижнем регистре, цифры и _; уникален в ветке категорий
+             * @example raw_material
+             */
+            code: string;
+            type: components["schemas"]["AttributeType"];
+            /** @description Значения списка, только для типа enum */
+            options?: string[];
+        };
+        CategoryAttributeUpdate: components["schemas"]["CategoryAttributeFields"] & {
+            /** @description Все прежние значения плюс новые; прежние можно только архивировать */
+            options: components["schemas"]["AttributeOption"][];
+            isActive: boolean;
+        };
+        CategoryAttribute: components["schemas"]["CategoryAttributeFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            categoryId: string;
+            code: string;
+            type: components["schemas"]["AttributeType"];
+            options: components["schemas"]["AttributeOption"][];
+            isActive: boolean;
+        };
+        /** @description Плоские списки; подкатегория наследует характеристики всех предков */
+        CategoryTree: {
+            categories: components["schemas"]["Category"][];
+            attributes: components["schemas"]["CategoryAttribute"][];
         };
         RuSubject: {
             /** @example 28 */
@@ -2103,6 +2259,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WriteoffReason"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Категории и их собственные характеристики, включая архивные */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryTree"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCategory"];
+            };
+        };
+        responses: {
+            /** @description Категория добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Категория изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createCategoryAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCategoryAttribute"];
+            };
+        };
+        responses: {
+            /** @description Характеристика добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryAttribute"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateCategoryAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryAttributeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Характеристика изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryAttribute"];
                 };
             };
             default: components["responses"]["Problem"];

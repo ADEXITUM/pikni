@@ -44,6 +44,12 @@ const router = createRouter({
       meta: { title: 'Правила продажи алкоголя', permission: 'refs.view' },
     },
     {
+      path: '/categories',
+      name: 'categories',
+      component: () => import('@/pages/CategoriesPage.vue'),
+      meta: { title: 'Категории товаров', permission: 'refs.view' },
+    },
+    {
       path: '/refs',
       name: 'refs',
       component: () => import('@/pages/RefsPage.vue'),

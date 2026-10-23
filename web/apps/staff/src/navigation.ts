@@ -2,6 +2,7 @@ import {
   mdiAccountGroupOutline,
   mdiBookshelf,
   mdiClockAlertOutline,
+  mdiFileTreeOutline,
   mdiHistory,
   mdiStorefrontOutline,
 } from '@mdi/js'
@@ -11,6 +12,7 @@ import {
 export const navItems = [
   { title: 'Точки сети', icon: mdiStorefrontOutline, route: 'locations' },
   { title: 'Правила продажи', icon: mdiClockAlertOutline, route: 'sale-rules' },
+  { title: 'Категории', icon: mdiFileTreeOutline, route: 'categories' },
   { title: 'Справочники', icon: mdiBookshelf, route: 'refs' },
   { title: 'Сотрудники', icon: mdiAccountGroupOutline, route: 'users' },
   { title: 'Журнал действий', icon: mdiHistory, route: 'audit' },

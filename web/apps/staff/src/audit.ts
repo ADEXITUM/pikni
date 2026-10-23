@@ -58,6 +58,12 @@ const fieldLabels: Record<string, string> = {
   openingHours: 'Режим работы',
   isPublic: 'На публичной странице',
   isActive: 'Действует',
+  sort: 'Порядок',
+  unit: 'Единица',
+  options: 'Значения',
+  archivedOptions: 'Значения в архиве',
+  filterable: 'В фильтрах',
+  usedForAnalogs: 'Для подбора аналогов',
 }
 
 const refEntities: Record<string, string> = {
@@ -66,6 +72,8 @@ const refEntities: Record<string, string> = {
   origin_region: 'регион',
   volume: 'объём',
   writeoff_reason: 'причина списания',
+  category: 'категория',
+  category_attribute: 'характеристика',
 }
 
 export interface Detail {
@@ -107,6 +115,7 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
     if (key === 'role') return role(value)
     if (key === 'locationIds') return places(value)
     if (key === 'openingHours') return formatHours(value as OpeningHours)
+    if (Array.isArray(value)) return value.join(', ') || '—'
     return String(value)
   }
   const take = (key: string) => {

@@ -1,4 +1,23 @@
-import type { Location, Me } from '@pikni/api'
+import type { Category, CategoryAttribute, Location, Me } from '@pikni/api'
+
+export function makeCategory(c: Partial<Category> & Pick<Category, 'id' | 'name'>): Category {
+  return { depth: 1, sort: 10, isActive: true, ...c }
+}
+
+export function makeAttribute(
+  a: Partial<CategoryAttribute> & Pick<CategoryAttribute, 'id' | 'categoryId' | 'code'>,
+): CategoryAttribute {
+  return {
+    name: a.code,
+    type: 'text',
+    options: [],
+    filterable: false,
+    usedForAnalogs: false,
+    sort: 10,
+    isActive: true,
+    ...a,
+  }
+}
 
 export function makeLocation(
   l: Partial<Location> & Pick<Location, 'id' | 'code' | 'name'>,
