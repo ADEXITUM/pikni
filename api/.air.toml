@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/pikni-api.exe ./cmd/api"
+  entrypoint = ["./tmp/pikni-api.exe"]
+  include_ext = ["go", "sql"]
+  exclude_dir = ["tmp", "bin"]
+  exclude_regex = ["_test\\.go$"]
+  delay = 300
+
+[log]
+  main_only = true
+
+[misc]
+  clean_on_exit = true

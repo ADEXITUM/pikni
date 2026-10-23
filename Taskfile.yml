@@ -1,0 +1,153 @@
+version: '3'
+
+output: prefixed
+
+vars:
+  COMPOSE: docker compose -f deploy/compose.dev.yaml
+  SQLC_IMAGE: sqlc/sqlc:1.31.1
+  GOLANGCI_LINT: github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+  # task dev OBS=1 — запустить вместе с Grafana и отправлять туда телеметрию
+  OBS: ''
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  install:
+    desc: Установить зависимости фронтенда
+    dir: web
+    cmds:
+      - npm ci
+
+  up:
+    desc: Поднять PostgreSQL (и Grafana при OBS=1)
+    cmds:
+      - '{{.COMPOSE}} up -d --wait postgres'
+      - cmd: '{{.COMPOSE}} --profile obs up -d otel-lgtm'
+        if: '[ -n "{{.OBS}}" ]'
+
+  down:
+    desc: Остановить контейнеры
+    cmds:
+      - '{{.COMPOSE}} --profile obs down'
+
+  migrate:
+    desc: Применить миграции схемы
+    dir: api
+    cmds:
+      - go run ./cmd/migrate
+
+  seed:
+    desc: Загрузить тестовые данные в локальную базу
+    cmds:
+      - '{{.COMPOSE}} exec -T postgres psql -U pikni -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
+
+  db:reset:
+    desc: Пересоздать локальную базу с нуля
+    prompt: Локальная база будет удалена. Продолжить?
+    cmds:
+      - '{{.COMPOSE}} down -v postgres'
+      - task: up
+      - task: migrate
+      - task: seed
+
+  psql:
+    desc: Открыть консоль psql
+    interactive: true
+    cmds:
+      - '{{.COMPOSE}} exec postgres psql -U pikni -d pikni'
+
+  dev:
+    desc: Запустить базу, API с автоперезапуском и фронтенд в одном терминале
+    cmds:
+      - task: up
+      - task: migrate
+      - task: dev:run
+
+  dev:run:
+    internal: true
+    deps: [dev:api, dev:web]
+
+  dev:api:
+    internal: true
+    dir: api
+    env:
+      LOG_FORMAT: text
+      OTEL_EXPORTER_OTLP_ENDPOINT: '{{if .OBS}}http://localhost:4318{{end}}'
+      OTEL_METRIC_EXPORT_INTERVAL: '10000'
+    cmds:
+      - go tool air
+
+  dev:web:
+    internal: true
+    dir: web
+    cmds:
+      - npm run dev:staff
+
+  gen:
+    desc: Сгенерировать код из OpenAPI и SQL
+    cmds:
+      - task: gen:api
+      - task: gen:sqlc
+      - task: gen:web
+
+  gen:api:
+    internal: true
+    dir: api
+    cmds:
+      - go tool oapi-codegen -config oapi-codegen.yaml ../openapi/pikni.yaml
+
+  gen:sqlc:
+    internal: true
+    dir: api
+    cmds:
+      - docker run --rm -v "{{.ROOT_DIR}}/api:/src" -w /src {{.SQLC_IMAGE}} generate
+
+  gen:web:
+    internal: true
+    dir: web
+    cmds:
+      - npm run gen
+
+  test:
+    desc: Тесты сервера и фронтенда
+    cmds:
+      - task: test:api
+      - task: test:web
+
+  test:api:
+    dir: api
+    cmds:
+      - go test ./...
+
+  test:web:
+    dir: web
+    cmds:
+      - npm test
+
+  lint:
+    desc: Проверки кода сервера и фронтенда
+    cmds:
+      - task: lint:api
+      - task: lint:web
+
+  lint:api:
+    dir: api
+    cmds:
+      - go vet ./...
+      - go run {{.GOLANGCI_LINT}} run
+
+  lint:web:
+    dir: web
+    cmds:
+      - npm run type-check -w @pikni/staff
+      - npm run lint:check -w @pikni/staff
+      - npx --prefix apps/staff prettier --check .
+
+  check:
+    desc: Всё, что проверяет CI
+    cmds:
+      - task: lint
+      - task: test
