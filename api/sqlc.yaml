@@ -19,6 +19,13 @@ overrides:
         go_type:
           type: time.Time
           pointer: true
+      - db_type: date
+        go_type: time.Time
+      - db_type: date
+        nullable: true
+        go_type:
+          type: time.Time
+          pointer: true
 sql:
   - engine: postgresql
     schema: db/migrations
@@ -29,6 +36,10 @@ sql:
         out: internal/locations/store
         sql_package: pgx/v5
         omit_unused_structs: true
+        emit_pointers_for_null_types: true
+        initialisms: [id, kpp]
+        rename:
+          fsrar_id: FSRARID
   - engine: postgresql
     schema: db/migrations
     queries: db/queries/users

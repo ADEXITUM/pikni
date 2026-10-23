@@ -109,9 +109,9 @@ func TestResetPassword(t *testing.T) {
 func createLocations(t *testing.T, db *dbtest.DB) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	rows, err := db.App.Query(t.Context(), `
-		insert into locations (code, name, kind, city, timezone) values
-			('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk'),
-			('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok')
+		insert into locations (code, name, kind, city, timezone, subject_code) values
+			('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk', '28'),
+			('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok', '28')
 		returning id`)
 	if err != nil {
 		t.Fatal(err)

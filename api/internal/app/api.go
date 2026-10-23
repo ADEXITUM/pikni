@@ -8,7 +8,6 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
-	locstore "github.com/ADEXITUM/pikni/api/internal/locations/store"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
@@ -40,7 +39,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 	api := &API{
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
-		locationsHandler: locations.NewHandler(locations.NewService(locstore.New(pool))),
+		locationsHandler: locations.NewHandler(locations.NewService(pool)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}
 

@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	EntitySession = "session"
-	EntityUser    = "user"
+	EntityLocation = "location"
+	EntitySession  = "session"
+	EntityUser     = "user"
 )
 
 // DB — пул или транзакция. Запись передают транзакцию самого изменения,

@@ -29,6 +29,8 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionUserBlocked:         "Блокировка сотрудника",
 	apispec.AuditActionUserUnblocked:       "Разблокировка сотрудника",
 	apispec.AuditActionUserPasswordReset:   "Сброс пароля",
+	apispec.AuditActionLocationCreated:     "Создание точки",
+	apispec.AuditActionLocationUpdated:     "Изменение точки",
 }
 
 var errTooManyRows = echo.NewHTTPError(http.StatusUnprocessableEntity,
@@ -161,6 +163,12 @@ func object(r store.ListEntriesRow) string {
 		return "сотрудник " + deref(r.EntityID)
 	case EntitySession:
 		return "сеанс"
+	case EntityLocation:
+		var l struct {
+			Code string `json:"code"`
+		}
+		_ = json.Unmarshal(r.Data, &l)
+		return "точка " + l.Code
 	}
 	return *r.EntityType + " " + deref(r.EntityID)
 }

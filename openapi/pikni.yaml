@@ -373,6 +373,95 @@ paths:
                 $ref: "#/components/schemas/LocationList"
         default:
           $ref: "#/components/responses/Problem"
+    post:
+      operationId: createLocation
+      summary: Создать точку
+      description: Зоны учёта создаются вместе с точкой — у склада одна, у магазина две.
+      tags: [locations]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewLocation"
+      responses:
+        "201":
+          description: Точка создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}:
+    get:
+      operationId: getLocation
+      summary: Карточка точки
+      tags: [locations]
+      x-permission: refs.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Точка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateLocation
+      summary: Изменить точку
+      description: Код и тип точки не меняются. Оптимистическая блокировка по version.
+      tags: [locations]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationUpdate"
+      responses:
+        "200":
+          description: Точка изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /ru-subjects:
+    get:
+      operationId: listRuSubjects
+      summary: Субъекты РФ, где есть точки или правила продажи
+      tags: [locations]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Субъекты по названию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuSubjectList"
+        default:
+          $ref: "#/components/responses/Problem"
+
 
 components:
   securitySchemes:
@@ -487,6 +576,8 @@ components:
         - user.blocked
         - user.unblocked
         - user.password_reset
+        - location.created
+        - location.updated
 
     AuditEntry:
       type: object
@@ -730,21 +821,13 @@ components:
       type: string
       enum: [warehouse, store]
 
-    Location:
+    LocationFields:
       type: object
-      required: [id, code, name, kind, city, timezone]
+      required: [name, city, timezone, subjectCode, openingHours, isPublic]
       properties:
-        id:
-          type: string
-          format: uuid
-        code:
-          type: string
-          example: МГ-01
         name:
           type: string
           example: Магазин на ул. Ленина
-        kind:
-          $ref: "#/components/schemas/LocationKind"
         city:
           type: string
           example: Благовещенск
@@ -752,6 +835,151 @@ components:
           type: string
           description: Часовой пояс IANA
           example: Asia/Yakutsk
+        subjectCode:
+          type: string
+          description: Код субъекта РФ, по нему действуют правила продажи алкоголя
+          example: "28"
+        address:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        fsrarId:
+          type: string
+          description: Идентификатор организации в ЕГАИС, 12 цифр
+          x-go-name: FSRARID
+        kpp:
+          type: string
+          x-go-name: KPP
+        licenseNo:
+          type: string
+        licenseValidTo:
+          type: string
+          format: date
+        openingHours:
+          $ref: "#/components/schemas/OpeningHours"
+        isPublic:
+          type: boolean
+          description: Показывать на публичной справочной странице
+
+    NewLocation:
+      allOf:
+        - $ref: "#/components/schemas/LocationFields"
+        - type: object
+          required: [code, kind]
+          properties:
+            code:
+              type: string
+              example: МГ-05
+            kind:
+              $ref: "#/components/schemas/LocationKind"
+
+    LocationUpdate:
+      allOf:
+        - $ref: "#/components/schemas/LocationFields"
+        - type: object
+          required: [isActive, version]
+          properties:
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+
+    Location:
+      allOf:
+        - $ref: "#/components/schemas/LocationFields"
+        - type: object
+          required: [id, code, kind, isActive, version, zones]
+          properties:
+            id:
+              type: string
+              format: uuid
+            code:
+              type: string
+              example: МГ-01
+            kind:
+              $ref: "#/components/schemas/LocationKind"
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+            zones:
+              type: array
+              items:
+                $ref: "#/components/schemas/Zone"
+
+    ZoneKind:
+      type: string
+      enum: [warehouse, backroom, floor]
+      description: warehouse — склад, backroom — склад магазина, floor — торговый зал
+
+    Zone:
+      type: object
+      required: [id, kind, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/ZoneKind"
+        name:
+          type: string
+
+    DayHours:
+      type: object
+      required: [open, close]
+      properties:
+        open:
+          type: string
+          example: "10:00"
+        close:
+          type: string
+          description: "24:00 — до полуночи"
+          example: "22:00"
+
+    OpeningHours:
+      type: object
+      description: Часы работы по дням недели, день без часов — выходной
+      properties:
+        mon:
+          $ref: "#/components/schemas/DayHours"
+        tue:
+          $ref: "#/components/schemas/DayHours"
+        wed:
+          $ref: "#/components/schemas/DayHours"
+        thu:
+          $ref: "#/components/schemas/DayHours"
+        fri:
+          $ref: "#/components/schemas/DayHours"
+        sat:
+          $ref: "#/components/schemas/DayHours"
+        sun:
+          $ref: "#/components/schemas/DayHours"
+
+    RuSubject:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          example: "28"
+        name:
+          type: string
+          example: Амурская область
+
+    RuSubjectList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuSubject"
 
     LocationList:
       type: object

@@ -7,23 +7,173 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
+const createLocation = `-- name: CreateLocation :one
+insert into locations (code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
+                       license_no, license_valid_to, opening_hours, is_public)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11, $12, $13,
+        $14, $15)
+returning id
+`
+
+type CreateLocationParams struct {
+	Code           string
+	Name           string
+	Kind           string
+	City           string
+	Timezone       string
+	SubjectCode    string
+	Address        *string
+	Lat            *float64
+	Lon            *float64
+	FSRARID        *string
+	KPP            *string
+	LicenseNo      *string
+	LicenseValidTo *time.Time
+	OpeningHours   []byte
+	IsPublic       bool
+}
+
+func (q *Queries) CreateLocation(ctx context.Context, arg CreateLocationParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createLocation,
+		arg.Code,
+		arg.Name,
+		arg.Kind,
+		arg.City,
+		arg.Timezone,
+		arg.SubjectCode,
+		arg.Address,
+		arg.Lat,
+		arg.Lon,
+		arg.FSRARID,
+		arg.KPP,
+		arg.LicenseNo,
+		arg.LicenseValidTo,
+		arg.OpeningHours,
+		arg.IsPublic,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getLocation = `-- name: GetLocation :one
+select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
+       license_no, license_valid_to, opening_hours, is_public, is_active, version
+from locations
+where id = $1
+`
+
+type GetLocationRow struct {
+	ID             uuid.UUID
+	Code           string
+	Name           string
+	Kind           string
+	City           string
+	Timezone       string
+	SubjectCode    string
+	Address        *string
+	Lat            *float64
+	Lon            *float64
+	FSRARID        *string
+	KPP            *string
+	LicenseNo      *string
+	LicenseValidTo *time.Time
+	OpeningHours   []byte
+	IsPublic       bool
+	IsActive       bool
+	Version        int32
+}
+
+func (q *Queries) GetLocation(ctx context.Context, id uuid.UUID) (GetLocationRow, error) {
+	row := q.db.QueryRow(ctx, getLocation, id)
+	var i GetLocationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Name,
+		&i.Kind,
+		&i.City,
+		&i.Timezone,
+		&i.SubjectCode,
+		&i.Address,
+		&i.Lat,
+		&i.Lon,
+		&i.FSRARID,
+		&i.KPP,
+		&i.LicenseNo,
+		&i.LicenseValidTo,
+		&i.OpeningHours,
+		&i.IsPublic,
+		&i.IsActive,
+		&i.Version,
+	)
+	return i, err
+}
+
+const listLocationZones = `-- name: ListLocationZones :many
+select id, location_id, kind, name
+from zones
+where location_id = $1
+order by kind
+`
+
+func (q *Queries) ListLocationZones(ctx context.Context, locationID uuid.UUID) ([]Zone, error) {
+	rows, err := q.db.Query(ctx, listLocationZones, locationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Zone
+	for rows.Next() {
+		var i Zone
+		if err := rows.Scan(
+			&i.ID,
+			&i.LocationID,
+			&i.Kind,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLocations = `-- name: ListLocations :many
-select id, code, name, kind, city, timezone
+select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
+       license_no, license_valid_to, opening_hours, is_public, is_active, version
 from locations
 order by code
 `
 
 type ListLocationsRow struct {
-	ID       uuid.UUID
-	Code     string
-	Name     string
-	Kind     string
-	City     string
-	Timezone string
+	ID             uuid.UUID
+	Code           string
+	Name           string
+	Kind           string
+	City           string
+	Timezone       string
+	SubjectCode    string
+	Address        *string
+	Lat            *float64
+	Lon            *float64
+	FSRARID        *string
+	KPP            *string
+	LicenseNo      *string
+	LicenseValidTo *time.Time
+	OpeningHours   []byte
+	IsPublic       bool
+	IsActive       bool
+	Version        int32
 }
 
 func (q *Queries) ListLocations(ctx context.Context) ([]ListLocationsRow, error) {
@@ -42,6 +192,18 @@ func (q *Queries) ListLocations(ctx context.Context) ([]ListLocationsRow, error)
 			&i.Kind,
 			&i.City,
 			&i.Timezone,
+			&i.SubjectCode,
+			&i.Address,
+			&i.Lat,
+			&i.Lon,
+			&i.FSRARID,
+			&i.KPP,
+			&i.LicenseNo,
+			&i.LicenseValidTo,
+			&i.OpeningHours,
+			&i.IsPublic,
+			&i.IsActive,
+			&i.Version,
 		); err != nil {
 			return nil, err
 		}
@@ -51,4 +213,176 @@ func (q *Queries) ListLocations(ctx context.Context) ([]ListLocationsRow, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const listRuSubjects = `-- name: ListRuSubjects :many
+select code, name
+from ru_subjects
+order by name
+`
+
+func (q *Queries) ListRuSubjects(ctx context.Context) ([]RuSubject, error) {
+	rows, err := q.db.Query(ctx, listRuSubjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RuSubject
+	for rows.Next() {
+		var i RuSubject
+		if err := rows.Scan(&i.Code, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listZones = `-- name: ListZones :many
+select id, location_id, kind, name
+from zones
+order by location_id, kind
+`
+
+func (q *Queries) ListZones(ctx context.Context) ([]Zone, error) {
+	rows, err := q.db.Query(ctx, listZones)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Zone
+	for rows.Next() {
+		var i Zone
+		if err := rows.Scan(
+			&i.ID,
+			&i.LocationID,
+			&i.Kind,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockLocation = `-- name: LockLocation :one
+select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
+       license_no, license_valid_to, opening_hours, is_public, is_active, version
+from locations
+where id = $1
+for update
+`
+
+type LockLocationRow struct {
+	ID             uuid.UUID
+	Code           string
+	Name           string
+	Kind           string
+	City           string
+	Timezone       string
+	SubjectCode    string
+	Address        *string
+	Lat            *float64
+	Lon            *float64
+	FSRARID        *string
+	KPP            *string
+	LicenseNo      *string
+	LicenseValidTo *time.Time
+	OpeningHours   []byte
+	IsPublic       bool
+	IsActive       bool
+	Version        int32
+}
+
+func (q *Queries) LockLocation(ctx context.Context, id uuid.UUID) (LockLocationRow, error) {
+	row := q.db.QueryRow(ctx, lockLocation, id)
+	var i LockLocationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Name,
+		&i.Kind,
+		&i.City,
+		&i.Timezone,
+		&i.SubjectCode,
+		&i.Address,
+		&i.Lat,
+		&i.Lon,
+		&i.FSRARID,
+		&i.KPP,
+		&i.LicenseNo,
+		&i.LicenseValidTo,
+		&i.OpeningHours,
+		&i.IsPublic,
+		&i.IsActive,
+		&i.Version,
+	)
+	return i, err
+}
+
+const updateLocation = `-- name: UpdateLocation :exec
+update locations
+set name             = $1,
+    city             = $2,
+    timezone         = $3,
+    subject_code     = $4,
+    address          = $5,
+    lat              = $6,
+    lon              = $7,
+    fsrar_id         = $8,
+    kpp              = $9,
+    license_no       = $10,
+    license_valid_to = $11,
+    opening_hours    = $12,
+    is_public        = $13,
+    is_active        = $14,
+    version          = version + 1,
+    updated_at       = now()
+where id = $15
+`
+
+type UpdateLocationParams struct {
+	Name           string
+	City           string
+	Timezone       string
+	SubjectCode    string
+	Address        *string
+	Lat            *float64
+	Lon            *float64
+	FSRARID        *string
+	KPP            *string
+	LicenseNo      *string
+	LicenseValidTo *time.Time
+	OpeningHours   []byte
+	IsPublic       bool
+	IsActive       bool
+	ID             uuid.UUID
+}
+
+func (q *Queries) UpdateLocation(ctx context.Context, arg UpdateLocationParams) error {
+	_, err := q.db.Exec(ctx, updateLocation,
+		arg.Name,
+		arg.City,
+		arg.Timezone,
+		arg.SubjectCode,
+		arg.Address,
+		arg.Lat,
+		arg.Lon,
+		arg.FSRARID,
+		arg.KPP,
+		arg.LicenseNo,
+		arg.LicenseValidTo,
+		arg.OpeningHours,
+		arg.IsPublic,
+		arg.IsActive,
+		arg.ID,
+	)
+	return err
 }

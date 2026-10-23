@@ -30,6 +30,8 @@ const (
 	AuditActionAuthLogout          AuditAction = "auth.logout"
 	AuditActionAuthPasswordChanged AuditAction = "auth.password_changed"
 	AuditActionAuthSessionEnded    AuditAction = "auth.session_ended"
+	AuditActionLocationCreated     AuditAction = "location.created"
+	AuditActionLocationUpdated     AuditAction = "location.updated"
 	AuditActionUserBlocked         AuditAction = "user.blocked"
 	AuditActionUserCreated         AuditAction = "user.created"
 	AuditActionUserPasswordReset   AuditAction = "user.password_reset"
@@ -49,6 +51,10 @@ func (e AuditAction) Valid() bool {
 	case AuditActionAuthPasswordChanged:
 		return true
 	case AuditActionAuthSessionEnded:
+		return true
+	case AuditActionLocationCreated:
+		return true
+	case AuditActionLocationUpdated:
 		return true
 	case AuditActionUserBlocked:
 		return true
@@ -200,6 +206,27 @@ func (e Role) Valid() bool {
 	}
 }
 
+// Defines values for ZoneKind.
+const (
+	ZoneKindBackroom  ZoneKind = "backroom"
+	ZoneKindFloor     ZoneKind = "floor"
+	ZoneKindWarehouse ZoneKind = "warehouse"
+)
+
+// Valid indicates whether the value is a known member of the ZoneKind enum.
+func (e ZoneKind) Valid() bool {
+	switch e {
+	case ZoneKindBackroom:
+		return true
+	case ZoneKindFloor:
+		return true
+	case ZoneKindWarehouse:
+		return true
+	default:
+		return false
+	}
+}
+
 // AuditAction Вид события. Русские названия — в словаре клиента.
 type AuditAction string
 
@@ -248,18 +275,88 @@ type CreatedUser struct {
 	User              User   `json:"user"`
 }
 
+// DayHours defines model for DayHours.
+type DayHours struct {
+	// Close 24:00 — до полуночи
+	//
+	// Example: 22:00
+	Close string `json:"close"`
+
+	// Open Example: 10:00
+	Open string `json:"open"`
+}
+
 // Location defines model for Location.
 type Location struct {
+	Address *string `json:"address,omitempty"`
+
 	// City Example: Благовещенск
 	City string `json:"city"`
 
 	// Code Example: МГ-01
-	Code string             `json:"code"`
-	ID   openapi_types.UUID `json:"id"`
-	Kind LocationKind       `json:"kind"`
+	Code string `json:"code"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID  *string            `json:"fsrarId,omitempty"`
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	Kind           LocationKind        `json:"kind"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
 
 	// Name Example: Магазин на ул. Ленина
 	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
+
+	// Timezone Часовой пояс IANA
+	//
+	// Example: Asia/Yakutsk
+	Timezone string `json:"timezone"`
+	Version  int32  `json:"version"`
+	Zones    []Zone `json:"zones"`
+}
+
+// LocationFields defines model for LocationFields.
+type LocationFields struct {
+	Address *string `json:"address,omitempty"`
+
+	// City Example: Благовещенск
+	City string `json:"city"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID *string `json:"fsrarId,omitempty"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
+
+	// Name Example: Магазин на ул. Ленина
+	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
 
 	// Timezone Часовой пояс IANA
 	//
@@ -273,6 +370,43 @@ type LocationKind string
 // LocationList defines model for LocationList.
 type LocationList struct {
 	Items []Location `json:"items"`
+}
+
+// LocationUpdate defines model for LocationUpdate.
+type LocationUpdate struct {
+	Address *string `json:"address,omitempty"`
+
+	// City Example: Благовещенск
+	City string `json:"city"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID  *string `json:"fsrarId,omitempty"`
+	IsActive bool    `json:"isActive"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
+
+	// Name Example: Магазин на ул. Ленина
+	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
+
+	// Timezone Часовой пояс IANA
+	//
+	// Example: Asia/Yakutsk
+	Timezone string `json:"timezone"`
+	Version  int32  `json:"version"`
 }
 
 // LoginRequest defines model for LoginRequest.
@@ -300,6 +434,45 @@ type Me struct {
 	Role               Role         `json:"role"`
 }
 
+// NewLocation defines model for NewLocation.
+type NewLocation struct {
+	Address *string `json:"address,omitempty"`
+
+	// City Example: Благовещенск
+	City string `json:"city"`
+
+	// Code Example: МГ-05
+	Code string `json:"code"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID *string `json:"fsrarId,omitempty"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	Kind           LocationKind        `json:"kind"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
+
+	// Name Example: Магазин на ул. Ленина
+	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
+
+	// Timezone Часовой пояс IANA
+	//
+	// Example: Asia/Yakutsk
+	Timezone string `json:"timezone"`
+}
+
 // NewUser defines model for NewUser.
 type NewUser struct {
 	// FullName Example: Петрова А. В.
@@ -311,6 +484,17 @@ type NewUser struct {
 	// Login Example: a.petrova
 	Login string `json:"login"`
 	Role  Role   `json:"role"`
+}
+
+// OpeningHours Часы работы по дням недели, день без часов — выходной
+type OpeningHours struct {
+	Fri *DayHours `json:"fri,omitempty"`
+	Mon *DayHours `json:"mon,omitempty"`
+	Sat *DayHours `json:"sat,omitempty"`
+	Sun *DayHours `json:"sun,omitempty"`
+	Thu *DayHours `json:"thu,omitempty"`
+	Tue *DayHours `json:"tue,omitempty"`
+	Wed *DayHours `json:"wed,omitempty"`
 }
 
 // Permission Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
@@ -332,6 +516,20 @@ type Problem struct {
 
 // Role defines model for Role.
 type Role string
+
+// RuSubject defines model for RuSubject.
+type RuSubject struct {
+	// Code Example: 28
+	Code string `json:"code"`
+
+	// Name Example: Амурская область
+	Name string `json:"name"`
+}
+
+// RuSubjectList defines model for RuSubjectList.
+type RuSubjectList struct {
+	Items []RuSubject `json:"items"`
+}
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -385,6 +583,18 @@ type UserUpdate struct {
 	Role        Role                 `json:"role"`
 	Version     int32                `json:"version"`
 }
+
+// Zone defines model for Zone.
+type Zone struct {
+	ID openapi_types.UUID `json:"id"`
+
+	// Kind warehouse — склад, backroom — склад магазина, floor — торговый зал
+	Kind ZoneKind `json:"kind"`
+	Name string   `json:"name"`
+}
+
+// ZoneKind warehouse — склад, backroom — склад магазина, floor — торговый зал
+type ZoneKind string
 
 // AuditActionFilter Вид события. Русские названия — в словаре клиента.
 type AuditActionFilter = AuditAction
@@ -447,6 +657,12 @@ type LoginJSONRequestBody = LoginRequest
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
+// CreateLocationJSONRequestBody defines body for CreateLocation for application/json ContentType.
+type CreateLocationJSONRequestBody = NewLocation
+
+// UpdateLocationJSONRequestBody defines body for UpdateLocation for application/json ContentType.
+type UpdateLocationJSONRequestBody = LocationUpdate
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = NewUser
 
@@ -485,6 +701,18 @@ type ServerInterface interface {
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx *echo.Context) error
+	// CreateLocation Создать точку
+	// (POST /locations)
+	CreateLocation(ctx *echo.Context) error
+	// GetLocation Карточка точки
+	// (GET /locations/{id})
+	GetLocation(ctx *echo.Context, id openapi_types.UUID) error
+	// UpdateLocation Изменить точку
+	// (PUT /locations/{id})
+	UpdateLocation(ctx *echo.Context, id openapi_types.UUID) error
+	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
+	// (GET /ru-subjects)
+	ListRuSubjects(ctx *echo.Context) error
 	// ListUsers Сотрудники
 	// (GET /users)
 	ListUsers(ctx *echo.Context) error
@@ -719,6 +947,56 @@ func (w *ServerInterfaceWrapper) ListLocations(ctx *echo.Context) error {
 	return err
 }
 
+// CreateLocation converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateLocation(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateLocation(ctx)
+	return err
+}
+
+// GetLocation converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLocation(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLocation(ctx, id)
+	return err
+}
+
+// UpdateLocation converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateLocation(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateLocation(ctx, id)
+	return err
+}
+
+// ListRuSubjects converts echo context to params.
+func (w *ServerInterfaceWrapper) ListRuSubjects(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListRuSubjects(ctx)
+	return err
+}
+
 // ListUsers converts echo context to params.
 func (w *ServerInterfaceWrapper) ListUsers(ctx *echo.Context) error {
 	var err error
@@ -881,6 +1159,10 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.DELETE(options.BaseURL+"/users/:id/sessions", wrapper.EndUserSessions, options.OperationMiddlewares["endUserSessions"]...)
 	router.GET(options.BaseURL+"/audit/export", wrapper.ExportAuditLog, options.OperationMiddlewares["exportAuditLog"]...)
 	router.GET(options.BaseURL+"/locations", wrapper.ListLocations, options.OperationMiddlewares["listLocations"]...)
+	router.POST(options.BaseURL+"/locations", wrapper.CreateLocation, options.OperationMiddlewares["createLocation"]...)
+	router.GET(options.BaseURL+"/locations/:id", wrapper.GetLocation, options.OperationMiddlewares["getLocation"]...)
+	router.PUT(options.BaseURL+"/locations/:id", wrapper.UpdateLocation, options.OperationMiddlewares["updateLocation"]...)
+	router.GET(options.BaseURL+"/ru-subjects", wrapper.ListRuSubjects, options.OperationMiddlewares["listRuSubjects"]...)
 
 }
 
@@ -1279,6 +1561,162 @@ func (response ListLocationsdefaultApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type CreateLocationRequestObject struct {
+	Body *CreateLocationJSONRequestBody
+}
+
+type CreateLocationResponseObject interface {
+	VisitCreateLocationResponse(w http.ResponseWriter) error
+}
+
+type CreateLocation201JSONResponse Location
+
+func (response CreateLocation201JSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateLocationdefaultApplicationProblemPlusJSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocationRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type GetLocationResponseObject interface {
+	VisitGetLocationResponse(w http.ResponseWriter) error
+}
+
+type GetLocation200JSONResponse Location
+
+func (response GetLocation200JSONResponse) VisitGetLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetLocationdefaultApplicationProblemPlusJSONResponse) VisitGetLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocationRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateLocationJSONRequestBody
+}
+
+type UpdateLocationResponseObject interface {
+	VisitUpdateLocationResponse(w http.ResponseWriter) error
+}
+
+type UpdateLocation200JSONResponse Location
+
+func (response UpdateLocation200JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateLocationdefaultApplicationProblemPlusJSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuSubjectsRequestObject struct {
+}
+
+type ListRuSubjectsResponseObject interface {
+	VisitListRuSubjectsResponse(w http.ResponseWriter) error
+}
+
+type ListRuSubjects200JSONResponse RuSubjectList
+
+func (response ListRuSubjects200JSONResponse) VisitListRuSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuSubjectsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRuSubjectsdefaultApplicationProblemPlusJSONResponse) VisitListRuSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListUsersRequestObject struct {
 }
 
@@ -1578,6 +2016,18 @@ type StrictServerInterface interface {
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx context.Context, request ListLocationsRequestObject) (ListLocationsResponseObject, error)
+	// CreateLocation Создать точку
+	// (POST /locations)
+	CreateLocation(ctx context.Context, request CreateLocationRequestObject) (CreateLocationResponseObject, error)
+	// GetLocation Карточка точки
+	// (GET /locations/{id})
+	GetLocation(ctx context.Context, request GetLocationRequestObject) (GetLocationResponseObject, error)
+	// UpdateLocation Изменить точку
+	// (PUT /locations/{id})
+	UpdateLocation(ctx context.Context, request UpdateLocationRequestObject) (UpdateLocationResponseObject, error)
+	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
+	// (GET /ru-subjects)
+	ListRuSubjects(ctx context.Context, request ListRuSubjectsRequestObject) (ListRuSubjectsResponseObject, error)
 	// ListUsers Сотрудники
 	// (GET /users)
 	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
@@ -1881,6 +2331,134 @@ func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 	return nil
 }
 
+// CreateLocation operation middleware
+func (sh *strictHandler) CreateLocation(ctx *echo.Context) error {
+	var request CreateLocationRequestObject
+
+	var body CreateLocationJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateLocation(ctx.Request().Context(), request.(CreateLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateLocation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateLocationResponseObject); ok {
+		return validResponse.VisitCreateLocationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetLocation operation middleware
+func (sh *strictHandler) GetLocation(ctx *echo.Context, id openapi_types.UUID) error {
+	var request GetLocationRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLocation(ctx.Request().Context(), request.(GetLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLocation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetLocationResponseObject); ok {
+		return validResponse.VisitGetLocationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateLocation operation middleware
+func (sh *strictHandler) UpdateLocation(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateLocationRequestObject
+
+	request.ID = id
+
+	var body UpdateLocationJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateLocation(ctx.Request().Context(), request.(UpdateLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateLocation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateLocationResponseObject); ok {
+		return validResponse.VisitUpdateLocationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRuSubjects operation middleware
+func (sh *strictHandler) ListRuSubjects(ctx *echo.Context) error {
+	var request ListRuSubjectsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRuSubjects(ctx.Request().Context(), request.(ListRuSubjectsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRuSubjects")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListRuSubjectsResponseObject); ok {
+		return validResponse.VisitListRuSubjectsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListUsers operation middleware
 func (sh *strictHandler) ListUsers(ctx *echo.Context) error {
 	var request ListUsersRequestObject
@@ -2089,76 +2667,91 @@ func (sh *strictHandler) UnblockUser(ctx *echo.Context, id openapi_types.UUID) e
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"8NvP43cvwM8i/N8A",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
