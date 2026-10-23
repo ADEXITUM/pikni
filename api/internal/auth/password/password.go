@@ -14,9 +14,9 @@ import (
 var params = &argon2id.Params{Memory: 19 * 1024, Iterations: 2, Parallelism: 1, SaltLength: 16, KeyLength: 32}
 
 var (
-	ErrTooShort    = errors.New("пароль должен быть не короче 8 символов")
-	ErrTooLong     = errors.New("пароль должен быть не длиннее 128 символов")
-	ErrSameAsLogin = errors.New("пароль не должен совпадать с логином")
+	ErrTooShort    = errors.New("password is shorter than 8 characters")
+	ErrTooLong     = errors.New("password is longer than 128 characters")
+	ErrSameAsLogin = errors.New("password equals the login")
 )
 
 func Hash(plain string) (string, error) {

@@ -6,7 +6,82 @@ info:
 servers:
   - url: /api/v1
 
+security:
+  - session: []
+
 paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: Вход по логину и паролю
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Вход выполнен
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Выход
+      tags: [auth]
+      responses:
+        "204":
+          description: Сессия завершена
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: Текущий пользователь и CSRF-токен сессии
+      tags: [auth]
+      responses:
+        "200":
+          description: Сессия действительна
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/password:
+    post:
+      operationId: changePassword
+      summary: Смена своего пароля
+      description: Остальные сессии пользователя завершаются.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Пароль изменён
+        default:
+          $ref: "#/components/responses/Problem"
+
   /locations:
     get:
       operationId: listLocations
@@ -23,6 +98,21 @@ paths:
           $ref: "#/components/responses/Problem"
 
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: pikni_sid
+      description: >
+        Cookie сессии, выдаётся при входе. Изменяющие запросы (POST, PUT, PATCH, DELETE)
+        дополнительно передают заголовок X-CSRF-Token со значением csrfToken из ответа входа или /auth/me.
+
+  headers:
+    SessionCookie:
+      description: Cookie сессии pikni_sid (HttpOnly, Secure, SameSite=Lax, Path=/api)
+      schema:
+        type: string
+
   responses:
     Problem:
       description: Ошибка в формате RFC 9457
@@ -32,6 +122,54 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    Role:
+      type: string
+      enum: [admin, manager, accountant, store_manager, storekeeper, cashier]
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          example: petrova
+        password:
+          type: string
+          format: password
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+
+    Me:
+      type: object
+      required: [id, login, fullName, role, mustChangePassword, csrfToken]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        fullName:
+          type: string
+          example: Петрова А. В.
+        role:
+          $ref: "#/components/schemas/Role"
+        mustChangePassword:
+          type: boolean
+          description: Вход по временному паролю; до смены доступны только /auth/*
+        csrfToken:
+          type: string
+
     LocationKind:
       type: string
       enum: [warehouse, store]

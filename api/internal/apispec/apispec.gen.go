@@ -38,6 +38,42 @@ func (e LocationKind) Valid() bool {
 	}
 }
 
+// Defines values for Role.
+const (
+	Accountant   Role = "accountant"
+	Admin        Role = "admin"
+	Cashier      Role = "cashier"
+	Manager      Role = "manager"
+	StoreManager Role = "store_manager"
+	Storekeeper  Role = "storekeeper"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case Accountant:
+		return true
+	case Admin:
+		return true
+	case Cashier:
+		return true
+	case Manager:
+		return true
+	case StoreManager:
+		return true
+	case Storekeeper:
+		return true
+	default:
+		return false
+	}
+}
+
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 // Location defines model for Location.
 type Location struct {
 	// City Example: Благовещенск
@@ -65,6 +101,27 @@ type LocationList struct {
 	Items []Location `json:"items"`
 }
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	// Login Example: petrova
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+// Me defines model for Me.
+type Me struct {
+	CsrfToken string `json:"csrfToken"`
+
+	// FullName Example: Петрова А. В.
+	FullName string             `json:"fullName"`
+	ID       openapi_types.UUID `json:"id"`
+	Login    string             `json:"login"`
+
+	// MustChangePassword Вход по временному паролю; до смены доступны только /auth/*
+	MustChangePassword bool `json:"mustChangePassword"`
+	Role               Role `json:"role"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
 	Detail *string `json:"detail,omitempty"`
@@ -79,8 +136,29 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
+// Role defines model for Role.
+type Role string
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login Вход по логину и паролю
+	// (POST /auth/login)
+	Login(ctx *echo.Context) error
+	// Logout Выход
+	// (POST /auth/logout)
+	Logout(ctx *echo.Context) error
+	// GetMe Текущий пользователь и CSRF-токен сессии
+	// (GET /auth/me)
+	GetMe(ctx *echo.Context) error
+	// ChangePassword Смена своего пароля
+	// (POST /auth/password)
+	ChangePassword(ctx *echo.Context) error
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx *echo.Context) error
@@ -89,6 +167,42 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// Login converts echo context to params.
+func (w *ServerInterfaceWrapper) Login(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Login(ctx)
+	return err
+}
+
+// Logout converts echo context to params.
+func (w *ServerInterfaceWrapper) Logout(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Logout(ctx)
+	return err
+}
+
+// GetMe converts echo context to params.
+func (w *ServerInterfaceWrapper) GetMe(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetMe(ctx)
+	return err
+}
+
+// ChangePassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ChangePassword(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ChangePassword(ctx)
+	return err
 }
 
 // ListLocations converts echo context to params.
@@ -147,11 +261,175 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 		Handler: si,
 	}
 
+	router.POST(options.BaseURL+"/auth/login", wrapper.Login, options.OperationMiddlewares["login"]...)
+	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout, options.OperationMiddlewares["logout"]...)
+	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe, options.OperationMiddlewares["getMe"]...)
+	router.POST(options.BaseURL+"/auth/password", wrapper.ChangePassword, options.OperationMiddlewares["changePassword"]...)
 	router.GET(options.BaseURL+"/locations", wrapper.ListLocations, options.OperationMiddlewares["listLocations"]...)
 
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Login200JSONResponse struct {
+	Body    Me
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutdefaultApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse Me
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangePasswordRequestObject struct {
+	Body *ChangePasswordJSONRequestBody
+}
+
+type ChangePasswordResponseObject interface {
+	VisitChangePasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangePassword204Response struct {
+}
+
+func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListLocationsRequestObject struct {
 }
@@ -193,6 +471,18 @@ func (response ListLocationsdefaultApplicationProblemPlusJSONResponse) VisitList
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Login Вход по логину и паролю
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout Выход
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// GetMe Текущий пользователь и CSRF-токен сессии
+	// (GET /auth/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ChangePassword Смена своего пароля
+	// (POST /auth/password)
+	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx context.Context, request ListLocationsRequestObject) (ListLocationsResponseObject, error)
@@ -208,6 +498,130 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(ctx *echo.Context) error {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx.Request().Context(), request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		return validResponse.VisitLoginResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(ctx *echo.Context) error {
+	var request LogoutRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx.Request().Context(), request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		return validResponse.VisitLogoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx *echo.Context) error {
+	var request GetMeRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx.Request().Context(), request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		return validResponse.VisitGetMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ChangePassword operation middleware
+func (sh *strictHandler) ChangePassword(ctx *echo.Context) error {
+	var request ChangePasswordRequestObject
+
+	var body ChangePasswordJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangePassword(ctx.Request().Context(), request.(ChangePasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangePassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
+		return validResponse.VisitChangePasswordResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListLocations operation middleware
@@ -238,20 +652,33 @@ func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"lFRLb+REEP4rVsENMzNhgxC+RUhIERFacUOrHDp2J+mN3d10txeGyFIeSICCFCFuPAUXDlzMMgPOZMeR",
-	"9hdU/yNU7WQyLwicpm1Xf1XfY+oYUlVoJbl0FpJjMNxqJS0PD4+N2st5QcdUSceloyPTOhcpc0LJvu4q",
-	"XntqlaRvNj3kBaPTq4bvQwKv9O/x+91X27/Draoqhozb1AhNcJAA/ui/wAZ/xwnWET6P/GfY+hN8gbU/",
-	"w3H0wbvvRG9vvvkW0M1bOOq2o7qB6KyN0tw40XFIhRvSL/+EFTrn1OJrvMYa/8AWn+PYf4ljnPpTnEAM",
-	"bqipwjoj5AFUMaQq40u3v8dvXh9srCsWGZXuK1MwBwmUpcjWlR0JmT2k0B2f96i2ikGyYnUO4lDjX9jg",
-	"NMIp1pE/x+tehN8RI3qL9br+ThT8UyUD3pL4v2LtT4MuLV5FeIOtv/Sn0fbW+1sQzzXfsoL1P2RHpbNH",
-	"qy2qGAz/qBSGZ5A8gaBCEPKWx60EcefN3EC7Myi195SnjqZdUIIUkGVBqB8zww9VaQnOOmXmb99zvbu9",
-	"I6xbzYZwvFg8/BdPoJo1Ysaw4SrhgLaOzNwfanGSjDsmcjqtULCOudIumL852JyBC+n4ATedsS5fTskP",
-	"OA7ZwCschVi0ayMx1EsX2Z4qXbKXM/mwweHrXfvZwKv86Z6Q+2o1eFuPtyO88SfY4DW2+GcXYH8ZURr9",
-	"mT/x5ziiVzihdEYvf8OfwsMUm5cU+W8puF10/QVeRQGwxRts/CnW9P9o/VlQ4Np/RSrQbtHK9oasyHuz",
-	"4RO4xyUMiOEZN7YbctDb6A1ILaW5ZFpAAo96g94jiEEzdxgs6ue3IQlPBzyEjowOL7czSICiuDOrihc3",
-	"7huDwb9s2/+3ZReyv27V/oyTsAlH/iLCJsIX8xvFX8S0T2gFnPhLHGHrPw+2TP0FZeqGNCQ3Rv4cAvY+",
-	"K3P3T0PNWM4t/xhsWRTMDGmYX0KDCTbk+difYUOusANLCbtXdTcQsdyQL5A8OYbS5JBAn2nRf7YB1W71",
-	"9wA=",
+	"xFhfbxNHEP8qq20foL3YCaQqdcVDmkJBBIiSVGqVRmhjb+Ijd7fH3V7AjSzFTquCgkihL1X/IfrSh75c",
+	"g904TuxIfILZb1TNrv+dfUlADe0L+O52Z2d+85v5zWaD5oXrC497MqS5DVrkrMAD/XOeh6EtvGkh1myO",
+	"Lwo8zAe2L23h0Rw174mqQF1VVAUa0CC+vebZd0K7QM5dk9K/7Tkli8zzfBRwi8wzl8/bkl+eYQ8sMstk",
+	"8XKW+fZ5atEwX+QuwzNkyec0R0MZ2N4qLZfLFg146Asv5Nqp2UAsO9zFn3nhSe5J/Ml837HzDD3L+mbF",
+	"+3dDdHNjwPa7AV+hOfpOth9y1nwNs127+sRkoPCbeggN+AuaEBPYJeobaKtNOIRYVaFO5q5Ok48mP/iQ",
+	"4s6OOTxtusi8VT7LwvC+CApz/F7EQ+2sHwifB9I2AeWjIOCe7K7DVysicJmkOep3X1rDuFjU4/dP2+Oy",
+	"BzPcW5VFmpu4cMmiru11ny+NWNRA34vsgBdobnHEreSBS73tYvkuz0t0aEaYBKSEaMsS/s8fMNd3cBc8",
+	"hQOI4SW0YRfq6hHUoaUq0EwLNC8KfGj3L/DD2PhE2mI7CUYU2angrdle4TRGdOO5gWsRcOaO+oExxLAH",
+	"DWgRaEFM1BYcZAj8jBHhW4jTzpe2y78WXkpVwR8Qq4rGpQ37BI6grXZUhVyfujVFrYHDp0KbZb9ka5EM",
+	"1+hp2dQoaCA7cXQgsExuBhw6KbM3OqhxL3LR6n0W8KKIQjQXShEM7u7H2t09Y6fR35bcTf54nZzQcu8g",
+	"FgSsNBqwtpYezKrtHVuNDn5NZtnnMhDrLC2N/psV7ZCP5qwBK2nu3uQp9RQGKwtijXspDdOiK5Hj3Brl",
+	"6nOoq6ra1MyKCXyfIfAs8y9KqIfUyBc3CmWy+aXQ/Jn6FtpQ0wQnsKs2oQ6Humha0IZDtYVfYu3vgXry",
+	"MYEatFFr9Bq1rZ9VRVXVFhzpF6qqlz6GJrRJlkWymH2v7/eyEA5nmjeBcPhpPJvDNalF1E1aD+WOwdSw",
+	"rYFUpSV3QMySGS5wyWwnFd1QMhmFieROjk/2jNue5Ks8ME1GOsMs+BXquk/BPtQ02u3U9lTyhzayZRHJ",
+	"3LLDvNObjf7aPb7ncFr8c51UdBsKK7gaXJd5DIOwKMvnReRJ5sluj7nT/6if1zj39VOehUWbByk9CFHD",
+	"GcSWpXlMsME4NOPNaw02FlJ0G2oQq6eqqipqh8CR2oQGvtdEhnqGwI+w1yHojnqiHkED0d6DWK9Fum6T",
+	"c7O35xcsMvs5/jO1MH3NIp9embmycOW8pjSWAxygdOBsofncwgI5grouEfTgiaoaqy/1WiMVTfLF2PT8",
+	"3NUxzTZ0vo2LWhCr7zpaVIdD0uMjgQbsEWirqlbgKsT9UGL8eACNThm5PPMVZgXLneY1OF0ZydHexNen",
+	"BfPtG7xkJinbWxGjCE/NXu/gp/3/2ziodrTb2KXUFtS0z00Mj7z6E57rhxY0XqG8/oQiaWRSbcM+0QYR",
+	"vIaqQAwtE1htEMFd4oswU2Kuk+mRM0f7dtEGteg6Dwwr6HhmIjOOLBU+95hv0xy9mBnPXNQdWxY1hwxA",
+	"vVboC6MpWMpap64XaM4oDjU1wkP5iSiUThhf32xsTahZOVmJMoj48Ph8YXz8zM6+yVOn5V5nx9R06VyH",
+	"FrWSlws51r9ZpB3TWZxNXkM6J66wyJHH7exFPDDV91sAzS0uWTSMXJcFpVEpQkK+xMkNJaiRUCFqUclW",
+	"Q92pIlmkS2i2RwERyRM5gN9HsjGZIo0vun1H7Zg6xwLdVA+h3hkn/18YB4HbNtCdAIyZQ1Z5CiafcXmT",
+	"0/+eoAl8sUfs4yABu4meG9MzAOh3qENTbWklMLO8tr5nhrDuaUgz3br1CNPENCfE5wR0BwfQLvFGLq8Y",
+	"XGzCUttQT97Yj3FqiHladFD2sHcmszgy8ryNNpd+l36tfpdWYc97Nf1Y62BHtJ9C6yyy/sKYw8tgRWtz",
+	"HZV6sJPspKfU6dxuwmNLBu9QM71Vb7F0Epe29CJq6it8DWfxBoHDwauw2raIHszbalPt6FHdDCGGgKbR",
+	"orTX1NbZ1Bke0ISG4XY1UTN9VJfKQzowMAQuLpVRFXiwrjvr4gaNAofmKP6FKrs+QctL5X8GAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

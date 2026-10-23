@@ -6,6 +6,11 @@ overrides:
         go_type: github.com/google/uuid.UUID
       - db_type: timestamptz
         go_type: time.Time
+      - db_type: timestamptz
+        nullable: true
+        go_type:
+          type: time.Time
+          pointer: true
 sql:
   - engine: postgresql
     schema: db/migrations
@@ -25,3 +30,14 @@ sql:
         out: internal/users/store
         sql_package: pgx/v5
         omit_unused_structs: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/auth
+    gen:
+      go:
+        package: store
+        out: internal/auth/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true
+        initialisms: [id, ip, csrf]
