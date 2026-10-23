@@ -1233,6 +1233,157 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /products/{id}/variants:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listProductVariants
+      summary: Варианты позиции со штрихкодами
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Варианты по объёму
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VariantList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createVariant
+      summary: Добавить вариант
+      description: Объём, тара и подарочная упаковка задают вариант и после создания не меняются.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewVariant"
+      responses:
+        "201":
+          description: Вариант добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variant"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products/{id}/variants/generate:
+    post:
+      operationId: generateVariants
+      summary: Создать варианты по списку объёмов и видов тары
+      description: Создаёт недостающие сочетания объёма и тары; уже существующие пропускает.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VariantGeneration"
+      responses:
+        "201":
+          description: Созданные варианты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VariantList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}:
+    put:
+      operationId: updateVariant
+      summary: Изменить вариант
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VariantUpdate"
+      responses:
+        "200":
+          description: Вариант изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variant"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}/barcodes:
+    post:
+      operationId: addBarcode
+      summary: Привязать штрихкод к варианту
+      description: Без code сервер создаёт внутренний EAN-13 с префиксом 20.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBarcode"
+      responses:
+        "201":
+          description: Штрихкод привязан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Barcode"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /barcodes/{code}:
+    delete:
+      operationId: deleteBarcode
+      summary: Отвязать штрихкод
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Штрихкод отвязан
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -1373,6 +1524,10 @@ components:
         - ref.updated
         - product.created
         - product.updated
+        - variant.created
+        - variant.updated
+        - barcode.created
+        - barcode.deleted
 
     AuditEntry:
       type: object
@@ -2449,6 +2604,117 @@ components:
           type: string
           format: uuid
           description: Если есть — параметр after для следующей страницы
+
+    Container:
+      type: string
+      enum: [glass, pet, can]
+      description: glass — стекло, pet — ПЭТ, can — банка
+
+    BarcodeKind:
+      type: string
+      enum: [ean13, ean8, upca, code128, internal]
+      description: Определяется сервером; internal — EAN-13 с префиксом 2 для внутреннего применения
+
+    Barcode:
+      type: object
+      required: [code, kind]
+      properties:
+        code:
+          type: string
+          example: "4600000000011"
+        kind:
+          $ref: "#/components/schemas/BarcodeKind"
+
+    NewBarcode:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Без кода сервер создаст внутренний EAN-13
+
+    VariantCodes:
+      type: object
+      properties:
+        alcocode:
+          type: string
+          description: Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+          example: "0177207000002463655"
+        gtin:
+          type: string
+          description: GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+          example: "04600000000011"
+
+    NewVariant:
+      allOf:
+        - $ref: "#/components/schemas/VariantCodes"
+        - type: object
+          required: [giftPack]
+          properties:
+            volumeMl:
+              type: integer
+              format: int32
+              description: Объём из справочника; обязателен для продукции в ЕГАИС
+              example: 500
+            container:
+              $ref: "#/components/schemas/Container"
+            giftPack:
+              type: boolean
+
+    VariantUpdate:
+      allOf:
+        - $ref: "#/components/schemas/VariantCodes"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    Variant:
+      allOf:
+        - $ref: "#/components/schemas/NewVariant"
+        - type: object
+          required: [id, productId, isActive, barcodes]
+          properties:
+            id:
+              type: string
+              format: uuid
+            productId:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+            barcodes:
+              type: array
+              items:
+                $ref: "#/components/schemas/Barcode"
+
+    VariantList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variant"
+
+    VariantGeneration:
+      type: object
+      required: [volumes, containers, giftPack]
+      properties:
+        volumes:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int32
+          example: [500, 700]
+        containers:
+          type: array
+          description: Пустой список — варианты без тары
+          items:
+            $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
 
     RuSubject:
       type: object

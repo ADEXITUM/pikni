@@ -39,6 +39,10 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionRefUpdated:          "Изменение записи справочника",
 	apispec.AuditActionProductCreated:      "Создание позиции",
 	apispec.AuditActionProductUpdated:      "Изменение позиции",
+	apispec.AuditActionVariantCreated:      "Новый вариант позиции",
+	apispec.AuditActionVariantUpdated:      "Изменение варианта",
+	apispec.AuditActionBarcodeCreated:      "Привязка штрихкода",
+	apispec.AuditActionBarcodeDeleted:      "Отвязка штрихкода",
 }
 
 var errTooManyRows = echo.NewHTTPError(http.StatusUnprocessableEntity,
@@ -172,7 +176,7 @@ func object(r store.ListEntriesRow) string {
 		return "сотрудник " + deref(r.EntityID)
 	case EntitySession:
 		return "сеанс"
-	case EntityProduct:
+	case EntityProduct, EntityVariant:
 		return "позиция " + d.Article
 	case EntityLocation:
 		var l struct {

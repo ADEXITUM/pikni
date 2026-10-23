@@ -47,6 +47,18 @@ var problems = map[error]*echo.HTTPError{
 	ErrBrandMismatch:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Бренд принадлежит другому производителю"),
 	ErrLineMismatch:     echo.NewHTTPError(http.StatusUnprocessableEntity, "Линейка относится к другому бренду"),
 	ErrRegionMismatch:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Регион относится к другой стране"),
+
+	ErrVariantExists:    echo.NewHTTPError(http.StatusConflict, "Такой вариант уже есть"),
+	ErrVolumeRequired:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Для продукции в ЕГАИС укажите объём"),
+	ErrUnknownVolume:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Такого объёма нет в справочнике"),
+	ErrInvalidContainer: echo.NewHTTPError(http.StatusUnprocessableEntity, "Неизвестный вид тары"),
+	ErrInvalidAlcocode:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Алкокод — 19 цифр"),
+	ErrAlcocodeNotEgais: echo.NewHTTPError(http.StatusUnprocessableEntity, "Алкокод бывает только у продукции в ЕГАИС"),
+	ErrAlcocodeTaken:    echo.NewHTTPError(http.StatusConflict, "Этот алкокод уже у другого варианта"),
+	ErrInvalidGTIN:      echo.NewHTTPError(http.StatusUnprocessableEntity, "GTIN — 8, 12, 13 или 14 цифр с верной контрольной цифрой"),
+	ErrGTINTaken:        echo.NewHTTPError(http.StatusConflict, "Этот GTIN уже у другого варианта"),
+	ErrInvalidBarcode:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Неверный штрихкод: у EAN и UPC не сходится контрольная цифра, другие коды — до 48 латинских символов и цифр"),
+	ErrBarcodeTaken:     echo.NewHTTPError(http.StatusConflict, "Этот штрихкод уже привязан к другому варианту"),
 }
 
 var attributeReasons = map[error]string{

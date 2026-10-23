@@ -5,8 +5,17 @@
 package store
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
+
+type Barcode struct {
+	Code      string
+	VariantID uuid.UUID
+	Kind      string
+	CreatedAt time.Time
+}
 
 type Brand struct {
 	ID         uuid.UUID
@@ -96,6 +105,18 @@ type ProductLine struct {
 	BrandID  uuid.UUID
 	Name     string
 	IsActive bool
+}
+
+type Variant struct {
+	ID        uuid.UUID
+	ProductID uuid.UUID
+	VolumeMl  *int32
+	Container *string
+	GiftPack  bool
+	Alcocode  *string
+	Gtin      *string
+	IsActive  bool
+	CreatedAt time.Time
 }
 
 type Volume struct {

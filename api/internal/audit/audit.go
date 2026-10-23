@@ -20,6 +20,7 @@ const (
 	EntitySaleRule = "sale_rule"
 	EntitySession  = "session"
 	EntityUser     = "user"
+	EntityVariant  = "variant"
 )
 
 // DB — пул или транзакция. Запись передают транзакцию самого изменения,
