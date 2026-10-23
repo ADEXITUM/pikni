@@ -1055,6 +1055,184 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /product-lines:
+    get:
+      operationId: listProductLines
+      summary: Линейки
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Линейки по названию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLineList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProductLine
+      summary: Добавить — линейки
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductLineFields"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLine"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /product-lines/{id}:
+    put:
+      operationId: updateProductLine
+      summary: Изменить — линейки
+      description: Бренд линейки не меняется.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductLineUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLine"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products:
+    get:
+      operationId: listProducts
+      summary: Позиции
+      description: По названию. Следующая страница — параметр after из nextAfter.
+      tags: [catalog]
+      x-permission: refs.view
+      parameters:
+        - name: q
+          in: query
+          description: Часть названия или артикула
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          description: Категория вместе с подкатегориями
+          schema:
+            type: string
+            format: uuid
+        - name: brandId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: after
+          in: query
+          description: Позиция, после которой начинается страница
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Страница позиций
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductPage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProduct
+      summary: Добавить позицию
+      description: Артикул присваивает сервер.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductFields"
+      responses:
+        "201":
+          description: Позиция добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getProduct
+      summary: Карточка позиции
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Карточка позиции
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateProduct
+      summary: Изменить позицию
+      description: version — номер версии, с которой начата правка. Если позицию уже изменили, ответ 409.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Позиция изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -1193,6 +1371,8 @@ components:
         - sale_ban.deleted
         - ref.created
         - ref.updated
+        - product.created
+        - product.updated
 
     AuditEntry:
       type: object
@@ -2119,6 +2299,156 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CategoryAttribute"
+
+    ProductLineFields:
+      type: object
+      required: [brandId, name]
+      properties:
+        brandId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Тайга
+
+    ProductLine:
+      allOf:
+        - $ref: "#/components/schemas/ProductLineFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    ProductLineUpdate:
+      type: object
+      required: [name, isActive]
+      properties:
+        name:
+          type: string
+        isActive:
+          type: boolean
+
+    ProductLineList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductLine"
+
+    ProductFields:
+      type: object
+      required: [name, categoryId, crptMarked, producerId, countryCode, attributes]
+      properties:
+        name:
+          type: string
+          example: Водка «Тайга» на пшенице
+        categoryId:
+          type: string
+          format: uuid
+        kindCode:
+          type: string
+          description: Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+          example: "200"
+        abv:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Крепость, % об.; обязательна для алкоголя
+          example: 40
+        crptMarked:
+          type: boolean
+          description: Маркируется «Честным знаком»
+        producerId:
+          type: string
+          format: uuid
+        brandId:
+          type: string
+          format: uuid
+          description: Бренд этого производителя
+        productLineId:
+          type: string
+          format: uuid
+          description: Линейка этого бренда
+        variety:
+          type: string
+          description: Разновидность в линейке
+          example: на пшенице
+        countryCode:
+          type: string
+          example: "643"
+        originRegionId:
+          type: string
+          format: uuid
+          description: Регион этой страны
+        attributes:
+          type: object
+          additionalProperties: true
+          description: Характеристики по схеме категории — код → значение; пустые не сохраняются
+          example: { raw_material: пшеница }
+
+    ProductUpdate:
+      allOf:
+        - $ref: "#/components/schemas/ProductFields"
+        - type: object
+          required: [isActive, version]
+          properties:
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+
+    Product:
+      allOf:
+        - $ref: "#/components/schemas/ProductFields"
+        - type: object
+          required: [id, article, categoryName, producerName, countryName, isActive, version]
+          properties:
+            id:
+              type: string
+              format: uuid
+            article:
+              type: string
+              example: ЧК-000001
+            categoryName:
+              type: string
+            producerName:
+              type: string
+            brandName:
+              type: string
+            lineName:
+              type: string
+            countryName:
+              type: string
+            regionName:
+              type: string
+            egaisAccounting:
+              $ref: "#/components/schemas/EgaisAccounting"
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+
+    ProductPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        nextAfter:
+          type: string
+          format: uuid
+          description: Если есть — параметр after для следующей страницы
 
     RuSubject:
       type: object

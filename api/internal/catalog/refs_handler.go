@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -37,9 +38,29 @@ var problems = map[error]*echo.HTTPError{
 	ErrInvalidOptions:       echo.NewHTTPError(http.StatusUnprocessableEntity, "Значения списка не должны быть пустыми или повторяться"),
 	ErrOptionRemoved:        echo.NewHTTPError(http.StatusUnprocessableEntity, "Значение списка нельзя удалить — отправьте его в архив"),
 	ErrNoActiveOptions:      echo.NewHTTPError(http.StatusUnprocessableEntity, "В списке должно остаться хотя бы одно действующее значение"),
+
+	ErrConflict:         echo.NewHTTPError(http.StatusConflict, "Позицию уже изменил другой пользователь. Обновите страницу и повторите"),
+	ErrInvalidAbv:       echo.NewHTTPError(http.StatusUnprocessableEntity, "Крепость — от 0 до 100 %"),
+	ErrAbvRequired:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Для алкогольной продукции укажите крепость"),
+	ErrInactiveCategory: echo.NewHTTPError(http.StatusUnprocessableEntity, "Категория в архиве"),
+	ErrLineNeedsBrand:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Линейку можно выбрать только вместе с брендом"),
+	ErrBrandMismatch:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Бренд принадлежит другому производителю"),
+	ErrLineMismatch:     echo.NewHTTPError(http.StatusUnprocessableEntity, "Линейка относится к другому бренду"),
+	ErrRegionMismatch:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Регион относится к другой стране"),
+}
+
+var attributeReasons = map[error]string{
+	ErrUnknownAttribute:  "её нет у этой категории",
+	ErrArchivedAttribute: "она в архиве, новое значение не принимается",
+	ErrWrongValueType:    "значение не того типа",
+	ErrUnknownOption:     "такого значения нет в списке",
+	ErrArchivedOption:    "значение в архиве",
 }
 
 func problem(err error) error {
+	if ae, ok := errors.AsType[*AttributeError](err); ok {
+		return echo.NewHTTPError(http.StatusUnprocessableEntity, fmt.Sprintf("Характеристика «%s»: %s", ae.Attribute, attributeReasons[ae.Err]))
+	}
 	for target, he := range problems {
 		if errors.Is(err, target) {
 			return he

@@ -167,8 +167,8 @@ openapi/
 | `volumes` | `ml` — объёмы тары в миллилитрах для создания вариантов |
 | `writeoff_reasons` | `name`, `egais_type` — тип списания в акте ЕГАИС (перечисление TypeWriteOff) |
 | `product_kinds` | `code` (код вида продукции НСИ ЕГАИС, 3–5 цифр), `name`, `egais_accounting` (marked — помарочный, quantity — без марок: пиво, сидр, пуаре, медовуха) |
-| `product_lines` | `name`, `brand_id` — линейка: позиции одного бренда, различающиеся разновидностью |
-| `products` (позиции) | `article` (уник.), `name`, `producer_id`, `brand_id`, `kind_code`, `category_id`, `country_id`, `region_id`, `abv` (крепость), `product_line_id`, `variety` (подпись разновидности в линейке: «на пшенице», «5 лет», «нефильтрованное»), `attributes` jsonb (характеристики категории), `crpt_marked` (маркировка «Честным знаком»), `retail_price`, `purchase_price`, `search` (tsvector, generated) |
+| `product_lines` | `name`, `brand_id` (не меняется) — линейка: позиции одного бренда, различающиеся разновидностью |
+| `products` (позиции) | `article` (уник., присваивает база: `ЧК-000001`), `name`, `category_id`, `kind_code` (вид продукции; пусто — без ЕГАИС, способ учёта берётся из вида), `abv` (крепость, обязательна для алкоголя), `crpt_marked` (маркировка «Честным знаком»), `producer_id`, `brand_id`, `product_line_id`, `variety` (подпись разновидности в линейке: «на пшенице», «5 лет»), `country_code`, `origin_region_id`, `attributes` jsonb (характеристики категории, индекс GIN), `version`. Составные внешние ключи проверяют, что бренд — этого производителя, линейка — этого бренда, регион — этой страны. Цены — в `prices` (п. 2.8 плана). Представление `product_cards` добавляет названия связанных записей |
 | `product_photos` | `product_id`, `file_key`, `sort` |
 | `variants` | `product_id`, `volume_ml`, `container` (glass, pet, can), `gift_pack`, `sku_code` (уник.), `alcocode` (код продукции ЕГАИС), `gtin`, `retail_price_override`; уникальность (`product_id`, `volume_l`, `container`, `gift_pack`) |
 | `barcodes` | `code` (PK), `variant_id`, `kind` (ean13, ean8, upca, code128, internal) |

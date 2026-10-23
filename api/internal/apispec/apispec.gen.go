@@ -56,6 +56,8 @@ const (
 	AuditActionAuthSessionEnded    AuditAction = "auth.session_ended"
 	AuditActionLocationCreated     AuditAction = "location.created"
 	AuditActionLocationUpdated     AuditAction = "location.updated"
+	AuditActionProductCreated      AuditAction = "product.created"
+	AuditActionProductUpdated      AuditAction = "product.updated"
 	AuditActionRefCreated          AuditAction = "ref.created"
 	AuditActionRefUpdated          AuditAction = "ref.updated"
 	AuditActionSaleBanCreated      AuditAction = "sale_ban.created"
@@ -85,6 +87,10 @@ func (e AuditAction) Valid() bool {
 	case AuditActionLocationCreated:
 		return true
 	case AuditActionLocationUpdated:
+		return true
+	case AuditActionProductCreated:
+		return true
+	case AuditActionProductUpdated:
 		return true
 	case AuditActionRefCreated:
 		return true
@@ -975,6 +981,107 @@ type ProducerUpdate struct {
 	Name string `json:"name"`
 }
 
+// Product defines model for Product.
+type Product struct {
+	// Abv Крепость, % об.; обязательна для алкоголя
+	//
+	// Example: 40
+	Abv *float64 `json:"abv,omitempty"`
+
+	// Article Example: ЧК-000001
+	Article string `json:"article"`
+
+	// Attributes Характеристики по схеме категории — код → значение; пустые не сохраняются
+	//
+	// Example: {"raw_material":"пшеница"}
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// BrandID Бренд этого производителя
+	BrandID      *openapi_types.UUID `json:"brandId,omitempty"`
+	BrandName    *string             `json:"brandName,omitempty"`
+	CategoryID   openapi_types.UUID  `json:"categoryId"`
+	CategoryName string              `json:"categoryName"`
+
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+	CountryName string `json:"countryName"`
+
+	// CrptMarked Маркируется «Честным знаком»
+	CrptMarked bool `json:"crptMarked"`
+
+	// EgaisAccounting marked — помарочный учёт, quantity — только количество
+	EgaisAccounting *EgaisAccounting   `json:"egaisAccounting,omitempty"`
+	ID              openapi_types.UUID `json:"id"`
+	IsActive        bool               `json:"isActive"`
+
+	// KindCode Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+	//
+	// Example: 200
+	KindCode *string `json:"kindCode,omitempty"`
+	LineName *string `json:"lineName,omitempty"`
+
+	// Name Example: Водка «Тайга» на пшенице
+	Name string `json:"name"`
+
+	// OriginRegionID Регион этой страны
+	OriginRegionID *openapi_types.UUID `json:"originRegionId,omitempty"`
+	ProducerID     openapi_types.UUID  `json:"producerId"`
+	ProducerName   string              `json:"producerName"`
+
+	// ProductLineID Линейка этого бренда
+	ProductLineID *openapi_types.UUID `json:"productLineId,omitempty"`
+	RegionName    *string             `json:"regionName,omitempty"`
+
+	// Variety Разновидность в линейке
+	//
+	// Example: на пшенице
+	Variety *string `json:"variety,omitempty"`
+	Version int32   `json:"version"`
+}
+
+// ProductFields defines model for ProductFields.
+type ProductFields struct {
+	// Abv Крепость, % об.; обязательна для алкоголя
+	//
+	// Example: 40
+	Abv *float64 `json:"abv,omitempty"`
+
+	// Attributes Характеристики по схеме категории — код → значение; пустые не сохраняются
+	//
+	// Example: {"raw_material":"пшеница"}
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// BrandID Бренд этого производителя
+	BrandID    *openapi_types.UUID `json:"brandId,omitempty"`
+	CategoryID openapi_types.UUID  `json:"categoryId"`
+
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// CrptMarked Маркируется «Честным знаком»
+	CrptMarked bool `json:"crptMarked"`
+
+	// KindCode Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+	//
+	// Example: 200
+	KindCode *string `json:"kindCode,omitempty"`
+
+	// Name Example: Водка «Тайга» на пшенице
+	Name string `json:"name"`
+
+	// OriginRegionID Регион этой страны
+	OriginRegionID *openapi_types.UUID `json:"originRegionId,omitempty"`
+	ProducerID     openapi_types.UUID  `json:"producerId"`
+
+	// ProductLineID Линейка этого бренда
+	ProductLineID *openapi_types.UUID `json:"productLineId,omitempty"`
+
+	// Variety Разновидность в линейке
+	//
+	// Example: на пшенице
+	Variety *string `json:"variety,omitempty"`
+}
+
 // ProductKind defines model for ProductKind.
 type ProductKind struct {
 	// Code Код вида продукции, 3–5 цифр
@@ -992,6 +1099,88 @@ type ProductKind struct {
 // ProductKindList defines model for ProductKindList.
 type ProductKindList struct {
 	Items []ProductKind `json:"items"`
+}
+
+// ProductLine defines model for ProductLine.
+type ProductLine struct {
+	BrandID  openapi_types.UUID `json:"brandId"`
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// Name Example: Тайга
+	Name string `json:"name"`
+}
+
+// ProductLineFields defines model for ProductLineFields.
+type ProductLineFields struct {
+	BrandID openapi_types.UUID `json:"brandId"`
+
+	// Name Example: Тайга
+	Name string `json:"name"`
+}
+
+// ProductLineList defines model for ProductLineList.
+type ProductLineList struct {
+	Items []ProductLine `json:"items"`
+}
+
+// ProductLineUpdate defines model for ProductLineUpdate.
+type ProductLineUpdate struct {
+	IsActive bool   `json:"isActive"`
+	Name     string `json:"name"`
+}
+
+// ProductPage defines model for ProductPage.
+type ProductPage struct {
+	Items []Product `json:"items"`
+
+	// NextAfter Если есть — параметр after для следующей страницы
+	NextAfter *openapi_types.UUID `json:"nextAfter,omitempty"`
+}
+
+// ProductUpdate defines model for ProductUpdate.
+type ProductUpdate struct {
+	// Abv Крепость, % об.; обязательна для алкоголя
+	//
+	// Example: 40
+	Abv *float64 `json:"abv,omitempty"`
+
+	// Attributes Характеристики по схеме категории — код → значение; пустые не сохраняются
+	//
+	// Example: {"raw_material":"пшеница"}
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// BrandID Бренд этого производителя
+	BrandID    *openapi_types.UUID `json:"brandId,omitempty"`
+	CategoryID openapi_types.UUID  `json:"categoryId"`
+
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// CrptMarked Маркируется «Честным знаком»
+	CrptMarked bool `json:"crptMarked"`
+	IsActive   bool `json:"isActive"`
+
+	// KindCode Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+	//
+	// Example: 200
+	KindCode *string `json:"kindCode,omitempty"`
+
+	// Name Example: Водка «Тайга» на пшенице
+	Name string `json:"name"`
+
+	// OriginRegionID Регион этой страны
+	OriginRegionID *openapi_types.UUID `json:"originRegionId,omitempty"`
+	ProducerID     openapi_types.UUID  `json:"producerId"`
+
+	// ProductLineID Линейка этого бренда
+	ProductLineID *openapi_types.UUID `json:"productLineId,omitempty"`
+
+	// Variety Разновидность в линейке
+	//
+	// Example: на пшенице
+	Variety *string `json:"variety,omitempty"`
+	Version int32   `json:"version"`
 }
 
 // Role defines model for Role.
@@ -1261,6 +1450,20 @@ type CheckSaleParams struct {
 	At *time.Time `form:"at,omitempty" json:"at,omitempty"`
 }
 
+// ListProductsParams defines parameters for ListProducts.
+type ListProductsParams struct {
+	// Q Часть названия или артикула
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// CategoryID Категория вместе с подкатегориями
+	CategoryID *openapi_types.UUID `form:"categoryId,omitempty" json:"categoryId,omitempty"`
+	BrandID    *openapi_types.UUID `form:"brandId,omitempty" json:"brandId,omitempty"`
+
+	// After Позиция, после которой начинается страница
+	After *openapi_types.UUID `form:"after,omitempty" json:"after,omitempty"`
+	Limit *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -1302,6 +1505,18 @@ type CreateProducerJSONRequestBody = ProducerFields
 
 // UpdateProducerJSONRequestBody defines body for UpdateProducer for application/json ContentType.
 type UpdateProducerJSONRequestBody = ProducerUpdate
+
+// CreateProductLineJSONRequestBody defines body for CreateProductLine for application/json ContentType.
+type CreateProductLineJSONRequestBody = ProductLineFields
+
+// UpdateProductLineJSONRequestBody defines body for UpdateProductLine for application/json ContentType.
+type UpdateProductLineJSONRequestBody = ProductLineUpdate
+
+// CreateProductJSONRequestBody defines body for CreateProduct for application/json ContentType.
+type CreateProductJSONRequestBody = ProductFields
+
+// UpdateProductJSONRequestBody defines body for UpdateProduct for application/json ContentType.
+type UpdateProductJSONRequestBody = ProductUpdate
 
 // CreateSaleBanJSONRequestBody defines body for CreateSaleBan for application/json ContentType.
 type CreateSaleBanJSONRequestBody = NewSaleBan
@@ -1419,6 +1634,27 @@ type ServerInterface interface {
 	// ListProductKinds Виды продукции ЕГАИС
 	// (GET /product-kinds)
 	ListProductKinds(ctx *echo.Context) error
+	// ListProductLines Линейки
+	// (GET /product-lines)
+	ListProductLines(ctx *echo.Context) error
+	// CreateProductLine Добавить — линейки
+	// (POST /product-lines)
+	CreateProductLine(ctx *echo.Context) error
+	// UpdateProductLine Изменить — линейки
+	// (PUT /product-lines/{id})
+	UpdateProductLine(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProducts Позиции
+	// (GET /products)
+	ListProducts(ctx *echo.Context, params ListProductsParams) error
+	// CreateProduct Добавить позицию
+	// (POST /products)
+	CreateProduct(ctx *echo.Context) error
+	// GetProduct Карточка позиции
+	// (GET /products/{id})
+	GetProduct(ctx *echo.Context, id openapi_types.UUID) error
+	// UpdateProduct Изменить позицию
+	// (PUT /products/{id})
+	UpdateProduct(ctx *echo.Context, id openapi_types.UUID) error
 	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
 	// (GET /ru-subjects)
 	ListRuSubjects(ctx *echo.Context) error
@@ -1941,6 +2177,127 @@ func (w *ServerInterfaceWrapper) ListProductKinds(ctx *echo.Context) error {
 	return err
 }
 
+// ListProductLines converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProductLines(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProductLines(ctx)
+	return err
+}
+
+// CreateProductLine converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateProductLine(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateProductLine(ctx)
+	return err
+}
+
+// UpdateProductLine converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateProductLine(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateProductLine(ctx, id)
+	return err
+}
+
+// ListProducts converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProducts(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProductsParams
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", ctx.QueryParams(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter q: %s", err))
+	}
+
+	// ------------- Optional query parameter "categoryId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "categoryId", ctx.QueryParams(), &params.CategoryID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter categoryId: %s", err))
+	}
+
+	// ------------- Optional query parameter "brandId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "brandId", ctx.QueryParams(), &params.BrandID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter brandId: %s", err))
+	}
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", ctx.QueryParams(), &params.After, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter after: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProducts(ctx, params)
+	return err
+}
+
+// CreateProduct converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateProduct(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateProduct(ctx)
+	return err
+}
+
+// GetProduct converts echo context to params.
+func (w *ServerInterfaceWrapper) GetProduct(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetProduct(ctx, id)
+	return err
+}
+
+// UpdateProduct converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateProduct(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateProduct(ctx, id)
+	return err
+}
+
 // ListRuSubjects converts echo context to params.
 func (w *ServerInterfaceWrapper) ListRuSubjects(ctx *echo.Context) error {
 	var err error
@@ -2270,6 +2627,13 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.PUT(options.BaseURL+"/categories/:id", wrapper.UpdateCategory, options.OperationMiddlewares["updateCategory"]...)
 	router.POST(options.BaseURL+"/categories/:id/attributes", wrapper.CreateCategoryAttribute, options.OperationMiddlewares["createCategoryAttribute"]...)
 	router.PUT(options.BaseURL+"/category-attributes/:id", wrapper.UpdateCategoryAttribute, options.OperationMiddlewares["updateCategoryAttribute"]...)
+	router.GET(options.BaseURL+"/product-lines", wrapper.ListProductLines, options.OperationMiddlewares["listProductLines"]...)
+	router.POST(options.BaseURL+"/product-lines", wrapper.CreateProductLine, options.OperationMiddlewares["createProductLine"]...)
+	router.PUT(options.BaseURL+"/product-lines/:id", wrapper.UpdateProductLine, options.OperationMiddlewares["updateProductLine"]...)
+	router.GET(options.BaseURL+"/products", wrapper.ListProducts, options.OperationMiddlewares["listProducts"]...)
+	router.POST(options.BaseURL+"/products", wrapper.CreateProduct, options.OperationMiddlewares["createProduct"]...)
+	router.GET(options.BaseURL+"/products/:id", wrapper.GetProduct, options.OperationMiddlewares["getProduct"]...)
+	router.PUT(options.BaseURL+"/products/:id", wrapper.UpdateProduct, options.OperationMiddlewares["updateProduct"]...)
 	router.GET(options.BaseURL+"/ru-subjects", wrapper.ListRuSubjects, options.OperationMiddlewares["listRuSubjects"]...)
 
 }
@@ -3451,6 +3815,280 @@ func (response ListProductKindsdefaultApplicationProblemPlusJSONResponse) VisitL
 	return err
 }
 
+type ListProductLinesRequestObject struct {
+}
+
+type ListProductLinesResponseObject interface {
+	VisitListProductLinesResponse(w http.ResponseWriter) error
+}
+
+type ListProductLines200JSONResponse ProductLineList
+
+func (response ListProductLines200JSONResponse) VisitListProductLinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductLinesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductLinesdefaultApplicationProblemPlusJSONResponse) VisitListProductLinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductLineRequestObject struct {
+	Body *CreateProductLineJSONRequestBody
+}
+
+type CreateProductLineResponseObject interface {
+	VisitCreateProductLineResponse(w http.ResponseWriter) error
+}
+
+type CreateProductLine201JSONResponse ProductLine
+
+func (response CreateProductLine201JSONResponse) VisitCreateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductLinedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProductLinedefaultApplicationProblemPlusJSONResponse) VisitCreateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductLineRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateProductLineJSONRequestBody
+}
+
+type UpdateProductLineResponseObject interface {
+	VisitUpdateProductLineResponse(w http.ResponseWriter) error
+}
+
+type UpdateProductLine200JSONResponse ProductLine
+
+func (response UpdateProductLine200JSONResponse) VisitUpdateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductLinedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateProductLinedefaultApplicationProblemPlusJSONResponse) VisitUpdateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductsRequestObject struct {
+	Params ListProductsParams
+}
+
+type ListProductsResponseObject interface {
+	VisitListProductsResponse(w http.ResponseWriter) error
+}
+
+type ListProducts200JSONResponse ProductPage
+
+func (response ListProducts200JSONResponse) VisitListProductsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductsdefaultApplicationProblemPlusJSONResponse) VisitListProductsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductRequestObject struct {
+	Body *CreateProductJSONRequestBody
+}
+
+type CreateProductResponseObject interface {
+	VisitCreateProductResponse(w http.ResponseWriter) error
+}
+
+type CreateProduct201JSONResponse Product
+
+func (response CreateProduct201JSONResponse) VisitCreateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProductdefaultApplicationProblemPlusJSONResponse) VisitCreateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProductRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type GetProductResponseObject interface {
+	VisitGetProductResponse(w http.ResponseWriter) error
+}
+
+type GetProduct200JSONResponse Product
+
+func (response GetProduct200JSONResponse) VisitGetProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProductdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetProductdefaultApplicationProblemPlusJSONResponse) VisitGetProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateProductJSONRequestBody
+}
+
+type UpdateProductResponseObject interface {
+	VisitUpdateProductResponse(w http.ResponseWriter) error
+}
+
+type UpdateProduct200JSONResponse Product
+
+func (response UpdateProduct200JSONResponse) VisitUpdateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateProductdefaultApplicationProblemPlusJSONResponse) VisitUpdateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListRuSubjectsRequestObject struct {
 }
 
@@ -4264,6 +4902,27 @@ type StrictServerInterface interface {
 	// ListProductKinds Виды продукции ЕГАИС
 	// (GET /product-kinds)
 	ListProductKinds(ctx context.Context, request ListProductKindsRequestObject) (ListProductKindsResponseObject, error)
+	// ListProductLines Линейки
+	// (GET /product-lines)
+	ListProductLines(ctx context.Context, request ListProductLinesRequestObject) (ListProductLinesResponseObject, error)
+	// CreateProductLine Добавить — линейки
+	// (POST /product-lines)
+	CreateProductLine(ctx context.Context, request CreateProductLineRequestObject) (CreateProductLineResponseObject, error)
+	// UpdateProductLine Изменить — линейки
+	// (PUT /product-lines/{id})
+	UpdateProductLine(ctx context.Context, request UpdateProductLineRequestObject) (UpdateProductLineResponseObject, error)
+	// ListProducts Позиции
+	// (GET /products)
+	ListProducts(ctx context.Context, request ListProductsRequestObject) (ListProductsResponseObject, error)
+	// CreateProduct Добавить позицию
+	// (POST /products)
+	CreateProduct(ctx context.Context, request CreateProductRequestObject) (CreateProductResponseObject, error)
+	// GetProduct Карточка позиции
+	// (GET /products/{id})
+	GetProduct(ctx context.Context, request GetProductRequestObject) (GetProductResponseObject, error)
+	// UpdateProduct Изменить позицию
+	// (PUT /products/{id})
+	UpdateProduct(ctx context.Context, request UpdateProductRequestObject) (UpdateProductResponseObject, error)
 	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
 	// (GET /ru-subjects)
 	ListRuSubjects(ctx context.Context, request ListRuSubjectsRequestObject) (ListRuSubjectsResponseObject, error)
@@ -5274,6 +5933,239 @@ func (sh *strictHandler) ListProductKinds(ctx *echo.Context) error {
 	return nil
 }
 
+// ListProductLines operation middleware
+func (sh *strictHandler) ListProductLines(ctx *echo.Context) error {
+	var request ListProductLinesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProductLines(ctx.Request().Context(), request.(ListProductLinesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProductLines")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductLinesResponseObject); ok {
+		return validResponse.VisitListProductLinesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateProductLine operation middleware
+func (sh *strictHandler) CreateProductLine(ctx *echo.Context) error {
+	var request CreateProductLineRequestObject
+
+	var body CreateProductLineJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProductLine(ctx.Request().Context(), request.(CreateProductLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProductLine")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateProductLineResponseObject); ok {
+		return validResponse.VisitCreateProductLineResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateProductLine operation middleware
+func (sh *strictHandler) UpdateProductLine(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateProductLineRequestObject
+
+	request.ID = id
+
+	var body UpdateProductLineJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProductLine(ctx.Request().Context(), request.(UpdateProductLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProductLine")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateProductLineResponseObject); ok {
+		return validResponse.VisitUpdateProductLineResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProducts operation middleware
+func (sh *strictHandler) ListProducts(ctx *echo.Context, params ListProductsParams) error {
+	var request ListProductsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProducts(ctx.Request().Context(), request.(ListProductsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProducts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductsResponseObject); ok {
+		return validResponse.VisitListProductsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateProduct operation middleware
+func (sh *strictHandler) CreateProduct(ctx *echo.Context) error {
+	var request CreateProductRequestObject
+
+	var body CreateProductJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProduct(ctx.Request().Context(), request.(CreateProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProduct")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateProductResponseObject); ok {
+		return validResponse.VisitCreateProductResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetProduct operation middleware
+func (sh *strictHandler) GetProduct(ctx *echo.Context, id openapi_types.UUID) error {
+	var request GetProductRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetProduct(ctx.Request().Context(), request.(GetProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetProduct")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetProductResponseObject); ok {
+		return validResponse.VisitGetProductResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateProduct operation middleware
+func (sh *strictHandler) UpdateProduct(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateProductRequestObject
+
+	request.ID = id
+
+	var body UpdateProductJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProduct(ctx.Request().Context(), request.(UpdateProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProduct")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateProductResponseObject); ok {
+		return validResponse.VisitUpdateProductResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListRuSubjects operation middleware
 func (sh *strictHandler) ListRuSubjects(ctx *echo.Context) error {
 	var request ListRuSubjectsRequestObject
@@ -5862,146 +6754,161 @@ func (sh *strictHandler) UpdateWriteoffReason(ctx *echo.Context, id openapi_type
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

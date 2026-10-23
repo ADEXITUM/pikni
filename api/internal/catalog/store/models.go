@@ -59,10 +59,43 @@ type Producer struct {
 	IsActive    bool
 }
 
+type ProductCard struct {
+	ID              uuid.UUID
+	Article         string
+	Name            string
+	CategoryID      uuid.UUID
+	CategoryName    string
+	KindCode        *string
+	EgaisAccounting *string
+	Abv             *float64
+	CrptMarked      bool
+	ProducerID      uuid.UUID
+	ProducerName    string
+	BrandID         *uuid.UUID
+	BrandName       *string
+	ProductLineID   *uuid.UUID
+	LineName        *string
+	Variety         *string
+	CountryCode     string
+	CountryName     string
+	OriginRegionID  *uuid.UUID
+	RegionName      *string
+	Attributes      []byte
+	IsActive        bool
+	Version         int32
+}
+
 type ProductKind struct {
 	Code            string
 	Name            string
 	EgaisAccounting string
+}
+
+type ProductLine struct {
+	ID       uuid.UUID
+	BrandID  uuid.UUID
+	Name     string
+	IsActive bool
 }
 
 type Volume struct {
