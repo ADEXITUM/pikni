@@ -2,6 +2,7 @@
 package audit
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -82,4 +83,17 @@ func nonEmpty(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// Changes сравнивает поля «до» и «после» и возвращает изменившиеся как пары [было, стало].
+func Changes(before, after map[string]any) map[string]any {
+	changes := map[string]any{}
+	for key, old := range before {
+		a, _ := json.Marshal(old)
+		b, _ := json.Marshal(after[key])
+		if !bytes.Equal(a, b) {
+			changes[key] = []any{old, after[key]}
+		}
+	}
+	return changes
 }

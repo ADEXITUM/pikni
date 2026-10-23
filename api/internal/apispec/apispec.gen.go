@@ -32,6 +32,8 @@ const (
 	AuditActionAuthSessionEnded    AuditAction = "auth.session_ended"
 	AuditActionLocationCreated     AuditAction = "location.created"
 	AuditActionLocationUpdated     AuditAction = "location.updated"
+	AuditActionRefCreated          AuditAction = "ref.created"
+	AuditActionRefUpdated          AuditAction = "ref.updated"
 	AuditActionSaleBanCreated      AuditAction = "sale_ban.created"
 	AuditActionSaleBanDeleted      AuditAction = "sale_ban.deleted"
 	AuditActionSaleRuleCreated     AuditAction = "sale_rule.created"
@@ -60,6 +62,10 @@ func (e AuditAction) Valid() bool {
 		return true
 	case AuditActionLocationUpdated:
 		return true
+	case AuditActionRefCreated:
+		return true
+	case AuditActionRefUpdated:
+		return true
 	case AuditActionSaleBanCreated:
 		return true
 	case AuditActionSaleBanDeleted:
@@ -77,6 +83,69 @@ func (e AuditAction) Valid() bool {
 	case AuditActionUserUnblocked:
 		return true
 	case AuditActionUserUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EgaisAccounting.
+const (
+	EgaisAccountingMarked   EgaisAccounting = "marked"
+	EgaisAccountingQuantity EgaisAccounting = "quantity"
+)
+
+// Valid indicates whether the value is a known member of the EgaisAccounting enum.
+func (e EgaisAccounting) Valid() bool {
+	switch e {
+	case EgaisAccountingMarked:
+		return true
+	case EgaisAccountingQuantity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EgaisWriteoffType.
+const (
+	EgaisWriteoffTypeArrest           EgaisWriteoffType = "Арест"
+	EgaisWriteoffTypeCooking          EgaisWriteoffType = "Приготовление"
+	EgaisWriteoffTypeInspections      EgaisWriteoffType = "Проверки"
+	EgaisWriteoffTypeLosses           EgaisWriteoffType = "Потери"
+	EgaisWriteoffTypeMarkdown         EgaisWriteoffType = "Уценка"
+	EgaisWriteoffTypeOtherPurposes    EgaisWriteoffType = "Иные цели"
+	EgaisWriteoffTypeProductionLosses EgaisWriteoffType = "Производственные потери"
+	EgaisWriteoffTypeResorting        EgaisWriteoffType = "Пересортица"
+	EgaisWriteoffTypeSale             EgaisWriteoffType = "Реализация"
+	EgaisWriteoffTypeShortage         EgaisWriteoffType = "Недостача"
+	EgaisWriteoffTypeSpoilage         EgaisWriteoffType = "Порча"
+)
+
+// Valid indicates whether the value is a known member of the EgaisWriteoffType enum.
+func (e EgaisWriteoffType) Valid() bool {
+	switch e {
+	case EgaisWriteoffTypeArrest:
+		return true
+	case EgaisWriteoffTypeCooking:
+		return true
+	case EgaisWriteoffTypeInspections:
+		return true
+	case EgaisWriteoffTypeLosses:
+		return true
+	case EgaisWriteoffTypeMarkdown:
+		return true
+	case EgaisWriteoffTypeOtherPurposes:
+		return true
+	case EgaisWriteoffTypeProductionLosses:
+		return true
+	case EgaisWriteoffTypeResorting:
+		return true
+	case EgaisWriteoffTypeSale:
+		return true
+	case EgaisWriteoffTypeShortage:
+		return true
+	case EgaisWriteoffTypeSpoilage:
 		return true
 	default:
 		return false
@@ -293,10 +362,60 @@ type AuditUser struct {
 	Login    string             `json:"login"`
 }
 
+// Brand defines model for Brand.
+type Brand struct {
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// Name Example: Тайга
+	Name       string             `json:"name"`
+	ProducerID openapi_types.UUID `json:"producerId"`
+}
+
+// BrandFields defines model for BrandFields.
+type BrandFields struct {
+	// Name Example: Тайга
+	Name       string             `json:"name"`
+	ProducerID openapi_types.UUID `json:"producerId"`
+}
+
+// BrandList defines model for BrandList.
+type BrandList struct {
+	Items []Brand `json:"items"`
+}
+
+// BrandUpdate defines model for BrandUpdate.
+type BrandUpdate struct {
+	IsActive bool `json:"isActive"`
+
+	// Name Example: Тайга
+	Name       string             `json:"name"`
+	ProducerID openapi_types.UUID `json:"producerId"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
+}
+
+// Country defines model for Country.
+type Country struct {
+	// Alpha2 Example: RU
+	Alpha2 string `json:"alpha2"`
+
+	// Code Цифровой код ОКСМ
+	//
+	// Example: 643
+	Code string `json:"code"`
+
+	// Name Example: Российская Федерация
+	Name string `json:"name"`
+}
+
+// CountryList defines model for CountryList.
+type CountryList struct {
+	Items []Country `json:"items"`
 }
 
 // CreatedUser defines model for CreatedUser.
@@ -315,6 +434,12 @@ type DayHours struct {
 	// Open Example: 10:00
 	Open string `json:"open"`
 }
+
+// EgaisAccounting marked — помарочный учёт, quantity — только количество
+type EgaisAccounting string
+
+// EgaisWriteoffType Тип списания в акте списания ЕГАИС
+type EgaisWriteoffType string
 
 // Location defines model for Location.
 type Location struct {
@@ -553,6 +678,12 @@ type NewUser struct {
 	Role  Role   `json:"role"`
 }
 
+// NewVolume defines model for NewVolume.
+type NewVolume struct {
+	// Ml Example: 500
+	Ml int32 `json:"ml"`
+}
+
 // OpeningHours Часы работы по дням недели, день без часов — выходной
 type OpeningHours struct {
 	Fri *DayHours `json:"fri,omitempty"`
@@ -562,6 +693,41 @@ type OpeningHours struct {
 	Thu *DayHours `json:"thu,omitempty"`
 	Tue *DayHours `json:"tue,omitempty"`
 	Wed *DayHours `json:"wed,omitempty"`
+}
+
+// OriginRegion defines model for OriginRegion.
+type OriginRegion struct {
+	// CountryCode Example: 250
+	CountryCode string             `json:"countryCode"`
+	ID          openapi_types.UUID `json:"id"`
+	IsActive    bool               `json:"isActive"`
+
+	// Name Example: Шампань
+	Name string `json:"name"`
+}
+
+// OriginRegionFields defines model for OriginRegionFields.
+type OriginRegionFields struct {
+	// CountryCode Example: 250
+	CountryCode string `json:"countryCode"`
+
+	// Name Example: Шампань
+	Name string `json:"name"`
+}
+
+// OriginRegionList defines model for OriginRegionList.
+type OriginRegionList struct {
+	Items []OriginRegion `json:"items"`
+}
+
+// OriginRegionUpdate defines model for OriginRegionUpdate.
+type OriginRegionUpdate struct {
+	// CountryCode Example: 250
+	CountryCode string `json:"countryCode"`
+	IsActive    bool   `json:"isActive"`
+
+	// Name Example: Шампань
+	Name string `json:"name"`
 }
 
 // Permission Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
@@ -579,6 +745,69 @@ type Problem struct {
 
 	// Type Example: about:blank
 	Type string `json:"type"`
+}
+
+// Producer defines model for Producer.
+type Producer struct {
+	// CountryCode Example: 643
+	CountryCode string             `json:"countryCode"`
+	ID          openapi_types.UUID `json:"id"`
+
+	// INN ИНН российского производителя, 10 или 12 цифр
+	INN      *string `json:"inn,omitempty"`
+	IsActive bool    `json:"isActive"`
+
+	// Name Example: ООО «Тайга»
+	Name string `json:"name"`
+}
+
+// ProducerFields defines model for ProducerFields.
+type ProducerFields struct {
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// INN ИНН российского производителя, 10 или 12 цифр
+	INN *string `json:"inn,omitempty"`
+
+	// Name Example: ООО «Тайга»
+	Name string `json:"name"`
+}
+
+// ProducerList defines model for ProducerList.
+type ProducerList struct {
+	Items []Producer `json:"items"`
+}
+
+// ProducerUpdate defines model for ProducerUpdate.
+type ProducerUpdate struct {
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// INN ИНН российского производителя, 10 или 12 цифр
+	INN      *string `json:"inn,omitempty"`
+	IsActive bool    `json:"isActive"`
+
+	// Name Example: ООО «Тайга»
+	Name string `json:"name"`
+}
+
+// ProductKind defines model for ProductKind.
+type ProductKind struct {
+	// Code Код вида продукции, 3–5 цифр
+	//
+	// Example: 200
+	Code string `json:"code"`
+
+	// EgaisAccounting marked — помарочный учёт, quantity — только количество
+	EgaisAccounting EgaisAccounting `json:"egaisAccounting"`
+
+	// Name Example: Водка
+	Name string `json:"name"`
+}
+
+// ProductKindList defines model for ProductKindList.
+type ProductKindList struct {
+	Items []ProductKind `json:"items"`
 }
 
 // Role defines model for Role.
@@ -723,6 +952,59 @@ type UserUpdate struct {
 	Version     int32                `json:"version"`
 }
 
+// Volume defines model for Volume.
+type Volume struct {
+	IsActive bool `json:"isActive"`
+
+	// Ml Example: 500
+	Ml int32 `json:"ml"`
+}
+
+// VolumeList defines model for VolumeList.
+type VolumeList struct {
+	Items []Volume `json:"items"`
+}
+
+// VolumeUpdate defines model for VolumeUpdate.
+type VolumeUpdate struct {
+	IsActive bool `json:"isActive"`
+}
+
+// WriteoffReason defines model for WriteoffReason.
+type WriteoffReason struct {
+	// EgaisType Тип списания в акте списания ЕГАИС
+	EgaisType EgaisWriteoffType  `json:"egaisType"`
+	ID        openapi_types.UUID `json:"id"`
+	IsActive  bool               `json:"isActive"`
+
+	// Name Example: Бой
+	Name string `json:"name"`
+}
+
+// WriteoffReasonFields defines model for WriteoffReasonFields.
+type WriteoffReasonFields struct {
+	// EgaisType Тип списания в акте списания ЕГАИС
+	EgaisType EgaisWriteoffType `json:"egaisType"`
+
+	// Name Example: Бой
+	Name string `json:"name"`
+}
+
+// WriteoffReasonList defines model for WriteoffReasonList.
+type WriteoffReasonList struct {
+	Items []WriteoffReason `json:"items"`
+}
+
+// WriteoffReasonUpdate defines model for WriteoffReasonUpdate.
+type WriteoffReasonUpdate struct {
+	// EgaisType Тип списания в акте списания ЕГАИС
+	EgaisType EgaisWriteoffType `json:"egaisType"`
+	IsActive  bool              `json:"isActive"`
+
+	// Name Example: Бой
+	Name string `json:"name"`
+}
+
 // Zone defines model for Zone.
 type Zone struct {
 	ID openapi_types.UUID `json:"id"`
@@ -801,11 +1083,29 @@ type LoginJSONRequestBody = LoginRequest
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
+// CreateBrandJSONRequestBody defines body for CreateBrand for application/json ContentType.
+type CreateBrandJSONRequestBody = BrandFields
+
+// UpdateBrandJSONRequestBody defines body for UpdateBrand for application/json ContentType.
+type UpdateBrandJSONRequestBody = BrandUpdate
+
 // CreateLocationJSONRequestBody defines body for CreateLocation for application/json ContentType.
 type CreateLocationJSONRequestBody = NewLocation
 
 // UpdateLocationJSONRequestBody defines body for UpdateLocation for application/json ContentType.
 type UpdateLocationJSONRequestBody = LocationUpdate
+
+// CreateOriginRegionJSONRequestBody defines body for CreateOriginRegion for application/json ContentType.
+type CreateOriginRegionJSONRequestBody = OriginRegionFields
+
+// UpdateOriginRegionJSONRequestBody defines body for UpdateOriginRegion for application/json ContentType.
+type UpdateOriginRegionJSONRequestBody = OriginRegionUpdate
+
+// CreateProducerJSONRequestBody defines body for CreateProducer for application/json ContentType.
+type CreateProducerJSONRequestBody = ProducerFields
+
+// UpdateProducerJSONRequestBody defines body for UpdateProducer for application/json ContentType.
+type UpdateProducerJSONRequestBody = ProducerUpdate
 
 // CreateSaleBanJSONRequestBody defines body for CreateSaleBan for application/json ContentType.
 type CreateSaleBanJSONRequestBody = NewSaleBan
@@ -818,6 +1118,18 @@ type CreateUserJSONRequestBody = NewUser
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UserUpdate
+
+// CreateVolumeJSONRequestBody defines body for CreateVolume for application/json ContentType.
+type CreateVolumeJSONRequestBody = NewVolume
+
+// UpdateVolumeJSONRequestBody defines body for UpdateVolume for application/json ContentType.
+type UpdateVolumeJSONRequestBody = VolumeUpdate
+
+// CreateWriteoffReasonJSONRequestBody defines body for CreateWriteoffReason for application/json ContentType.
+type CreateWriteoffReasonJSONRequestBody = WriteoffReasonFields
+
+// UpdateWriteoffReasonJSONRequestBody defines body for UpdateWriteoffReason for application/json ContentType.
+type UpdateWriteoffReasonJSONRequestBody = WriteoffReasonUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -848,6 +1160,18 @@ type ServerInterface interface {
 	// EndSession Завершить свой сеанс
 	// (DELETE /auth/sessions/{id})
 	EndSession(ctx *echo.Context, id openapi_types.UUID) error
+	// ListBrands Бренды
+	// (GET /brands)
+	ListBrands(ctx *echo.Context) error
+	// CreateBrand Добавить — бренды
+	// (POST /brands)
+	CreateBrand(ctx *echo.Context) error
+	// UpdateBrand Изменить — бренды
+	// (PUT /brands/{id})
+	UpdateBrand(ctx *echo.Context, id openapi_types.UUID) error
+	// ListCountries Страны (ОКСМ)
+	// (GET /countries)
+	ListCountries(ctx *echo.Context) error
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx *echo.Context) error
@@ -863,6 +1187,27 @@ type ServerInterface interface {
 	// CheckSale Можно ли продавать алкоголь в точке
 	// (GET /locations/{id}/sale-check)
 	CheckSale(ctx *echo.Context, id openapi_types.UUID, params CheckSaleParams) error
+	// ListOriginRegions Регионы происхождения
+	// (GET /origin-regions)
+	ListOriginRegions(ctx *echo.Context) error
+	// CreateOriginRegion Добавить — регионы происхождения
+	// (POST /origin-regions)
+	CreateOriginRegion(ctx *echo.Context) error
+	// UpdateOriginRegion Изменить — регионы происхождения
+	// (PUT /origin-regions/{id})
+	UpdateOriginRegion(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProducers Производители
+	// (GET /producers)
+	ListProducers(ctx *echo.Context) error
+	// CreateProducer Добавить — производители
+	// (POST /producers)
+	CreateProducer(ctx *echo.Context) error
+	// UpdateProducer Изменить — производители
+	// (PUT /producers/{id})
+	UpdateProducer(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProductKinds Виды продукции ЕГАИС
+	// (GET /product-kinds)
+	ListProductKinds(ctx *echo.Context) error
 	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
 	// (GET /ru-subjects)
 	ListRuSubjects(ctx *echo.Context) error
@@ -902,6 +1247,24 @@ type ServerInterface interface {
 	// UnblockUser Разблокировать сотрудника
 	// (POST /users/{id}/unblock)
 	UnblockUser(ctx *echo.Context, id openapi_types.UUID) error
+	// ListVolumes Объёмы тары
+	// (GET /volumes)
+	ListVolumes(ctx *echo.Context) error
+	// CreateVolume Добавить — объёмы тары
+	// (POST /volumes)
+	CreateVolume(ctx *echo.Context) error
+	// UpdateVolume Изменить — объёмы тары
+	// (PUT /volumes/{ml})
+	UpdateVolume(ctx *echo.Context, ml int32) error
+	// ListWriteoffReasons Причины списания
+	// (GET /writeoff-reasons)
+	ListWriteoffReasons(ctx *echo.Context) error
+	// CreateWriteoffReason Добавить — причины списания
+	// (POST /writeoff-reasons)
+	CreateWriteoffReason(ctx *echo.Context) error
+	// UpdateWriteoffReason Изменить — причины списания
+	// (PUT /writeoff-reasons/{id})
+	UpdateWriteoffReason(ctx *echo.Context, id openapi_types.UUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -1106,6 +1469,49 @@ func (w *ServerInterfaceWrapper) EndSession(ctx *echo.Context) error {
 	return err
 }
 
+// ListBrands converts echo context to params.
+func (w *ServerInterfaceWrapper) ListBrands(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListBrands(ctx)
+	return err
+}
+
+// CreateBrand converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateBrand(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateBrand(ctx)
+	return err
+}
+
+// UpdateBrand converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateBrand(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateBrand(ctx, id)
+	return err
+}
+
+// ListCountries converts echo context to params.
+func (w *ServerInterfaceWrapper) ListCountries(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListCountries(ctx)
+	return err
+}
+
 // ListLocations converts echo context to params.
 func (w *ServerInterfaceWrapper) ListLocations(ctx *echo.Context) error {
 	var err error
@@ -1178,6 +1584,83 @@ func (w *ServerInterfaceWrapper) CheckSale(ctx *echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CheckSale(ctx, id, params)
+	return err
+}
+
+// ListOriginRegions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListOriginRegions(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListOriginRegions(ctx)
+	return err
+}
+
+// CreateOriginRegion converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateOriginRegion(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateOriginRegion(ctx)
+	return err
+}
+
+// UpdateOriginRegion converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateOriginRegion(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateOriginRegion(ctx, id)
+	return err
+}
+
+// ListProducers converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProducers(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProducers(ctx)
+	return err
+}
+
+// CreateProducer converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateProducer(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateProducer(ctx)
+	return err
+}
+
+// UpdateProducer converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateProducer(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateProducer(ctx, id)
+	return err
+}
+
+// ListProductKinds converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProductKinds(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProductKinds(ctx)
 	return err
 }
 
@@ -1347,6 +1830,74 @@ func (w *ServerInterfaceWrapper) UnblockUser(ctx *echo.Context) error {
 	return err
 }
 
+// ListVolumes converts echo context to params.
+func (w *ServerInterfaceWrapper) ListVolumes(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListVolumes(ctx)
+	return err
+}
+
+// CreateVolume converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateVolume(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateVolume(ctx)
+	return err
+}
+
+// UpdateVolume converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateVolume(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "ml" -------------
+	var ml int32
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ml", ctx.Param("ml"), &ml, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int32", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter ml: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateVolume(ctx, ml)
+	return err
+}
+
+// ListWriteoffReasons converts echo context to params.
+func (w *ServerInterfaceWrapper) ListWriteoffReasons(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListWriteoffReasons(ctx)
+	return err
+}
+
+// CreateWriteoffReason converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateWriteoffReason(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateWriteoffReason(ctx)
+	return err
+}
+
+// UpdateWriteoffReason converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateWriteoffReason(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateWriteoffReason(ctx, id)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -1420,6 +1971,23 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.DELETE(options.BaseURL+"/sale-rules/:id", wrapper.DeleteSaleRule, options.OperationMiddlewares["deleteSaleRule"]...)
 	router.POST(options.BaseURL+"/sale-bans", wrapper.CreateSaleBan, options.OperationMiddlewares["createSaleBan"]...)
 	router.DELETE(options.BaseURL+"/sale-bans/:id", wrapper.DeleteSaleBan, options.OperationMiddlewares["deleteSaleBan"]...)
+	router.GET(options.BaseURL+"/countries", wrapper.ListCountries, options.OperationMiddlewares["listCountries"]...)
+	router.GET(options.BaseURL+"/origin-regions", wrapper.ListOriginRegions, options.OperationMiddlewares["listOriginRegions"]...)
+	router.POST(options.BaseURL+"/origin-regions", wrapper.CreateOriginRegion, options.OperationMiddlewares["createOriginRegion"]...)
+	router.PUT(options.BaseURL+"/origin-regions/:id", wrapper.UpdateOriginRegion, options.OperationMiddlewares["updateOriginRegion"]...)
+	router.GET(options.BaseURL+"/producers", wrapper.ListProducers, options.OperationMiddlewares["listProducers"]...)
+	router.POST(options.BaseURL+"/producers", wrapper.CreateProducer, options.OperationMiddlewares["createProducer"]...)
+	router.PUT(options.BaseURL+"/producers/:id", wrapper.UpdateProducer, options.OperationMiddlewares["updateProducer"]...)
+	router.GET(options.BaseURL+"/brands", wrapper.ListBrands, options.OperationMiddlewares["listBrands"]...)
+	router.POST(options.BaseURL+"/brands", wrapper.CreateBrand, options.OperationMiddlewares["createBrand"]...)
+	router.PUT(options.BaseURL+"/brands/:id", wrapper.UpdateBrand, options.OperationMiddlewares["updateBrand"]...)
+	router.GET(options.BaseURL+"/product-kinds", wrapper.ListProductKinds, options.OperationMiddlewares["listProductKinds"]...)
+	router.GET(options.BaseURL+"/volumes", wrapper.ListVolumes, options.OperationMiddlewares["listVolumes"]...)
+	router.POST(options.BaseURL+"/volumes", wrapper.CreateVolume, options.OperationMiddlewares["createVolume"]...)
+	router.PUT(options.BaseURL+"/volumes/:ml", wrapper.UpdateVolume, options.OperationMiddlewares["updateVolume"]...)
+	router.GET(options.BaseURL+"/writeoff-reasons", wrapper.ListWriteoffReasons, options.OperationMiddlewares["listWriteoffReasons"]...)
+	router.POST(options.BaseURL+"/writeoff-reasons", wrapper.CreateWriteoffReason, options.OperationMiddlewares["createWriteoffReason"]...)
+	router.PUT(options.BaseURL+"/writeoff-reasons/:id", wrapper.UpdateWriteoffReason, options.OperationMiddlewares["updateWriteoffReason"]...)
 	router.GET(options.BaseURL+"/ru-subjects", wrapper.ListRuSubjects, options.OperationMiddlewares["listRuSubjects"]...)
 
 }
@@ -1781,6 +2349,161 @@ func (response EndSessiondefaultApplicationProblemPlusJSONResponse) VisitEndSess
 	return err
 }
 
+type ListBrandsRequestObject struct {
+}
+
+type ListBrandsResponseObject interface {
+	VisitListBrandsResponse(w http.ResponseWriter) error
+}
+
+type ListBrands200JSONResponse BrandList
+
+func (response ListBrands200JSONResponse) VisitListBrandsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrandsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListBrandsdefaultApplicationProblemPlusJSONResponse) VisitListBrandsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrandRequestObject struct {
+	Body *CreateBrandJSONRequestBody
+}
+
+type CreateBrandResponseObject interface {
+	VisitCreateBrandResponse(w http.ResponseWriter) error
+}
+
+type CreateBrand201JSONResponse Brand
+
+func (response CreateBrand201JSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBranddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateBranddefaultApplicationProblemPlusJSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBrandRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateBrandJSONRequestBody
+}
+
+type UpdateBrandResponseObject interface {
+	VisitUpdateBrandResponse(w http.ResponseWriter) error
+}
+
+type UpdateBrand200JSONResponse Brand
+
+func (response UpdateBrand200JSONResponse) VisitUpdateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBranddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateBranddefaultApplicationProblemPlusJSONResponse) VisitUpdateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCountriesRequestObject struct {
+}
+
+type ListCountriesResponseObject interface {
+	VisitListCountriesResponse(w http.ResponseWriter) error
+}
+
+type ListCountries200JSONResponse CountryList
+
+func (response ListCountries200JSONResponse) VisitListCountriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCountriesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCountriesdefaultApplicationProblemPlusJSONResponse) VisitListCountriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListLocationsRequestObject struct {
 }
 
@@ -1966,6 +2689,278 @@ type CheckSaledefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CheckSaledefaultApplicationProblemPlusJSONResponse) VisitCheckSaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOriginRegionsRequestObject struct {
+}
+
+type ListOriginRegionsResponseObject interface {
+	VisitListOriginRegionsResponse(w http.ResponseWriter) error
+}
+
+type ListOriginRegions200JSONResponse OriginRegionList
+
+func (response ListOriginRegions200JSONResponse) VisitListOriginRegionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOriginRegionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListOriginRegionsdefaultApplicationProblemPlusJSONResponse) VisitListOriginRegionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOriginRegionRequestObject struct {
+	Body *CreateOriginRegionJSONRequestBody
+}
+
+type CreateOriginRegionResponseObject interface {
+	VisitCreateOriginRegionResponse(w http.ResponseWriter) error
+}
+
+type CreateOriginRegion201JSONResponse OriginRegion
+
+func (response CreateOriginRegion201JSONResponse) VisitCreateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOriginRegiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateOriginRegiondefaultApplicationProblemPlusJSONResponse) VisitCreateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOriginRegionRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateOriginRegionJSONRequestBody
+}
+
+type UpdateOriginRegionResponseObject interface {
+	VisitUpdateOriginRegionResponse(w http.ResponseWriter) error
+}
+
+type UpdateOriginRegion200JSONResponse OriginRegion
+
+func (response UpdateOriginRegion200JSONResponse) VisitUpdateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOriginRegiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateOriginRegiondefaultApplicationProblemPlusJSONResponse) VisitUpdateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProducersRequestObject struct {
+}
+
+type ListProducersResponseObject interface {
+	VisitListProducersResponse(w http.ResponseWriter) error
+}
+
+type ListProducers200JSONResponse ProducerList
+
+func (response ListProducers200JSONResponse) VisitListProducersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProducersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProducersdefaultApplicationProblemPlusJSONResponse) VisitListProducersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProducerRequestObject struct {
+	Body *CreateProducerJSONRequestBody
+}
+
+type CreateProducerResponseObject interface {
+	VisitCreateProducerResponse(w http.ResponseWriter) error
+}
+
+type CreateProducer201JSONResponse Producer
+
+func (response CreateProducer201JSONResponse) VisitCreateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProducerdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProducerdefaultApplicationProblemPlusJSONResponse) VisitCreateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProducerRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateProducerJSONRequestBody
+}
+
+type UpdateProducerResponseObject interface {
+	VisitUpdateProducerResponse(w http.ResponseWriter) error
+}
+
+type UpdateProducer200JSONResponse Producer
+
+func (response UpdateProducer200JSONResponse) VisitUpdateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProducerdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateProducerdefaultApplicationProblemPlusJSONResponse) VisitUpdateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductKindsRequestObject struct {
+}
+
+type ListProductKindsResponseObject interface {
+	VisitListProductKindsResponse(w http.ResponseWriter) error
+}
+
+type ListProductKinds200JSONResponse ProductKindList
+
+func (response ListProductKinds200JSONResponse) VisitListProductKindsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductKindsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductKindsdefaultApplicationProblemPlusJSONResponse) VisitListProductKindsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2464,6 +3459,240 @@ func (response UnblockUserdefaultApplicationProblemPlusJSONResponse) VisitUnbloc
 	return err
 }
 
+type ListVolumesRequestObject struct {
+}
+
+type ListVolumesResponseObject interface {
+	VisitListVolumesResponse(w http.ResponseWriter) error
+}
+
+type ListVolumes200JSONResponse VolumeList
+
+func (response ListVolumes200JSONResponse) VisitListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVolumesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListVolumesdefaultApplicationProblemPlusJSONResponse) VisitListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateVolumeRequestObject struct {
+	Body *CreateVolumeJSONRequestBody
+}
+
+type CreateVolumeResponseObject interface {
+	VisitCreateVolumeResponse(w http.ResponseWriter) error
+}
+
+type CreateVolume201JSONResponse Volume
+
+func (response CreateVolume201JSONResponse) VisitCreateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateVolumedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateVolumedefaultApplicationProblemPlusJSONResponse) VisitCreateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateVolumeRequestObject struct {
+	Ml   int32 `json:"ml"`
+	Body *UpdateVolumeJSONRequestBody
+}
+
+type UpdateVolumeResponseObject interface {
+	VisitUpdateVolumeResponse(w http.ResponseWriter) error
+}
+
+type UpdateVolume200JSONResponse Volume
+
+func (response UpdateVolume200JSONResponse) VisitUpdateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateVolumedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateVolumedefaultApplicationProblemPlusJSONResponse) VisitUpdateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWriteoffReasonsRequestObject struct {
+}
+
+type ListWriteoffReasonsResponseObject interface {
+	VisitListWriteoffReasonsResponse(w http.ResponseWriter) error
+}
+
+type ListWriteoffReasons200JSONResponse WriteoffReasonList
+
+func (response ListWriteoffReasons200JSONResponse) VisitListWriteoffReasonsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWriteoffReasonsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListWriteoffReasonsdefaultApplicationProblemPlusJSONResponse) VisitListWriteoffReasonsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWriteoffReasonRequestObject struct {
+	Body *CreateWriteoffReasonJSONRequestBody
+}
+
+type CreateWriteoffReasonResponseObject interface {
+	VisitCreateWriteoffReasonResponse(w http.ResponseWriter) error
+}
+
+type CreateWriteoffReason201JSONResponse WriteoffReason
+
+func (response CreateWriteoffReason201JSONResponse) VisitCreateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWriteoffReasondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateWriteoffReasondefaultApplicationProblemPlusJSONResponse) VisitCreateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWriteoffReasonRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateWriteoffReasonJSONRequestBody
+}
+
+type UpdateWriteoffReasonResponseObject interface {
+	VisitUpdateWriteoffReasonResponse(w http.ResponseWriter) error
+}
+
+type UpdateWriteoffReason200JSONResponse WriteoffReason
+
+func (response UpdateWriteoffReason200JSONResponse) VisitUpdateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWriteoffReasondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateWriteoffReasondefaultApplicationProblemPlusJSONResponse) VisitUpdateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListAuditLog Журнал действий
@@ -2493,6 +3722,18 @@ type StrictServerInterface interface {
 	// EndSession Завершить свой сеанс
 	// (DELETE /auth/sessions/{id})
 	EndSession(ctx context.Context, request EndSessionRequestObject) (EndSessionResponseObject, error)
+	// ListBrands Бренды
+	// (GET /brands)
+	ListBrands(ctx context.Context, request ListBrandsRequestObject) (ListBrandsResponseObject, error)
+	// CreateBrand Добавить — бренды
+	// (POST /brands)
+	CreateBrand(ctx context.Context, request CreateBrandRequestObject) (CreateBrandResponseObject, error)
+	// UpdateBrand Изменить — бренды
+	// (PUT /brands/{id})
+	UpdateBrand(ctx context.Context, request UpdateBrandRequestObject) (UpdateBrandResponseObject, error)
+	// ListCountries Страны (ОКСМ)
+	// (GET /countries)
+	ListCountries(ctx context.Context, request ListCountriesRequestObject) (ListCountriesResponseObject, error)
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx context.Context, request ListLocationsRequestObject) (ListLocationsResponseObject, error)
@@ -2508,6 +3749,27 @@ type StrictServerInterface interface {
 	// CheckSale Можно ли продавать алкоголь в точке
 	// (GET /locations/{id}/sale-check)
 	CheckSale(ctx context.Context, request CheckSaleRequestObject) (CheckSaleResponseObject, error)
+	// ListOriginRegions Регионы происхождения
+	// (GET /origin-regions)
+	ListOriginRegions(ctx context.Context, request ListOriginRegionsRequestObject) (ListOriginRegionsResponseObject, error)
+	// CreateOriginRegion Добавить — регионы происхождения
+	// (POST /origin-regions)
+	CreateOriginRegion(ctx context.Context, request CreateOriginRegionRequestObject) (CreateOriginRegionResponseObject, error)
+	// UpdateOriginRegion Изменить — регионы происхождения
+	// (PUT /origin-regions/{id})
+	UpdateOriginRegion(ctx context.Context, request UpdateOriginRegionRequestObject) (UpdateOriginRegionResponseObject, error)
+	// ListProducers Производители
+	// (GET /producers)
+	ListProducers(ctx context.Context, request ListProducersRequestObject) (ListProducersResponseObject, error)
+	// CreateProducer Добавить — производители
+	// (POST /producers)
+	CreateProducer(ctx context.Context, request CreateProducerRequestObject) (CreateProducerResponseObject, error)
+	// UpdateProducer Изменить — производители
+	// (PUT /producers/{id})
+	UpdateProducer(ctx context.Context, request UpdateProducerRequestObject) (UpdateProducerResponseObject, error)
+	// ListProductKinds Виды продукции ЕГАИС
+	// (GET /product-kinds)
+	ListProductKinds(ctx context.Context, request ListProductKindsRequestObject) (ListProductKindsResponseObject, error)
 	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
 	// (GET /ru-subjects)
 	ListRuSubjects(ctx context.Context, request ListRuSubjectsRequestObject) (ListRuSubjectsResponseObject, error)
@@ -2547,6 +3809,24 @@ type StrictServerInterface interface {
 	// UnblockUser Разблокировать сотрудника
 	// (POST /users/{id}/unblock)
 	UnblockUser(ctx context.Context, request UnblockUserRequestObject) (UnblockUserResponseObject, error)
+	// ListVolumes Объёмы тары
+	// (GET /volumes)
+	ListVolumes(ctx context.Context, request ListVolumesRequestObject) (ListVolumesResponseObject, error)
+	// CreateVolume Добавить — объёмы тары
+	// (POST /volumes)
+	CreateVolume(ctx context.Context, request CreateVolumeRequestObject) (CreateVolumeResponseObject, error)
+	// UpdateVolume Изменить — объёмы тары
+	// (PUT /volumes/{ml})
+	UpdateVolume(ctx context.Context, request UpdateVolumeRequestObject) (UpdateVolumeResponseObject, error)
+	// ListWriteoffReasons Причины списания
+	// (GET /writeoff-reasons)
+	ListWriteoffReasons(ctx context.Context, request ListWriteoffReasonsRequestObject) (ListWriteoffReasonsResponseObject, error)
+	// CreateWriteoffReason Добавить — причины списания
+	// (POST /writeoff-reasons)
+	CreateWriteoffReason(ctx context.Context, request CreateWriteoffReasonRequestObject) (CreateWriteoffReasonResponseObject, error)
+	// UpdateWriteoffReason Изменить — причины списания
+	// (PUT /writeoff-reasons/{id})
+	UpdateWriteoffReason(ctx context.Context, request UpdateWriteoffReasonRequestObject) (UpdateWriteoffReasonResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *echo.Context, request any) (any, error)
@@ -2806,6 +4086,132 @@ func (sh *strictHandler) EndSession(ctx *echo.Context, id openapi_types.UUID) er
 	return nil
 }
 
+// ListBrands operation middleware
+func (sh *strictHandler) ListBrands(ctx *echo.Context) error {
+	var request ListBrandsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBrands(ctx.Request().Context(), request.(ListBrandsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBrands")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListBrandsResponseObject); ok {
+		return validResponse.VisitListBrandsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateBrand operation middleware
+func (sh *strictHandler) CreateBrand(ctx *echo.Context) error {
+	var request CreateBrandRequestObject
+
+	var body CreateBrandJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBrand(ctx.Request().Context(), request.(CreateBrandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBrand")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateBrandResponseObject); ok {
+		return validResponse.VisitCreateBrandResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateBrand operation middleware
+func (sh *strictHandler) UpdateBrand(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateBrandRequestObject
+
+	request.ID = id
+
+	var body UpdateBrandJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateBrand(ctx.Request().Context(), request.(UpdateBrandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateBrand")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateBrandResponseObject); ok {
+		return validResponse.VisitUpdateBrandResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListCountries operation middleware
+func (sh *strictHandler) ListCountries(ctx *echo.Context) error {
+	var request ListCountriesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCountries(ctx.Request().Context(), request.(ListCountriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCountries")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListCountriesResponseObject); ok {
+		return validResponse.VisitListCountriesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListLocations operation middleware
 func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 	var request ListLocationsRequestObject
@@ -2954,6 +4360,235 @@ func (sh *strictHandler) CheckSale(ctx *echo.Context, id openapi_types.UUID, par
 		return err
 	} else if validResponse, ok := response.(CheckSaleResponseObject); ok {
 		return validResponse.VisitCheckSaleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListOriginRegions operation middleware
+func (sh *strictHandler) ListOriginRegions(ctx *echo.Context) error {
+	var request ListOriginRegionsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOriginRegions(ctx.Request().Context(), request.(ListOriginRegionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOriginRegions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListOriginRegionsResponseObject); ok {
+		return validResponse.VisitListOriginRegionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateOriginRegion operation middleware
+func (sh *strictHandler) CreateOriginRegion(ctx *echo.Context) error {
+	var request CreateOriginRegionRequestObject
+
+	var body CreateOriginRegionJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateOriginRegion(ctx.Request().Context(), request.(CreateOriginRegionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateOriginRegion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateOriginRegionResponseObject); ok {
+		return validResponse.VisitCreateOriginRegionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateOriginRegion operation middleware
+func (sh *strictHandler) UpdateOriginRegion(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateOriginRegionRequestObject
+
+	request.ID = id
+
+	var body UpdateOriginRegionJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateOriginRegion(ctx.Request().Context(), request.(UpdateOriginRegionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateOriginRegion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateOriginRegionResponseObject); ok {
+		return validResponse.VisitUpdateOriginRegionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProducers operation middleware
+func (sh *strictHandler) ListProducers(ctx *echo.Context) error {
+	var request ListProducersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProducers(ctx.Request().Context(), request.(ListProducersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProducers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProducersResponseObject); ok {
+		return validResponse.VisitListProducersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateProducer operation middleware
+func (sh *strictHandler) CreateProducer(ctx *echo.Context) error {
+	var request CreateProducerRequestObject
+
+	var body CreateProducerJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProducer(ctx.Request().Context(), request.(CreateProducerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProducer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateProducerResponseObject); ok {
+		return validResponse.VisitCreateProducerResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateProducer operation middleware
+func (sh *strictHandler) UpdateProducer(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateProducerRequestObject
+
+	request.ID = id
+
+	var body UpdateProducerJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProducer(ctx.Request().Context(), request.(UpdateProducerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProducer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateProducerResponseObject); ok {
+		return validResponse.VisitUpdateProducerResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProductKinds operation middleware
+func (sh *strictHandler) ListProductKinds(ctx *echo.Context) error {
+	var request ListProductKindsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProductKinds(ctx.Request().Context(), request.(ListProductKindsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProductKinds")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductKindsResponseObject); ok {
+		return validResponse.VisitListProductKindsResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -3337,112 +4972,341 @@ func (sh *strictHandler) UnblockUser(ctx *echo.Context, id openapi_types.UUID) e
 	return nil
 }
 
+// ListVolumes operation middleware
+func (sh *strictHandler) ListVolumes(ctx *echo.Context) error {
+	var request ListVolumesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListVolumes(ctx.Request().Context(), request.(ListVolumesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListVolumes")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListVolumesResponseObject); ok {
+		return validResponse.VisitListVolumesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateVolume operation middleware
+func (sh *strictHandler) CreateVolume(ctx *echo.Context) error {
+	var request CreateVolumeRequestObject
+
+	var body CreateVolumeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateVolume(ctx.Request().Context(), request.(CreateVolumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateVolume")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateVolumeResponseObject); ok {
+		return validResponse.VisitCreateVolumeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateVolume operation middleware
+func (sh *strictHandler) UpdateVolume(ctx *echo.Context, ml int32) error {
+	var request UpdateVolumeRequestObject
+
+	request.Ml = ml
+
+	var body UpdateVolumeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateVolume(ctx.Request().Context(), request.(UpdateVolumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateVolume")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateVolumeResponseObject); ok {
+		return validResponse.VisitUpdateVolumeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListWriteoffReasons operation middleware
+func (sh *strictHandler) ListWriteoffReasons(ctx *echo.Context) error {
+	var request ListWriteoffReasonsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWriteoffReasons(ctx.Request().Context(), request.(ListWriteoffReasonsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWriteoffReasons")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListWriteoffReasonsResponseObject); ok {
+		return validResponse.VisitListWriteoffReasonsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateWriteoffReason operation middleware
+func (sh *strictHandler) CreateWriteoffReason(ctx *echo.Context) error {
+	var request CreateWriteoffReasonRequestObject
+
+	var body CreateWriteoffReasonJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWriteoffReason(ctx.Request().Context(), request.(CreateWriteoffReasonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWriteoffReason")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateWriteoffReasonResponseObject); ok {
+		return validResponse.VisitCreateWriteoffReasonResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateWriteoffReason operation middleware
+func (sh *strictHandler) UpdateWriteoffReason(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateWriteoffReasonRequestObject
+
+	request.ID = id
+
+	var body UpdateWriteoffReasonJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWriteoffReason(ctx.Request().Context(), request.(UpdateWriteoffReasonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWriteoffReason")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateWriteoffReasonResponseObject); ok {
+		return validResponse.VisitUpdateWriteoffReasonResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"k7dPQxvw/xkA",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

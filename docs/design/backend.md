@@ -161,12 +161,16 @@ openapi/
 | `suppliers` | `name`, `inn`, `kpp`, `fsrar_id`, `license_no`, `default_receiving_mode` (document, boxes, sample, piece), `contacts` jsonb |
 | `categories` | `parent_id`, `name`, `sort` (глубина не больше трёх уровней) |
 | `category_attributes` | `category_id`, `code`, `name`, `type` (enum, number, text, bool), `options` jsonb (допустимые значения), `unit`, `filterable`, `used_for_analogs`, `sort` — схема характеристик категории; наследуется подкатегориями |
-| `producers`, `brands`, `countries`, `regions`, `writeoff_reasons` | простые справочники; у причин списания есть соответствие причине акта ЕГАИС |
-| `product_kinds` | `code` (код вида продукции), `name`, `egais_accounting` (marked, quantity, none) |
+| `countries` | `code` (цифровой код ОКСМ), `alpha2`, `name` — только чтение |
+| `origin_regions` | `country_code`, `name` — регионы происхождения: Шампань, Коньяк, Кахетия |
+| `producers`, `brands` | производитель: `name`, `inn` (для российских), `country_code`; бренд: `producer_id`, `name` |
+| `volumes` | `ml` — объёмы тары в миллилитрах для создания вариантов |
+| `writeoff_reasons` | `name`, `egais_type` — тип списания в акте ЕГАИС (перечисление TypeWriteOff) |
+| `product_kinds` | `code` (код вида продукции НСИ ЕГАИС, 3–5 цифр), `name`, `egais_accounting` (marked — помарочный, quantity — без марок: пиво, сидр, пуаре, медовуха) |
 | `product_lines` | `name`, `brand_id` — линейка: позиции одного бренда, различающиеся разновидностью |
 | `products` (позиции) | `article` (уник.), `name`, `producer_id`, `brand_id`, `kind_code`, `category_id`, `country_id`, `region_id`, `abv` (крепость), `product_line_id`, `variety` (подпись разновидности в линейке: «на пшенице», «5 лет», «нефильтрованное»), `attributes` jsonb (характеристики категории), `crpt_marked` (маркировка «Честным знаком»), `retail_price`, `purchase_price`, `search` (tsvector, generated) |
 | `product_photos` | `product_id`, `file_key`, `sort` |
-| `variants` | `product_id`, `volume_l`, `container` (glass, pet, can), `gift_pack`, `sku_code` (уник.), `alcocode` (код продукции ЕГАИС), `gtin`, `retail_price_override`; уникальность (`product_id`, `volume_l`, `container`, `gift_pack`) |
+| `variants` | `product_id`, `volume_ml`, `container` (glass, pet, can), `gift_pack`, `sku_code` (уник.), `alcocode` (код продукции ЕГАИС), `gtin`, `retail_price_override`; уникальность (`product_id`, `volume_l`, `container`, `gift_pack`) |
 | `barcodes` | `code` (PK), `variant_id`, `kind` (ean13, ean8, upca, code128, internal) |
 | `price_history` | `product_id`, `variant_id`, `price`, `valid_from`, `set_by` |
 | `min_retail_prices` | `kind_code`, `abv_from`, `abv_to`, `price_per_litre`, `valid_from` — МРЦ, установленные Минфином России. Упрощение: минимальная цена бутылки = цена за литр × объём тары |
