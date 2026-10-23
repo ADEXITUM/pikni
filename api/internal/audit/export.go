@@ -43,6 +43,10 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionVariantUpdated:      "Изменение варианта",
 	apispec.AuditActionBarcodeCreated:      "Привязка штрихкода",
 	apispec.AuditActionBarcodeDeleted:      "Отвязка штрихкода",
+	apispec.AuditActionPriceCreated:        "Назначение цены",
+	apispec.AuditActionPriceDeleted:        "Отмена назначенной цены",
+	apispec.AuditActionMinPriceCreated:     "Новая редакция МРЦ",
+	apispec.AuditActionMinPriceDeleted:     "Удаление редакции МРЦ",
 }
 
 var errTooManyRows = echo.NewHTTPError(http.StatusUnprocessableEntity,

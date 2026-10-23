@@ -172,8 +172,8 @@ openapi/
 | `product_photos` | `product_id`, `file_key`, `sort` |
 | `variants` | `product_id`, `volume_ml` (из справочника объёмов; обязателен для продукции в ЕГАИС), `container` (glass, pet, can), `gift_pack`, `alcocode` (код продукции ЕГАИС, 19 цифр, уник.), `gtin` (14 цифр, уник.); уникальность (`product_id`, `volume_ml`, `container`, `gift_pack`). Объём, тара и упаковка после создания не меняются. Цена варианта — в `prices` (п. 2.8 плана) |
 | `barcodes` | `code` (PK), `variant_id`, `kind` (ean13, ean8, upca, code128, internal) — вид определяет сервер, у EAN/UPC проверяется контрольная цифра GS1. Внутренние EAN-13 (ЭТ-1) — префикс 20 и номер из последовательности `internal_barcode_seq` |
-| `price_history` | `product_id`, `variant_id`, `price`, `valid_from`, `set_by` |
-| `min_retail_prices` | `kind_code`, `abv_from`, `abv_to`, `price_per_litre`, `valid_from` — МРЦ, установленные Минфином России. Упрощение: минимальная цена бутылки = цена за литр × объём тары |
+| `prices` | `variant_id`, `kind` (retail, purchase), `price` numeric(12,2), `valid_from`, `set_by` — цены варианта с историей: новая цена — новая строка, действует последняя наступившая; будущую можно отменить, действующую и прошлые — нет. В приложении деньги — целые копейки. Закупочную цену в ответе видят только роли с `cost.view` |
+| `min_retail_prices` | `kind_code`, `valid_from`, `price` (за эталонный объём `volume_ml`, обычно 0,5 л), `abv` (эталонная крепость: если задана, цена пересчитывается и по крепости), `abv_over` (правило действует только для продукции крепче), `source` — МРЦ Минфина России. МРЦ варианта = цена × объём / эталонный объём [× крепость / эталонная крепость], в копейках с округлением вверх; дата — по Москве. Розничную цену ниже МРЦ сервер не принимает, касса проверяет её при продаже (КС-2) |
 | `assortment_matrix` | `location_id`, `variant_id`, `min_qty` (НСИ-9) |
 
 **Учёт**

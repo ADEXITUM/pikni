@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/catalog/store"
 )
 
@@ -11,21 +12,27 @@ func toBarcode(b store.Barcode) apispec.Barcode {
 	return apispec.Barcode{Code: b.Code, Kind: apispec.BarcodeKind(b.Kind)}
 }
 
-func toVariant(v Variant) apispec.Variant {
+// Закупочная цена уходит только тем, у кого есть право cost.view.
+func toVariant(ctx context.Context, v Variant) apispec.Variant {
 	barcodes := make([]apispec.Barcode, len(v.Barcodes))
 	for i, b := range v.Barcodes {
 		barcodes[i] = toBarcode(b)
 	}
-	return apispec.Variant{
+	out := apispec.Variant{
 		ID: v.ID, ProductID: v.ProductID, VolumeMl: v.VolumeMl, Container: (*apispec.Container)(v.Container),
 		GiftPack: v.GiftPack, Alcocode: v.Alcocode, Gtin: v.Gtin, IsActive: v.IsActive, Barcodes: barcodes,
 	}
+	out.RetailPrice, out.MinPrice = toRubles(v.RetailPrice), toRubles(v.MinPrice)
+	if auth.Has(ctx, apispec.PermissionCostView) {
+		out.PurchasePrice = toRubles(v.PurchasePrice)
+	}
+	return out
 }
 
-func variantList(variants []Variant) apispec.VariantList {
+func variantList(ctx context.Context, variants []Variant) apispec.VariantList {
 	items := make([]apispec.Variant, len(variants))
 	for i, v := range variants {
-		items[i] = toVariant(v)
+		items[i] = toVariant(ctx, v)
 	}
 	return apispec.VariantList{Items: items}
 }
@@ -35,7 +42,7 @@ func (h *Handler) ListProductVariants(ctx context.Context, req apispec.ListProdu
 	if err != nil {
 		return nil, problem(err)
 	}
-	return apispec.ListProductVariants200JSONResponse(variantList(variants)), nil
+	return apispec.ListProductVariants200JSONResponse(variantList(ctx, variants)), nil
 }
 
 func (h *Handler) CreateVariant(ctx context.Context, req apispec.CreateVariantRequestObject) (apispec.CreateVariantResponseObject, error) {
@@ -46,7 +53,7 @@ func (h *Handler) CreateVariant(ctx context.Context, req apispec.CreateVariantRe
 	if err != nil {
 		return nil, problem(err)
 	}
-	return apispec.CreateVariant201JSONResponse(toVariant(v)), nil
+	return apispec.CreateVariant201JSONResponse(toVariant(ctx, v)), nil
 }
 
 func (h *Handler) GenerateVariants(ctx context.Context, req apispec.GenerateVariantsRequestObject) (apispec.GenerateVariantsResponseObject, error) {
@@ -59,7 +66,7 @@ func (h *Handler) GenerateVariants(ctx context.Context, req apispec.GenerateVari
 	if err != nil {
 		return nil, problem(err)
 	}
-	return apispec.GenerateVariants201JSONResponse(variantList(created)), nil
+	return apispec.GenerateVariants201JSONResponse(variantList(ctx, created)), nil
 }
 
 func (h *Handler) UpdateVariant(ctx context.Context, req apispec.UpdateVariantRequestObject) (apispec.UpdateVariantResponseObject, error) {
@@ -68,7 +75,7 @@ func (h *Handler) UpdateVariant(ctx context.Context, req apispec.UpdateVariantRe
 	if err != nil {
 		return nil, problem(err)
 	}
-	return apispec.UpdateVariant200JSONResponse(toVariant(v)), nil
+	return apispec.UpdateVariant200JSONResponse(toVariant(ctx, v)), nil
 }
 
 func (h *Handler) AddBarcode(ctx context.Context, req apispec.AddBarcodeRequestObject) (apispec.AddBarcodeResponseObject, error) {

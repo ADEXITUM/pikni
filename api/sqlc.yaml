@@ -92,3 +92,11 @@ sql:
             go_type:
               type: float64
               pointer: true
+          - column: min_retail_prices.abv
+            go_type:
+              type: float64
+              pointer: true
+          - column: min_retail_prices.abv_over
+            go_type:
+              type: float64
+              pointer: true

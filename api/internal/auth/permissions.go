@@ -138,6 +138,13 @@ func permissionsOf(role string) []apispec.Permission {
 	return slices.Sorted(maps.Keys(matrix[apispec.Role(role)]))
 }
 
+// Has сообщает, есть ли у текущего пользователя право хотя бы в одной точке. Нужна там, где
+// от права зависит не доступ к операции, а состав ответа: закупочную цену видит не каждый.
+func Has(ctx context.Context, p apispec.Permission) bool {
+	sess, ok := FromContext(ctx)
+	return ok && scopeOf(sess.Role, p) != scopeNone
+}
+
 // AllowedLocations — точки, в пределах которых у текущего пользователя есть право.
 // nil означает всю сеть: сервис передаёт результат прямо в SQL-фильтр.
 func AllowedLocations(ctx context.Context, p apispec.Permission) ([]uuid.UUID, error) {

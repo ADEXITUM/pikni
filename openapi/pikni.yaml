@@ -1384,6 +1384,169 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /variants/{id}/retail-prices:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listRetailPrices
+      summary: История розничных цен
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Цены от новых к старым, включая назначенные на будущее
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: setRetailPrice
+      summary: Назначить розничную цену
+      description: Цена не ниже МРЦ на дату начала действия. Можно назначить заранее, но не задним числом.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPrice"
+      responses:
+        "201":
+          description: Цена назначена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}/purchase-prices:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listPurchasePrices
+      summary: История закупочных цен
+      tags: [catalog]
+      x-permission: cost.view
+      responses:
+        "200":
+          description: Цены от новых к старым, включая назначенные на будущее
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: setPurchasePrice
+      summary: Назначить закупочную цену
+      description: Можно назначить заранее, но не задним числом.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPrice"
+      responses:
+        "201":
+          description: Цена назначена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /prices/{id}:
+    delete:
+      operationId: deletePrice
+      summary: Отменить цену, назначенную на будущее
+      description: Действующие и прошлые цены не удаляются — это история.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Цена отменена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /min-prices:
+    get:
+      operationId: listMinPrices
+      summary: МРЦ — минимальные розничные цены Минфина
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Редакции по видам продукции, от новых к старым
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinPriceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createMinPrice
+      summary: Добавить редакцию МРЦ
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMinPrice"
+      responses:
+        "201":
+          description: Редакция добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinPrice"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /min-prices/{id}:
+    delete:
+      operationId: deleteMinPrice
+      summary: Удалить редакцию МРЦ, которая ещё не вступила в силу
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Редакция удалена
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -1528,6 +1691,10 @@ components:
         - variant.updated
         - barcode.created
         - barcode.deleted
+        - price.created
+        - price.deleted
+        - min_price.created
+        - min_price.deleted
 
     AuditEntry:
       type: object
@@ -2709,6 +2876,18 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/Barcode"
+            retailPrice:
+              type: number
+              format: double
+              description: Действующая розничная цена
+            minPrice:
+              type: number
+              format: double
+              description: Действующая МРЦ для этого объёма и крепости
+            purchasePrice:
+              type: number
+              format: double
+              description: Действующая закупочная цена; только при праве cost.view
 
     VariantList:
       type: object
@@ -2737,6 +2916,107 @@ components:
             $ref: "#/components/schemas/Container"
         giftPack:
           type: boolean
+
+    NewMinPrice:
+      type: object
+      required: [kindCode, validFrom, price, volumeMl, source]
+      properties:
+        kindCode:
+          type: string
+          example: "200"
+        validFrom:
+          type: string
+          format: date
+        price:
+          type: number
+          format: double
+          description: Цена эталонного объёма, рубли
+          example: 349
+        volumeMl:
+          type: integer
+          format: int32
+          description: Эталонный объём; для другого объёма цена пересчитывается пропорционально
+          example: 500
+        abv:
+          type: number
+          format: double
+          description: Эталонная крепость; если задана, цена пересчитывается и по крепости
+          example: 40
+        abvOver:
+          type: number
+          format: double
+          description: Правило действует только для продукции крепче этого значения
+          example: 28
+        source:
+          type: string
+          description: Приказ Минфина — основание
+
+    MinPrice:
+      allOf:
+        - $ref: "#/components/schemas/NewMinPrice"
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+
+    MinPriceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinPrice"
+
+    PriceKind:
+      type: string
+      enum: [retail, purchase]
+      description: retail — розничная, purchase — закупочная по умолчанию
+
+    NewPrice:
+      type: object
+      required: [price]
+      properties:
+        price:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Рубли с копейками
+          example: 449.9
+        validFrom:
+          type: string
+          format: date-time
+          description: С какого момента действует; без него — сразу
+
+    Price:
+      type: object
+      required: [id, kind, price, validFrom]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/PriceKind"
+        price:
+          type: number
+          format: double
+        validFrom:
+          type: string
+          format: date-time
+        setBy:
+          type: string
+          description: Кто назначил
+
+    PriceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Price"
 
     RuSubject:
       type: object

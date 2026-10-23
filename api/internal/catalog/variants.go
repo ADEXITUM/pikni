@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -29,10 +30,11 @@ var (
 
 var containerNames = map[string]string{"glass": "стекло", "pet": "ПЭТ", "can": "банка"}
 
-// Variant — вариант со штрихкодами.
+// Variant — вариант со штрихкодами, действующими ценами и МРЦ (в копейках).
 type Variant struct {
 	store.Variant
-	Barcodes []store.Barcode
+	Barcodes                             []store.Barcode
+	RetailPrice, PurchasePrice, MinPrice *int64
 }
 
 // VariantSpec — что задаёт новый вариант.
@@ -61,6 +63,15 @@ func variantsOf(ctx context.Context, q *store.Queries, productID uuid.UUID) ([]V
 	if err != nil {
 		return nil, err
 	}
+	prices, err := q.CurrentProductPrices(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+	p, err := q.GetVariantProduct(ctx, productID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
 	variants := make([]Variant, len(rows))
 	for i, v := range rows {
 		variants[i] = Variant{Variant: v, Barcodes: []store.Barcode{}}
@@ -68,6 +79,19 @@ func variantsOf(ctx context.Context, q *store.Queries, productID uuid.UUID) ([]V
 			if b.VariantID == v.ID {
 				variants[i].Barcodes = append(variants[i].Barcodes, b)
 			}
+		}
+		for _, price := range prices {
+			if price.VariantID == v.ID {
+				k := price.Kopecks
+				if price.Kind == string(apispec.PriceKindRetail) {
+					variants[i].RetailPrice = &k
+				} else {
+					variants[i].PurchasePrice = &k
+				}
+			}
+		}
+		if variants[i].MinPrice, err = minRetailPrice(ctx, q, p, v, now); err != nil {
+			return nil, err
 		}
 	}
 	return variants, nil

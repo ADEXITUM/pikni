@@ -117,7 +117,7 @@ func (q *Queries) GetVariant(ctx context.Context, id uuid.UUID) (Variant, error)
 }
 
 const getVariantProduct = `-- name: GetVariantProduct :one
-select id, article, name, kind_code
+select id, article, name, kind_code, abv
 from products
 where id = $1
 `
@@ -127,6 +127,7 @@ type GetVariantProductRow struct {
 	Article  string
 	Name     string
 	KindCode *string
+	Abv      *float64
 }
 
 func (q *Queries) GetVariantProduct(ctx context.Context, id uuid.UUID) (GetVariantProductRow, error) {
@@ -137,6 +138,7 @@ func (q *Queries) GetVariantProduct(ctx context.Context, id uuid.UUID) (GetVaria
 		&i.Article,
 		&i.Name,
 		&i.KindCode,
+		&i.Abv,
 	)
 	return i, err
 }

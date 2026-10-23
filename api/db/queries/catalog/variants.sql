@@ -1,5 +1,5 @@
 -- name: GetVariantProduct :one
-select id, article, name, kind_code
+select id, article, name, kind_code, abv
 from products
 where id = @id;
 

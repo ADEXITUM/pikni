@@ -59,6 +59,12 @@ var problems = map[error]*echo.HTTPError{
 	ErrGTINTaken:        echo.NewHTTPError(http.StatusConflict, "Этот GTIN уже у другого варианта"),
 	ErrInvalidBarcode:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Неверный штрихкод: у EAN и UPC не сходится контрольная цифра, другие коды — до 48 латинских символов и цифр"),
 	ErrBarcodeTaken:     echo.NewHTTPError(http.StatusConflict, "Этот штрихкод уже привязан к другому варианту"),
+
+	ErrInvalidPrice:     echo.NewHTTPError(http.StatusUnprocessableEntity, "Цена — больше нуля"),
+	ErrPriceInPast:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Цену нельзя назначить задним числом"),
+	ErrPriceInEffect:    echo.NewHTTPError(http.StatusConflict, "Цена уже действует — это история, её не отменить. Назначьте новую"),
+	ErrMinPriceInEffect: echo.NewHTTPError(http.StatusConflict, "Редакция МРЦ уже действует, удалить можно только будущую"),
+	ErrInvalidMinPrice:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Проверьте МРЦ: цена и объём больше нуля, крепость от 0 до 100 %, основание указано"),
 }
 
 var attributeReasons = map[error]string{
@@ -70,6 +76,9 @@ var attributeReasons = map[error]string{
 }
 
 func problem(err error) error {
+	if be, ok := errors.AsType[*BelowMinPriceError](err); ok {
+		return echo.NewHTTPError(http.StatusUnprocessableEntity, "Цена ниже минимальной розничной (МРЦ): не меньше "+rubles(be.Min))
+	}
 	if ae, ok := errors.AsType[*AttributeError](err); ok {
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, fmt.Sprintf("Характеристика «%s»: %s", ae.Attribute, attributeReasons[ae.Err]))
 	}
