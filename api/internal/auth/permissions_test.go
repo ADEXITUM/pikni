@@ -22,6 +22,8 @@ func TestMatrixFollowsSpecification(t *testing.T) {
 	}{
 		{apispec.RoleAdmin, apispec.PermissionUsersManage, scopeAll},
 		{apispec.RoleManager, apispec.PermissionUsersManage, scopeNone},
+		{apispec.RoleManager, apispec.PermissionUsersView, scopeAll},
+		{apispec.RoleAccountant, apispec.PermissionUsersView, scopeNone},
 		{apispec.RoleAdmin, apispec.PermissionPosSell, scopeNone},
 		{apispec.RoleAdmin, apispec.PermissionReceiptEdit, scopeNone},
 		{apispec.RoleManager, apispec.PermissionPosView, scopeAll},

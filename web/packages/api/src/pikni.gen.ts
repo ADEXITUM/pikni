@@ -242,6 +242,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Выгрузка журнала в Excel
+         * @description Те же фильтры, что у списка. Время в файле — в часовом поясе tz.
+         */
+        get: operations["exportAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/locations": {
         parameters: {
             query?: never;
@@ -269,7 +289,7 @@ export interface components {
          * @description Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
          * @enum {string}
          */
-        Permission: "users.manage" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
+        Permission: "users.manage" | "users.view" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
         /**
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
@@ -438,7 +458,17 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Начало периода включительно */
+        AuditFrom: string;
+        /** @description Конец периода, не включая */
+        AuditTo: string;
+        /** @description Кто выполнил действие */
+        AuditUserID: string;
+        AuditActionFilter: components["schemas"]["AuditAction"];
+        AuditEntityType: string;
+        AuditEntityID: string;
+    };
     requestBodies: never;
     headers: {
         /** @description Cookie сессии pikni_sid (HttpOnly, Secure, SameSite=Lax, Path=/api) */
@@ -606,14 +636,14 @@ export interface operations {
                 before?: number;
                 limit?: number;
                 /** @description Начало периода включительно */
-                from?: string;
+                from?: components["parameters"]["AuditFrom"];
                 /** @description Конец периода, не включая */
-                to?: string;
+                to?: components["parameters"]["AuditTo"];
                 /** @description Кто выполнил действие */
-                userId?: string;
-                action?: components["schemas"]["AuditAction"];
-                entityType?: string;
-                entityId?: string;
+                userId?: components["parameters"]["AuditUserID"];
+                action?: components["parameters"]["AuditActionFilter"];
+                entityType?: components["parameters"]["AuditEntityType"];
+                entityId?: components["parameters"]["AuditEntityID"];
             };
             header?: never;
             path?: never;
@@ -792,6 +822,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    exportAuditLog: {
+        parameters: {
+            query?: {
+                /** @description Начало периода включительно */
+                from?: components["parameters"]["AuditFrom"];
+                /** @description Конец периода, не включая */
+                to?: components["parameters"]["AuditTo"];
+                /** @description Кто выполнил действие */
+                userId?: components["parameters"]["AuditUserID"];
+                action?: components["parameters"]["AuditActionFilter"];
+                entityType?: components["parameters"]["AuditEntityType"];
+                entityId?: components["parameters"]["AuditEntityID"];
+                /** @description Часовой пояс IANA для времени в файле, по умолчанию UTC */
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл XLSX */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
             };
             default: components["responses"]["Problem"];
         };

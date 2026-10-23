@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -107,6 +108,7 @@ const (
 	PermissionTransferRequest    Permission = "transfer.request"
 	PermissionTransferView       Permission = "transfer.view"
 	PermissionUsersManage        Permission = "users.manage"
+	PermissionUsersView          Permission = "users.view"
 	PermissionWriteoffCreate     Permission = "writeoff.create"
 )
 
@@ -158,6 +160,8 @@ func (e Permission) Valid() bool {
 	case PermissionTransferView:
 		return true
 	case PermissionUsersManage:
+		return true
+	case PermissionUsersView:
 		return true
 	case PermissionWriteoffCreate:
 		return true
@@ -382,6 +386,24 @@ type UserUpdate struct {
 	Version     int32                `json:"version"`
 }
 
+// AuditActionFilter Вид события. Русские названия — в словаре клиента.
+type AuditActionFilter = AuditAction
+
+// AuditEntityID defines model for AuditEntityID.
+type AuditEntityID = string
+
+// AuditEntityType Example: user
+type AuditEntityType = string
+
+// AuditFrom defines model for AuditFrom.
+type AuditFrom = time.Time
+
+// AuditTo defines model for AuditTo.
+type AuditTo = time.Time
+
+// AuditUserID defines model for AuditUserID.
+type AuditUserID = openapi_types.UUID
+
 // ListAuditLogParams defines parameters for ListAuditLog.
 type ListAuditLogParams struct {
 	// Before Только записи с номером меньше указанного
@@ -389,16 +411,34 @@ type ListAuditLogParams struct {
 	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// From Начало периода включительно
-	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	From *AuditFrom `form:"from,omitempty" json:"from,omitempty"`
 
 	// To Конец периода, не включая
-	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+	To *AuditTo `form:"to,omitempty" json:"to,omitempty"`
 
 	// UserID Кто выполнил действие
-	UserID     *openapi_types.UUID `form:"userId,omitempty" json:"userId,omitempty"`
-	Action     *AuditAction        `form:"action,omitempty" json:"action,omitempty"`
-	EntityType *string             `form:"entityType,omitempty" json:"entityType,omitempty"`
-	EntityID   *string             `form:"entityId,omitempty" json:"entityId,omitempty"`
+	UserID     *AuditUserID       `form:"userId,omitempty" json:"userId,omitempty"`
+	Action     *AuditActionFilter `form:"action,omitempty" json:"action,omitempty"`
+	EntityType *AuditEntityType   `form:"entityType,omitempty" json:"entityType,omitempty"`
+	EntityID   *AuditEntityID     `form:"entityId,omitempty" json:"entityId,omitempty"`
+}
+
+// ExportAuditLogParams defines parameters for ExportAuditLog.
+type ExportAuditLogParams struct {
+	// From Начало периода включительно
+	From *AuditFrom `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Конец периода, не включая
+	To *AuditTo `form:"to,omitempty" json:"to,omitempty"`
+
+	// UserID Кто выполнил действие
+	UserID     *AuditUserID       `form:"userId,omitempty" json:"userId,omitempty"`
+	Action     *AuditActionFilter `form:"action,omitempty" json:"action,omitempty"`
+	EntityType *AuditEntityType   `form:"entityType,omitempty" json:"entityType,omitempty"`
+	EntityID   *AuditEntityID     `form:"entityId,omitempty" json:"entityId,omitempty"`
+
+	// Tz Часовой пояс IANA для времени в файле, по умолчанию UTC
+	Tz *string `form:"tz,omitempty" json:"tz,omitempty"`
 }
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
@@ -418,6 +458,9 @@ type ServerInterface interface {
 	// ListAuditLog Журнал действий
 	// (GET /audit)
 	ListAuditLog(ctx *echo.Context, params ListAuditLogParams) error
+	// ExportAuditLog Выгрузка журнала в Excel
+	// (GET /audit/export)
+	ExportAuditLog(ctx *echo.Context, params ExportAuditLogParams) error
 	// Login Вход по логину и паролю
 	// (POST /auth/login)
 	Login(ctx *echo.Context) error
@@ -534,6 +577,66 @@ func (w *ServerInterfaceWrapper) ListAuditLog(ctx *echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListAuditLog(ctx, params)
+	return err
+}
+
+// ExportAuditLog converts echo context to params.
+func (w *ServerInterfaceWrapper) ExportAuditLog(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAuditLogParams
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", ctx.QueryParams(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter from: %s", err))
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", ctx.QueryParams(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter to: %s", err))
+	}
+
+	// ------------- Optional query parameter "userId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "userId", ctx.QueryParams(), &params.UserID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", ctx.QueryParams(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter action: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityType" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityType", ctx.QueryParams(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityType: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityId", ctx.QueryParams(), &params.EntityID, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityId: %s", err))
+	}
+
+	// ------------- Optional query parameter "tz" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tz", ctx.QueryParams(), &params.Tz, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tz: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ExportAuditLog(ctx, params)
 	return err
 }
 
@@ -776,6 +879,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/users/:id/unblock", wrapper.UnblockUser, options.OperationMiddlewares["unblockUser"]...)
 	router.POST(options.BaseURL+"/users/:id/password", wrapper.ResetUserPassword, options.OperationMiddlewares["resetUserPassword"]...)
 	router.DELETE(options.BaseURL+"/users/:id/sessions", wrapper.EndUserSessions, options.OperationMiddlewares["endUserSessions"]...)
+	router.GET(options.BaseURL+"/audit/export", wrapper.ExportAuditLog, options.OperationMiddlewares["exportAuditLog"]...)
 	router.GET(options.BaseURL+"/locations", wrapper.ListLocations, options.OperationMiddlewares["listLocations"]...)
 
 }
@@ -810,6 +914,59 @@ type ListAuditLogdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListAuditLogdefaultApplicationProblemPlusJSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportAuditLogRequestObject struct {
+	Params ExportAuditLogParams
+}
+
+type ExportAuditLogResponseObject interface {
+	VisitExportAuditLogResponse(w http.ResponseWriter) error
+}
+
+type ExportAuditLog200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type ExportAuditLog200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse struct {
+	Body          io.Reader
+	Headers       ExportAuditLog200ResponseHeaders
+	ContentLength int64
+}
+
+func (response ExportAuditLog200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse) VisitExportAuditLogResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ExportAuditLogdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ExportAuditLogdefaultApplicationProblemPlusJSONResponse) VisitExportAuditLogResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1394,6 +1551,9 @@ type StrictServerInterface interface {
 	// ListAuditLog Журнал действий
 	// (GET /audit)
 	ListAuditLog(ctx context.Context, request ListAuditLogRequestObject) (ListAuditLogResponseObject, error)
+	// ExportAuditLog Выгрузка журнала в Excel
+	// (GET /audit/export)
+	ExportAuditLog(ctx context.Context, request ExportAuditLogRequestObject) (ExportAuditLogResponseObject, error)
 	// Login Вход по логину и паролю
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -1472,6 +1632,31 @@ func (sh *strictHandler) ListAuditLog(ctx *echo.Context, params ListAuditLogPara
 		return err
 	} else if validResponse, ok := response.(ListAuditLogResponseObject); ok {
 		return validResponse.VisitListAuditLogResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ExportAuditLog operation middleware
+func (sh *strictHandler) ExportAuditLog(ctx *echo.Context, params ExportAuditLogParams) error {
+	var request ExportAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportAuditLog(ctx.Request().Context(), request.(ExportAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportAuditLog")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ExportAuditLogResponseObject); ok {
+		return validResponse.VisitExportAuditLogResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -1904,71 +2089,76 @@ func (sh *strictHandler) UnblockUser(ctx *echo.Context, id openapi_types.UUID) e
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"oJuLyGKcx05kWIsqdtHG/9HA5O0L9sbixv8OAA==",
+	"7FxfbxvXlf8qg9k+JLsjSo6dbqOiD4rtbIUoiWBJQHa9WmNEXklTkTOTmUtbiiFAFFO7gbzWxu1ugm4T",
+	"N0GBfegLLZsRTYkUkE9w7lfIJ1mcc+/M3OFcSpRMuV1sX2LNv3vPPed3/h/mvl0OamHgM5/H9vR9e525",
+	"FRbRnwssjr3Avx4EGx7DGxUWlyMv5F7g29O2vG+JBrRFQzSgAx0r9DZ8707sVaw3fsl5+JFf3XKsBVau",
+	"R8yxFtwaW/A4+8Wcu+lY8y5f/8WkG3pv2o4dl9dZzcU9+FbI7Gk75pHnr9nb29uOHbqRW2NcUTVTr3h8",
+	"poxEvOdVOYvwpocEfVJn0Zbt2L5bwyVceie3+E8itmpP2383mZ15Uj6NJ7V1bdyVrm/63ONbszeG7cHk",
+	"88qpR8ittUgPT1uN3tDXY5tuLaziC/WYRbYzbIP3oqBWFBN8DS3xEFpwBH0LTqAtdqADfXgBLQsOoAtH",
+	"4rF4CB2xC204Eo+gB33bMdK3ihvolK0GUc3l9rRdcTmb4F6NDaduMTDQ9nvoQw/a4sEAZY6Ft3X6WmJ/",
+	"CFU8uDBNSzGLZm+Y6BK7yK0DsQcn0Icj6EEHjix4AW14KRpiFw6gA+0hFKGYZitmqup1r2IgaNuxIxaH",
+	"gR8zQvl8FKxUGYmzHPic+Rz/dMOw6pVdpHIylG/8w69iJPn+iChP1qUdBw79jfgNdOAZdAkZlvgM+mIH",
+	"jqGF0LBuvXfdeufa2/9I3FPLDeijgZFPoAMv0Eb04ZnYE7vQEfslC/4ommQzushFlHULDuEAWshnsW/9",
+	"uPM7oqCBoMX7Ygdf68IRvg89sQutku3YzK/X7Onbtlvn66VqsOahumcXd1Zdr8oq2r2gzpOr0I3je0FU",
+	"uVNed/217K1YWr07zK/QTRRmqRwxl2eX9bCiX65Ug/KG9tQfuJFuFbGYcXu5IP7MQkRbyMQwCkIWcU9i",
+	"wU2ZO7L9cmyXj6oMDj4k4LiVioffu9V5jQAe1VkBK09RT8UOihUNBqlEZ0DOjhTsCan1Maq3RfJ8Dh3o",
+	"Wfg6fn8kHsnvDlHxoYfLwXNpq+gpHCoMSAO1n50gWPkVK3M8QWqHi+bX0c2q6bFXyXHK8/lPr2V7eD5n",
+	"ayyiF0Pj9wows5UR9FwCYiRRom2ypV34pO5FrIJApzVdwnDi3Uh4ywae0Crz7horIsrjrJb/40xyJDa3",
+	"033cKHLp2meb/F22GkTMaEebYgelK3akNrfhhWiKx+JzNKQWwkbsKLV/IPZ+TmZf7DoWxhSo7Zb4d2mK",
+	"T6CfLAA9sU8wOFNmg9yj0w7l1ZISzcV8QcmCr5F2SzTlKZqIZ/EQemJP/Bq//zX5tj4cEPabgyu8RAPX",
+	"hx4pw5HUJnSJB/Tflu0MCHG1Xq1+SA7nbFAPQ6O0mcaYpQC7xL6m+5oYeZ2M6bwyeLfYJ3UW8yIAy/Uo",
+	"Yj5P3svRmlhLE70+u3fWNzV3c475a3zdnr7y1s8cu+b5yfXPnDPOOUhWfkPjeaVjSKCTPyVntTCI3GhL",
+	"p/lCFsFoDJJosLCLidC5QMYNBll4fCsfZsIXcAQtNMIEvs/J5Taga5JIOaiwga//AL+dmLpiOxdG5Ybn",
+	"V87iSHKe9/Hd7ST0GqADz4CRBfmbHrQs0YSjkgX/jSfCu9Ay7Y9+8tPANxm0/4EW6ecB9OGltEr7omHN",
+	"znw4Yzva5jOx507+s7tR5/GG7YyiXsRIdQ7FAkfKRiPoNMm+r7iWBEX33IitB/UYl4t5EOlfZ2dNvp7z",
+	"THp6PkeRrFV0EyMb4jk0MkPNRmquMkaHjEfBXdckxvB81mWAxsTchadp1QcG51qOo9XFYIP5Rm3XrbaG",
+	"1afoOigeOsDo+z9KFjwpvYIKVZUoZiuxAcXfQV88xODbsUSD3A76OLEj9uBYxmUteEY3W+TShoRij0oW",
+	"/A5DMhXJSZ/eVMfoiX3pwjAy/HHnt+gCG9C2xG6yu+1kuDrzRDlAOfbmxFowofKtBHezN+LTnJpj1+ox",
+	"z3soU8oiHTUdGmnegTZGryoyPUbHfUIZCbLk8c/RjffxoPSO2KNrCmyacEI38MDEvS70rUlMMib/Pjvh",
+	"ShBUmUs6E7Ko5lEwObrOzaffmIKzKKiys1a4he+M5vHVgkZGOhrw80fJo9GkRh+ye2YP+qracroafAPP",
+	"xD4cZnhGCaP8BiANx7onwR0pOOuSl5TVihNKaHeNnxs14rKxn3HLLWU2MnQ5ZxEe/t9uz0z8izvx6dTE",
+	"O6U7E8v3rzpX39r+iWnzC2NoOHzOwoMG6qLUnpJ5OoB+XtNaJQs9PuGiIx5Ay/rhz2mC+eODJxacqA9b",
+	"PxxJi3agrN6+jNt3yeod4deo5E/hi4mfWvAdfKmXGjDoiks118fEylGXdz12D0/HVvN/s4rHybXHPLtf",
+	"Zl5YuFRvrlaDIEqeyQv1hEeuH6+yqBQp56jdUu+n1+qTMEipwT9jVq3ajn0v8jgLVldVTcN27EpQjktu",
+	"GEbBXRUrlDe4u8GyU2a3ykHd50R3zKK7JESNG+5d16u6K17V41vJ1mzN9eJSxMqBX/ZI+m4cM56Spq4U",
+	"zRELg0h7iHmZvDAFL1qVLG83Koy7XtWcrnOX1+OcilybumbK97nHq4OW5+ukXPWSsjdZKx2irzklXAnq",
+	"fHql6vpnh4P0NNk+JdikJ7eUaqZ1sEqNNE4KJKIyAUnM9XkSBd7JHtL1BmMhXZXdeN1jkZHRqhUw668G",
+	"hoBH5kAz56g4qUTLoN3fQhvrAaLhWNCBQy04UWUh0SDOo+ntWWi8Sa/7omF0qSOGS0NKO1U35guM+TPc",
+	"7D0oIjiAI2lBREPsy7o11as/xz92yGtQPfVt9CMd6Imm2LWdERmF9mVmTbFqlCxCMdbRpJI7hwlGSrrj",
+	"SAF0oFw8C1g0Jc7nz60H9WqkRNkciFwA4+Ooz3jxu6qUPH3fgO6B8OZyAgrcfsnnXtWgA2msPBAmS8Xs",
+	"YkYhdrXinbEyhq74BF+EPtUYRmPveaP8IvdGD2wc+y6LknBErzpefWuEquPpobQuQ13gQ4LshBBdwYfB",
+	"eBwKLStPF9Zk/HyJuiWnB/dnRe6XAe3XJP+zRJ4sXWQfNRfK9cjjWwtIj2Sb6jeM1JB3ZN0a1e2LxEFR",
+	"PyarR2Ph+is4VOnrPtXmqSmnuVaxZ70x/9HComPNL+F/Zhav/9Kxbtycu7l4800Kw7PSeD6Xkl3dNlHw",
+	"WOzKVZ/Tu7KI1rU+nri+cOu9CcocqROEL/XIQMgqXRuOrTS3VFFBn4rmmEm1sqNgYkaVc5lk11jJyrIF",
+	"7EaJJnxPPrttQV/R1hIPJKdEEzufRCCRfkDeWzSwKyp2FC0da3Miy22tN3Aj5nNsyrKK7FseicdYPMG8",
+	"8QD64jd4elxD1QtNdZQ3S//qJ73kMkkxayanIxUZ0tzQe59tyR6up0KyPBRm5meVoInR30vqZfrZxxSJ",
+	"bDAeqEsNiR/+DE/pogedH7BC+ns6OVU6xR68tGhBZFlHNGTkhRJ4oYv6wMIsY8utVUtp9DptZ+viGhrc",
+	"p+2p0pXSFCpXEDLfDT172r5amipdlXnqOoF9kjIA/GuNmYKwL6GliOoQSZYMyaRj6VKDCVqysFWy4Ntc",
+	"B6pF/NA7UNCSIpT1nRY1LXfFjrVC/S0JvazfhcdEe6Z0GQ2MF3NqJc0Fa3Z+cOW2qQiXVoXgUDuHaMhT",
+	"UMsU/7WUcj5CMOVxqpqlQwYRJN3mQYThPTPzcErVq3k8t1SFrbr1Kren356itotXwyzkrakparrIqyvm",
+	"DUwmN+PWZDbOMurLi8HIr6qhj1Ffz40ajfqRNutzvk+QsOWBWZC3pqZOmQM53/xH1hQ2TYB8O6AM8D3V",
+	"rno0PdSiUYFE5uZtUrq1QRPHjuu1mouTDTb8V7Zgof9pOzZ312I50IFav+zYurW1p/V6AC4srcMk28Si",
+	"wXAj8R3a++9RdT5DgygekQXccyzxkEp2ool2UapflwpJT2Q4K/bVIAzm+xi+JoMpD7U20HHaBoK2xT8t",
+	"WoWbRN5wu/A3ZThFGZzztOCS4msuHenkZejQJ2hFj8kAP1R4f2wtLV4fNmL26ZCBvDPafOfT5Lt+pYSu",
+	"cLNWlVY6nghWV70yqwTleo35vBSHEXMr8TpjvFYt0b951U+t+4rnu9GWgaSi0v9Jcsb6eG7hY9vRB0Cv",
+	"SzonbnhxGMRe0j4+ZVhzDBbiidiD5xSgHEK3YINQljc3y6x6IWPB1yfTtDEMZHI04MFVnqaqrO8Gla2x",
+	"2d5cb3M7nybwqM62L9Huf2A2+Fr+nk23tKGXx8EC4xPZFLBpG/XyZH5k+BXwoNIee/r28gA69OZcOk2G",
+	"9fpOri+Xwwdft5dzEAjq/FQMBHVV5Nalcc1crpS5FlqdQ8o02mKHgn45XPCXZWNOrSTrCowx6I2W02iq",
+	"U2Oai82z7J8Y/4DZrx+/OfbnwgktDR1L4PIdtKErmpQcD0/kEIWUzcpiFqIgl49fnPn6MEMC28L8LmU7",
+	"8tRiD9q5rYfOU+ZxS2k6FgqKcUyhFnUZRtI8QDaStTTp59PUIjyi9E1lUl9Abxyg+FYuh4NFDYpH2snk",
+	"arLr/sUlruo8qp9VZbKENhBa+pWP+DqLFljaax+BKWagyLaL2MvjgWYaxsGrL7VFO2JXPErnQSTrOjki",
+	"HAurxzIJtsRuqnxtle2ej6eO2Wphuv7B1nDejc986R2WIXYsY38/VzKnOg1NIWBBfRc6OEiQTlxjjWNH",
+	"VQLa8HIcgvoDCUPfrQCRVwf15H2vsn0GshXTigkThehYIsoidK9iDxqI8/z8YnlUZy85kFORcRmTooIo",
+	"zXip8f5CnE/qzfFQ/43AnEvfukRFyI0bmjVBjdWgJnQGRm8oZ2/CiZraeEGDZNRyIojKoLBLP01ojsfp",
+	"q0k1fWwn4X/G1aIQskkQEgBNiZzK/CV64xIZn/aDzGmAMsSDteGO4in6is8In4jM5nh8Z2EzjbmSY0XG",
+	"avM2286wQCjn9J8TQOi3ZbQbjfpok/UqcejLoqrYo58h4UvUUsDJYdnEV72ETtLTUKWftI1iYF9Sgn+B",
+	"xQZt5USvDSEW9fSW5GD3ZYRXyaTdSAHVlfFFddqYvFnrB1mn/yRoTHCTyyWWdRB9rZHRp8adMs1OnVlY",
+	"Nw+KnJAnPcYCI/6FRkuWGjH6fkZpbJeaTH36xaPsQqhGidbwUv10WffqUl8jnaUtWfCf6icz+UdY3GxS",
+	"9TOLf2WbzNHaaNa1qXeKcJSdWwXH1+OExw95rQX9mosu54D7+HOTrzJhy2j7T/AVfONYWjqUH8V+FfBP",
+	"0i8eh5dUaKjhteLor0Ckh9AqKHdrfLFiYemhlo1c3GEx/2onA3WmwP5CMBihSvEkm0cYGBuiRrOWOz/C",
+	"XyfQGY4Tl1ywlVj4o/m6fvrj5U5+IGCgvJH6/zTfMnGsaApvsZhRlKbVP/5PI7k4Y2eODE8XkClykmMm",
+	"+ehpPC78mRxHSfCrUfKqwB2x2IIA0OoFf2156V+keHO6Jr2qYNSP6Ye7liX5wv8z5yK16rLcyx/Ni48x",
+	"dM73eLShttvLyGL8cUEiw3pUtadt/D/FTN69Ym8vb//vAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

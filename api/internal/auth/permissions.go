@@ -29,10 +29,12 @@ var networkRoles = map[apispec.Role]bool{
 }
 
 // matrix повторяет таблицу ПБ-6 ТЗ: «+» и «П» — scopeAll, «Т» и «ТП» — scopeOwn.
+// users.view у руководителя — список сотрудников для фильтра журнала действий.
 // Просмотр и изменение — разные права, поэтому «П» и «+» различаются набором прав.
 var matrix = map[apispec.Role]map[apispec.Permission]scope{
 	apispec.RoleAdmin: {
 		apispec.PermissionUsersManage:      scopeAll,
+		apispec.PermissionUsersView:        scopeAll,
 		apispec.PermissionRefsView:         scopeAll,
 		apispec.PermissionRefsEdit:         scopeAll,
 		apispec.PermissionCostView:         scopeAll,
@@ -42,6 +44,7 @@ var matrix = map[apispec.Role]map[apispec.Permission]scope{
 		apispec.PermissionAuditView:        scopeAll,
 	},
 	apispec.RoleManager: {
+		apispec.PermissionUsersView:        scopeAll,
 		apispec.PermissionRefsView:         scopeAll,
 		apispec.PermissionRefsEdit:         scopeAll,
 		apispec.PermissionCostView:         scopeAll,

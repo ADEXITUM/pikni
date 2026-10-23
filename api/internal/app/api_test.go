@@ -232,7 +232,8 @@ func TestAdminManagesStaff(t *testing.T) {
 
 	boss := &browser{t: t, e: admin.e, header: http.Header{}}
 	boss.login("boss")
-	boss.do(http.MethodGet, "/users", nil, http.StatusForbidden)
+	boss.do(http.MethodGet, "/users", nil, http.StatusOK)
+	boss.do(http.MethodPost, "/users", map[string]any{"login": "x1", "fullName": "X", "role": "manager", "locationIds": []uuid.UUID{}}, http.StatusForbidden)
 
 	admin.login("admin")
 	rec := admin.do(http.MethodPost, "/users", map[string]any{

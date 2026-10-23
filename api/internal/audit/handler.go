@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/audit/store"
@@ -30,16 +33,8 @@ func (h *Handler) ListAuditLog(ctx context.Context, req apispec.ListAuditLogRequ
 	}
 
 	// Одна лишняя строка показывает, есть ли следующая страница.
-	rows, err := h.q.ListEntries(ctx, store.ListEntriesParams{
-		Before:     p.Before,
-		FromAt:     p.From,
-		ToAt:       p.To,
-		UserID:     p.UserID,
-		Action:     (*string)(p.Action),
-		EntityType: p.EntityType,
-		EntityID:   p.EntityID,
-		MaxRows:    int32(limit + 1),
-	})
+	f := filters{From: p.From, To: p.To, UserID: p.UserID, Action: p.Action, EntityType: p.EntityType, EntityID: p.EntityID}
+	rows, err := h.q.ListEntries(ctx, f.params(p.Before, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("list audit log: %w", err)
 	}
@@ -57,6 +52,27 @@ func (h *Handler) ListAuditLog(ctx context.Context, req apispec.ListAuditLogRequ
 		page.Items = append(page.Items, entry)
 	}
 	return apispec.ListAuditLog200JSONResponse(page), nil
+}
+
+// filters — общие фильтры списка и выгрузки.
+type filters struct {
+	From, To             *time.Time
+	UserID               *uuid.UUID
+	Action               *apispec.AuditAction
+	EntityType, EntityID *string
+}
+
+func (f filters) params(before *int64, maxRows int) store.ListEntriesParams {
+	return store.ListEntriesParams{
+		Before:     before,
+		FromAt:     f.From,
+		ToAt:       f.To,
+		UserID:     f.UserID,
+		Action:     (*string)(f.Action),
+		EntityType: f.EntityType,
+		EntityID:   f.EntityID,
+		MaxRows:    int32(maxRows),
+	}
 }
 
 func toAPI(r store.ListEntriesRow) (apispec.AuditEntry, error) {

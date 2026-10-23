@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // база часовых поясов вшита в бинарник: в минимальном образе её нет
 
 	"github.com/labstack/echo/v5"
 

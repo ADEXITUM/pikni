@@ -2,9 +2,12 @@ package audit_test
 
 import (
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/audit"
@@ -95,5 +98,60 @@ func TestListFiltersAndPages(t *testing.T) {
 	logout := apispec.AuditActionAuthLogout
 	if page := list(t, db.App, apispec.ListAuditLogParams{Action: &logout}); len(page.Items) != 2 {
 		t.Errorf("logout entries = %d, want 2", len(page.Items))
+	}
+}
+
+func TestExportXLSX(t *testing.T) {
+	t.Parallel()
+	db := dbtest.New(t)
+	ctx := t.Context()
+	_, err := db.App.Exec(ctx, `
+		insert into audit_log (at, action, entity_type, entity_id, data, ip) values
+			('2026-10-23 10:30:00+00', 'user.created', 'user', '42', '{"login": "a.petrova"}', '203.0.113.7'),
+			('2026-10-23 11:00:00+00', 'auth.logout', null, null, '{}', null)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tz := "Asia/Yakutsk"
+	created := apispec.AuditActionUserCreated
+	resp, err := audit.NewHandler(db.App).ExportAuditLog(ctx, apispec.ExportAuditLogRequestObject{
+		Params: apispec.ExportAuditLogParams{Tz: &tz, Action: &created},
+	})
+	if err != nil {
+		t.Fatalf("ExportAuditLog() error = %v", err)
+	}
+	file := resp.(apispec.ExportAuditLog200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse)
+	if !strings.Contains(*file.Headers.ContentDisposition, ".xlsx") {
+		t.Errorf("Content-Disposition = %q", *file.Headers.ContentDisposition)
+	}
+
+	book, err := excelize.OpenReader(file.Body)
+	if err != nil {
+		t.Fatalf("open xlsx: %v", err)
+	}
+	rows, err := book.GetRows("Журнал")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want header and one filtered entry", len(rows))
+	}
+	want := []string{"Время", "23.10.2026 19:30:00", "Создание сотрудника", "203.0.113.7", "сотрудник a.petrova"}
+	got := []string{rows[0][1], rows[1][1], rows[1][2], rows[1][5], rows[1][6]}
+	if !slices.Equal(got, want) {
+		t.Errorf("cells = %q, want %q", got, want)
+	}
+}
+
+func TestEveryActionHasTitle(t *testing.T) {
+	spec, err := apispec.GetSpec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range spec.Components.Schemas["AuditAction"].Value.Enum {
+		if !audit.HasTitle(apispec.AuditAction(a.(string))) {
+			t.Errorf("action %s has no title for the export", a)
+		}
 	}
 }

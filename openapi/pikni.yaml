@@ -151,37 +151,12 @@ paths:
             minimum: 1
             maximum: 200
             default: 50
-        - name: from
-          in: query
-          description: Начало периода включительно
-          schema:
-            type: string
-            format: date-time
-        - name: to
-          in: query
-          description: Конец периода, не включая
-          schema:
-            type: string
-            format: date-time
-        - name: userId
-          in: query
-          description: Кто выполнил действие
-          schema:
-            type: string
-            format: uuid
-        - name: action
-          in: query
-          schema:
-            $ref: "#/components/schemas/AuditAction"
-        - name: entityType
-          in: query
-          schema:
-            type: string
-            example: user
-        - name: entityId
-          in: query
-          schema:
-            type: string
+        - $ref: "#/components/parameters/AuditFrom"
+        - $ref: "#/components/parameters/AuditTo"
+        - $ref: "#/components/parameters/AuditUserID"
+        - $ref: "#/components/parameters/AuditActionFilter"
+        - $ref: "#/components/parameters/AuditEntityType"
+        - $ref: "#/components/parameters/AuditEntityID"
       responses:
         "200":
           description: Страница журнала
@@ -197,7 +172,7 @@ paths:
       operationId: listUsers
       summary: Сотрудники
       tags: [users]
-      x-permission: users.manage
+      x-permission: users.view
       responses:
         "200":
           description: Все сотрудники по алфавиту
@@ -348,6 +323,41 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /audit/export:
+    get:
+      operationId: exportAuditLog
+      summary: Выгрузка журнала в Excel
+      description: Те же фильтры, что у списка. Время в файле — в часовом поясе tz.
+      tags: [audit]
+      x-permission: audit.view
+      parameters:
+        - $ref: "#/components/parameters/AuditFrom"
+        - $ref: "#/components/parameters/AuditTo"
+        - $ref: "#/components/parameters/AuditUserID"
+        - $ref: "#/components/parameters/AuditActionFilter"
+        - $ref: "#/components/parameters/AuditEntityType"
+        - $ref: "#/components/parameters/AuditEntityID"
+        - name: tz
+          in: query
+          description: Часовой пояс IANA для времени в файле, по умолчанию UTC
+          schema:
+            type: string
+            example: Asia/Yakutsk
+      responses:
+        "200":
+          description: Файл XLSX
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
   /locations:
     get:
       operationId: listLocations
@@ -381,6 +391,45 @@ components:
       schema:
         type: string
 
+  parameters:
+    AuditFrom:
+      name: from
+      in: query
+      description: Начало периода включительно
+      schema:
+        type: string
+        format: date-time
+    AuditTo:
+      name: to
+      in: query
+      description: Конец периода, не включая
+      schema:
+        type: string
+        format: date-time
+    AuditUserID:
+      name: userId
+      in: query
+      description: Кто выполнил действие
+      schema:
+        type: string
+        format: uuid
+    AuditActionFilter:
+      name: action
+      in: query
+      schema:
+        $ref: "#/components/schemas/AuditAction"
+    AuditEntityType:
+      name: entityType
+      in: query
+      schema:
+        type: string
+        example: user
+    AuditEntityID:
+      name: entityId
+      in: query
+      schema:
+        type: string
+
   responses:
     Problem:
       description: Ошибка в формате RFC 9457
@@ -399,6 +448,7 @@ components:
       description: Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
       enum:
         - users.manage
+        - users.view
         - refs.view
         - refs.edit
         - cost.view
