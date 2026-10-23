@@ -21,6 +21,8 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'sale_rule.deleted': 'Удаление редакции правила продажи',
   'sale_ban.created': 'Новый день запрета продажи',
   'sale_ban.deleted': 'Удаление дня запрета продажи',
+  'ref.created': 'Новая запись справочника',
+  'ref.updated': 'Изменение записи справочника',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
@@ -58,6 +60,14 @@ const fieldLabels: Record<string, string> = {
   isActive: 'Действует',
 }
 
+const refEntities: Record<string, string> = {
+  producer: 'производитель',
+  brand: 'бренд',
+  origin_region: 'регион',
+  volume: 'объём',
+  writeoff_reason: 'причина списания',
+}
+
 export interface Detail {
   label: string
   value: string
@@ -74,6 +84,9 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'session') return 'сеанс'
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
+  if (e.entityType && refEntities[e.entityType] && typeof e.data.name === 'string') {
+    return `${refEntities[e.entityType]} «${e.data.name}»`
+  }
   if (e.entityType === 'sale_rule') return `регион ${e.data.subjectCode ?? 'РФ'}`
   return ''
 }
@@ -104,6 +117,7 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
 
   take('login')
   take('code')
+  if (e.action === 'ref.created' || e.action === 'ref.updated') take('name')
   const changes = take('changes') as Record<string, [unknown, unknown]> | undefined
   for (const [key, [was, now]] of Object.entries(changes ?? {})) {
     details.push({ label: fieldLabels[key] ?? key, value: `${show(key, was)} → ${show(key, now)}` })

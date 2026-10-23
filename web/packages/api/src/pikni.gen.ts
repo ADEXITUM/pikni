@@ -396,6 +396,215 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Страны (ОКСМ) */
+        get: operations["listCountries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/origin-regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Регионы происхождения */
+        get: operations["listOriginRegions"];
+        put?: never;
+        /** Добавить — регионы происхождения */
+        post: operations["createOriginRegion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/origin-regions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — регионы происхождения */
+        put: operations["updateOriginRegion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/producers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Производители */
+        get: operations["listProducers"];
+        put?: never;
+        /** Добавить — производители */
+        post: operations["createProducer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/producers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — производители */
+        put: operations["updateProducer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Бренды */
+        get: operations["listBrands"];
+        put?: never;
+        /** Добавить — бренды */
+        post: operations["createBrand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — бренды */
+        put: operations["updateBrand"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Виды продукции ЕГАИС */
+        get: operations["listProductKinds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/volumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Объёмы тары */
+        get: operations["listVolumes"];
+        put?: never;
+        /** Добавить — объёмы тары */
+        post: operations["createVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/volumes/{ml}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — объёмы тары */
+        put: operations["updateVolume"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/writeoff-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Причины списания */
+        get: operations["listWriteoffReasons"];
+        put?: never;
+        /** Добавить — причины списания */
+        post: operations["createWriteoffReason"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/writeoff-reasons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — причины списания */
+        put: operations["updateWriteoffReason"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -428,7 +637,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -695,6 +904,133 @@ export interface components {
             localTime: string;
             strong: components["schemas"]["SaleVerdict"];
             other: components["schemas"]["SaleVerdict"];
+        };
+        Country: {
+            /**
+             * @description Цифровой код ОКСМ
+             * @example 643
+             */
+            code: string;
+            /** @example RU */
+            alpha2: string;
+            /** @example Российская Федерация */
+            name: string;
+        };
+        CountryList: {
+            items: components["schemas"]["Country"][];
+        };
+        OriginRegionFields: {
+            /** @example 250 */
+            countryCode: string;
+            /** @example Шампань */
+            name: string;
+        };
+        OriginRegion: components["schemas"]["OriginRegionFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        OriginRegionUpdate: components["schemas"]["OriginRegionFields"] & {
+            isActive: boolean;
+        };
+        OriginRegionList: {
+            items: components["schemas"]["OriginRegion"][];
+        };
+        ProducerFields: {
+            /** @example ООО «Тайга» */
+            name: string;
+            /** @description ИНН российского производителя, 10 или 12 цифр */
+            inn?: string;
+            /** @example 643 */
+            countryCode: string;
+        };
+        Producer: components["schemas"]["ProducerFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        ProducerUpdate: components["schemas"]["ProducerFields"] & {
+            isActive: boolean;
+        };
+        ProducerList: {
+            items: components["schemas"]["Producer"][];
+        };
+        BrandFields: {
+            /** Format: uuid */
+            producerId: string;
+            /** @example Тайга */
+            name: string;
+        };
+        Brand: components["schemas"]["BrandFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        BrandUpdate: components["schemas"]["BrandFields"] & {
+            isActive: boolean;
+        };
+        BrandList: {
+            items: components["schemas"]["Brand"][];
+        };
+        /**
+         * @description marked — помарочный учёт, quantity — только количество
+         * @enum {string}
+         */
+        EgaisAccounting: "marked" | "quantity";
+        ProductKind: {
+            /**
+             * @description Код вида продукции, 3–5 цифр
+             * @example 200
+             */
+            code: string;
+            /** @example Водка */
+            name: string;
+            egaisAccounting: components["schemas"]["EgaisAccounting"];
+        };
+        ProductKindList: {
+            items: components["schemas"]["ProductKind"][];
+        };
+        NewVolume: {
+            /**
+             * Format: int32
+             * @example 500
+             */
+            ml: number;
+        };
+        Volume: {
+            /**
+             * Format: int32
+             * @example 500
+             */
+            ml: number;
+            isActive: boolean;
+        };
+        VolumeUpdate: {
+            isActive: boolean;
+        };
+        VolumeList: {
+            items: components["schemas"]["Volume"][];
+        };
+        /**
+         * @description Тип списания в акте списания ЕГАИС
+         * @enum {string}
+         */
+        EgaisWriteoffType: "Пересортица" | "Недостача" | "Уценка" | "Порча" | "Потери" | "Проверки" | "Арест" | "Иные цели" | "Реализация" | "Производственные потери" | "Приготовление";
+        WriteoffReasonFields: {
+            /** @example Бой */
+            name: string;
+            egaisType: components["schemas"]["EgaisWriteoffType"];
+        };
+        WriteoffReason: components["schemas"]["WriteoffReasonFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        WriteoffReasonUpdate: components["schemas"]["WriteoffReasonFields"] & {
+            isActive: boolean;
+        };
+        WriteoffReasonList: {
+            items: components["schemas"]["WriteoffReason"][];
         };
         RuSubject: {
             /** @example 28 */
@@ -1361,6 +1697,413 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listCountries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страны (ОКСМ) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountryList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listOriginRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Регионы происхождения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OriginRegionList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createOriginRegion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OriginRegionFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OriginRegion"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateOriginRegion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OriginRegionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OriginRegion"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProducers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Производители */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProducerList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProducer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProducerFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Producer"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateProducer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProducerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Producer"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listBrands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Бренды */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProductKinds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Виды продукции ЕГАИС */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductKindList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listVolumes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Объёмы тары */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createVolume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVolume"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Volume"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateVolume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ml: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Volume"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listWriteoffReasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Причины списания */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteoffReasonList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createWriteoffReason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteoffReasonFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteoffReason"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateWriteoffReason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteoffReasonUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteoffReason"];
+                };
             };
             default: components["responses"]["Problem"];
         };
