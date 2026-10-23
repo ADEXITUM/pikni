@@ -3,19 +3,3 @@
 //   sqlc v1.31.1
 
 package store
-
-import (
-	"time"
-
-	"github.com/google/uuid"
-)
-
-type Location struct {
-	ID        uuid.UUID
-	Code      string
-	Name      string
-	Kind      string
-	City      string
-	Timezone  string
-	CreatedAt time.Time
-}

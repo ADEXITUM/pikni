@@ -30,7 +30,7 @@ func run() error {
 	}
 	log := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel, nil)
 
-	sqlDB, err := sql.Open("pgx", cfg.MigratorURL())
+	sqlDB, err := sql.Open("pgx", cfg.DatabaseMigratorURL)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
