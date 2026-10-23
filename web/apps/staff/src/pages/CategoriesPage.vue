@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { mdiFolderPlusOutline, mdiPencilOutline, mdiPlus } from '@mdi/js'
-import { api, ApiError, type Category, type CategoryAttribute } from '@pikni/api'
+import type { Category, CategoryAttribute } from '@pikni/api'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, ref, useTemplateRef, type ComponentPublicInstance } from 'vue'
 import { useDisplay } from 'vuetify'
@@ -15,26 +15,14 @@ import {
 } from '@/categories'
 import AttributeDialog from '@/components/AttributeDialog.vue'
 import CategoryDialog from '@/components/CategoryDialog.vue'
+import { categoriesQuery } from '@/queries'
 import { useMe } from '@/session'
 
 const queryClient = useQueryClient()
 const { data: me } = useMe()
 const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? false)
 
-const key = ['categories']
-const {
-  data: tree,
-  isPending,
-  isError,
-  error,
-} = useQuery({
-  queryKey: key,
-  queryFn: async () => {
-    const { data, error } = await api.GET('/categories')
-    if (error) throw new ApiError(error)
-    return data
-  },
-})
+const { data: tree, isPending, isError, error } = useQuery(categoriesQuery)
 const categories = computed(() => tree.value?.categories ?? [])
 const ordered = computed(() => treeOrder(categories.value))
 
@@ -58,7 +46,7 @@ const schema = computed(() =>
 )
 
 const nextSort = (sorts: number[]) => Math.max(0, ...sorts) + 10
-const refresh = () => queryClient.invalidateQueries({ queryKey: key })
+const refresh = () => queryClient.invalidateQueries({ queryKey: categoriesQuery.queryKey })
 
 const categoryOpen = ref(false)
 const categoryTarget = ref<{ category?: Category; parent?: Category }>({})

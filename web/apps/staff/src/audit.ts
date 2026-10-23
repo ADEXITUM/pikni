@@ -23,6 +23,8 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'sale_ban.deleted': 'Удаление дня запрета продажи',
   'ref.created': 'Новая запись справочника',
   'ref.updated': 'Изменение записи справочника',
+  'product.created': 'Создание позиции',
+  'product.updated': 'Изменение позиции',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
@@ -30,6 +32,7 @@ export const auditActionColors: Partial<Record<AuditAction, string>> = {
   'user.blocked': 'error',
   'user.created': 'success',
   'location.created': 'success',
+  'product.created': 'success',
 }
 
 const failureReasons: Record<string, string> = {
@@ -64,6 +67,17 @@ const fieldLabels: Record<string, string> = {
   archivedOptions: 'Значения в архиве',
   filterable: 'В фильтрах',
   usedForAnalogs: 'Для подбора аналогов',
+  category: 'Категория',
+  kindCode: 'Вид продукции',
+  abv: 'Крепость',
+  crptMarked: 'Честный знак',
+  producer: 'Производитель',
+  brand: 'Бренд',
+  line: 'Линейка',
+  variety: 'Разновидность',
+  country: 'Страна',
+  region: 'Регион происхождения',
+  attributes: 'Характеристики',
 }
 
 const refEntities: Record<string, string> = {
@@ -72,6 +86,7 @@ const refEntities: Record<string, string> = {
   origin_region: 'регион',
   volume: 'объём',
   writeoff_reason: 'причина списания',
+  product_line: 'линейка',
   category: 'категория',
   category_attribute: 'характеристика',
 }
@@ -91,6 +106,7 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'user') return login ?? e.entityId ?? ''
   if (e.entityType === 'session') return 'сеанс'
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
+  if (e.entityType === 'product') return `${e.data.article} «${e.data.name}»`
   if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
   if (e.entityType && refEntities[e.entityType] && typeof e.data.name === 'string') {
     return `${refEntities[e.entityType]} «${e.data.name}»`
@@ -126,7 +142,8 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
 
   take('login')
   take('code')
-  if (e.action === 'ref.created' || e.action === 'ref.updated') take('name')
+  if (e.action.startsWith('ref.') || e.action.startsWith('product.')) take('name')
+  take('article')
   const changes = take('changes') as Record<string, [unknown, unknown]> | undefined
   for (const [key, [was, now]] of Object.entries(changes ?? {})) {
     details.push({ label: fieldLabels[key] ?? key, value: `${show(key, was)} → ${show(key, now)}` })
@@ -142,6 +159,9 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
     case 'user.created':
       details.push({ label: 'Роль', value: role(take('role')) })
       details.push({ label: 'Точки', value: places(take('locationIds')) })
+      break
+    case 'product.created':
+      details.push({ label: 'Категория', value: String(take('category')) })
       break
     case 'location.created':
       details.push({ label: 'Название', value: String(take('name')) })

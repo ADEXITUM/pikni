@@ -32,6 +32,17 @@ export function ancestors(category: Category, categories: Category[]): Category[
   return path
 }
 
+// categoryItems — варианты для выбора категории с полным путём: «Вино › Игристое». Архивные
+// не предлагаются, кроме уже выбранной.
+export function categoryItems(categories: Category[], current?: string | null) {
+  return treeOrder(categories)
+    .filter((c) => c.isActive || c.id === current)
+    .map((c) => ({
+      value: c.id,
+      title: [...ancestors(c, categories), c].map((x) => x.name).join(' › '),
+    }))
+}
+
 export interface SchemaRow {
   attribute: CategoryAttribute
   from?: Category

@@ -8,6 +8,7 @@ import {
   type Problem,
   type Producer,
   type ProductKind,
+  type ProductLine,
   type Volume,
   type WriteoffReason,
 } from '@pikni/api'
@@ -74,10 +75,12 @@ export const egaisWriteoffTypes: Record<EgaisWriteoffType, string> = {
 export function buildRefs(lookup: {
   countries: () => Country[]
   producers: () => Producer[]
+  brands: () => Brand[]
 }): RefConfig<object>[] {
   const countryName = (code: string) =>
     lookup.countries().find((c) => c.code === code)?.name ?? code
   const producerName = (id: string) => lookup.producers().find((p) => p.id === id)?.name ?? '…'
+  const brandName = (id: string) => lookup.brands().find((b) => b.id === id)?.name ?? '…'
   const countryItems = () => lookup.countries().map((c) => ({ value: c.code, title: c.name }))
   const producerItems = () =>
     lookup
@@ -153,6 +156,42 @@ export function buildRefs(lookup: {
             producerId: text(v.producerId),
             isActive: Boolean(v.isActive),
           },
+        }),
+      ),
+  }
+
+  const productLines: RefConfig<ProductLine> = {
+    key: 'product-lines',
+    title: 'Линейки',
+    rowKey: (l) => l.id,
+    load: async () => (await call(api.GET('/product-lines'))).items,
+    columns: [
+      { key: 'name', title: 'Линейка' },
+      { key: 'brand', title: 'Бренд', value: (l) => brandName(l.brandId) },
+    ],
+    fields: [
+      { key: 'name', label: 'Линейка', hint: 'Позиции бренда, которые различаются разновидностью' },
+      {
+        key: 'brandId',
+        label: 'Бренд',
+        type: 'select',
+        createOnly: true,
+        items: () =>
+          lookup
+            .brands()
+            .filter((b) => b.isActive)
+            .map((b) => ({ value: b.id, title: `${b.name} (${producerName(b.producerId)})` })),
+      },
+    ],
+    hasActive: true,
+    toForm: (l) => ({ name: l.name, brandId: l.brandId }),
+    create: (v) =>
+      call(api.POST('/product-lines', { body: { name: text(v.name), brandId: text(v.brandId) } })),
+    update: (l, v) =>
+      call(
+        api.PUT('/product-lines/{id}', {
+          params: { path: { id: l.id } },
+          body: { name: text(v.name), isActive: Boolean(v.isActive) },
         }),
       ),
   }
@@ -285,5 +324,14 @@ export function buildRefs(lookup: {
     ],
   }
 
-  return [producers, brands, originRegions, productKinds, volumes, writeoffReasons, countries]
+  return [
+    producers,
+    brands,
+    productLines,
+    originRegions,
+    productKinds,
+    volumes,
+    writeoffReasons,
+    countries,
+  ]
 }

@@ -677,6 +677,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product-lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Линейки */
+        get: operations["listProductLines"];
+        put?: never;
+        /** Добавить — линейки */
+        post: operations["createProductLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-lines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Изменить — линейки
+         * @description Бренд линейки не меняется.
+         */
+        put: operations["updateProductLine"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Позиции
+         * @description По названию. Следующая страница — параметр after из nextAfter.
+         */
+        get: operations["listProducts"];
+        put?: never;
+        /**
+         * Добавить позицию
+         * @description Артикул присваивает сервер.
+         */
+        post: operations["createProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Карточка позиции */
+        get: operations["getProduct"];
+        /**
+         * Изменить позицию
+         * @description version — номер версии, с которой начата правка. Если позицию уже изменили, ответ 409.
+         */
+        put: operations["updateProduct"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -709,7 +794,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -1187,6 +1272,105 @@ export interface components {
         CategoryTree: {
             categories: components["schemas"]["Category"][];
             attributes: components["schemas"]["CategoryAttribute"][];
+        };
+        ProductLineFields: {
+            /** Format: uuid */
+            brandId: string;
+            /** @example Тайга */
+            name: string;
+        };
+        ProductLine: components["schemas"]["ProductLineFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        ProductLineUpdate: {
+            name: string;
+            isActive: boolean;
+        };
+        ProductLineList: {
+            items: components["schemas"]["ProductLine"][];
+        };
+        ProductFields: {
+            /** @example Водка «Тайга» на пшенице */
+            name: string;
+            /** Format: uuid */
+            categoryId: string;
+            /**
+             * @description Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+             * @example 200
+             */
+            kindCode?: string;
+            /**
+             * Format: double
+             * @description Крепость, % об.; обязательна для алкоголя
+             * @example 40
+             */
+            abv?: number;
+            /** @description Маркируется «Честным знаком» */
+            crptMarked: boolean;
+            /** Format: uuid */
+            producerId: string;
+            /**
+             * Format: uuid
+             * @description Бренд этого производителя
+             */
+            brandId?: string;
+            /**
+             * Format: uuid
+             * @description Линейка этого бренда
+             */
+            productLineId?: string;
+            /**
+             * @description Разновидность в линейке
+             * @example на пшенице
+             */
+            variety?: string;
+            /** @example 643 */
+            countryCode: string;
+            /**
+             * Format: uuid
+             * @description Регион этой страны
+             */
+            originRegionId?: string;
+            /**
+             * @description Характеристики по схеме категории — код → значение; пустые не сохраняются
+             * @example {
+             *       "raw_material": "пшеница"
+             *     }
+             */
+            attributes: {
+                [key: string]: unknown;
+            };
+        };
+        ProductUpdate: components["schemas"]["ProductFields"] & {
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+        };
+        Product: components["schemas"]["ProductFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** @example ЧК-000001 */
+            article: string;
+            categoryName: string;
+            producerName: string;
+            brandName?: string;
+            lineName?: string;
+            countryName: string;
+            regionName?: string;
+            egaisAccounting?: components["schemas"]["EgaisAccounting"];
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+        };
+        ProductPage: {
+            items: components["schemas"]["Product"][];
+            /**
+             * Format: uuid
+             * @description Если есть — параметр after для следующей страницы
+             */
+            nextAfter?: string;
         };
         RuSubject: {
             /** @example 28 */
@@ -2386,6 +2570,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CategoryAttribute"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProductLines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Линейки по названию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductLineList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProductLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductLineFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductLine"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateProductLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductLineUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductLine"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProducts: {
+        parameters: {
+            query?: {
+                /** @description Часть названия или артикула */
+                q?: string;
+                /** @description Категория вместе с подкатегориями */
+                categoryId?: string;
+                brandId?: string;
+                /** @description Позиция, после которой начинается страница */
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница позиций */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPage"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductFields"];
+            };
+        };
+        responses: {
+            /** @description Позиция добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Карточка позиции */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductUpdate"];
+            };
+        };
+        responses: {
+            /** @description Позиция изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
                 };
             };
             default: components["responses"]["Problem"];

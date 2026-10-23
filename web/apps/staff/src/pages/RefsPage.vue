@@ -1,37 +1,24 @@
 <script setup lang="ts">
-import { api, ApiError } from '@pikni/api'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
 import RefTable from '@/components/RefTable.vue'
+import { brandsQuery, countriesQuery, producersQuery } from '@/queries'
 import { buildRefs } from '@/refs'
 import { useMe } from '@/session'
 
 const { data: me } = useMe()
 const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? false)
 
-// Те же ключи, что у вкладок «Страны» и «Производители»: после правки обновятся и подписи.
-const { data: countries } = useQuery({
-  queryKey: ['ref', 'countries'],
-  queryFn: async () => {
-    const { data, error } = await api.GET('/countries')
-    if (error) throw new ApiError(error)
-    return data.items
-  },
-  staleTime: Infinity,
-})
-const { data: producers } = useQuery({
-  queryKey: ['ref', 'producers'],
-  queryFn: async () => {
-    const { data, error } = await api.GET('/producers')
-    if (error) throw new ApiError(error)
-    return data.items
-  },
-})
+// Те же ключи, что у вкладок, поэтому после правки обновятся и подписи в других вкладках.
+const { data: countries } = useQuery(countriesQuery)
+const { data: producers } = useQuery(producersQuery)
+const { data: brands } = useQuery(brandsQuery)
 
 const refs = buildRefs({
   countries: () => countries.value ?? [],
   producers: () => producers.value ?? [],
+  brands: () => brands.value ?? [],
 })
 const tab = ref(refs[0]!.key)
 </script>
