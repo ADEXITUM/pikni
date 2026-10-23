@@ -330,21 +330,34 @@ func (q *Queries) ListProducers(ctx context.Context) ([]Producer, error) {
 }
 
 const listProductKinds = `-- name: ListProductKinds :many
-select code, name, egais_accounting
-from product_kinds
-order by code
+select k.code, k.name, k.egais_accounting, g.name as min_price_group
+from product_kinds k
+left join min_price_groups g on g.code = k.min_price_group
+order by k.code
 `
 
-func (q *Queries) ListProductKinds(ctx context.Context) ([]ProductKind, error) {
+type ListProductKindsRow struct {
+	Code            string
+	Name            string
+	EgaisAccounting string
+	MinPriceGroup   *string
+}
+
+func (q *Queries) ListProductKinds(ctx context.Context) ([]ListProductKindsRow, error) {
 	rows, err := q.db.Query(ctx, listProductKinds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProductKind
+	var items []ListProductKindsRow
 	for rows.Next() {
-		var i ProductKind
-		if err := rows.Scan(&i.Code, &i.Name, &i.EgaisAccounting); err != nil {
+		var i ListProductKindsRow
+		if err := rows.Scan(
+			&i.Code,
+			&i.Name,
+			&i.EgaisAccounting,
+			&i.MinPriceGroup,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

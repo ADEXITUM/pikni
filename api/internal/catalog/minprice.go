@@ -21,7 +21,7 @@ var (
 	ErrInvalidMinPrice  = errors.New("invalid minimum price rule")
 )
 
-// MinPriceRule — редакция МРЦ для вида продукции. Запросы возвращают одинаковые по полям
+// MinPriceRule — полоса крепости одной редакции МРЦ. Запросы возвращают одинаковые по полям
 // строки, поэтому они приводятся к одному типу.
 type MinPriceRule = store.ListMinPriceRulesRow
 
@@ -34,22 +34,32 @@ func moscowDay(t time.Time) time.Time {
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-// minPriceAt выбирает редакцию, действующую на момент at, и пересчитывает её цену на объём
-// и крепость варианта. Считается в целых копейках, остаток округляется вверх: продать хотя бы
-// на копейку дешевле МРЦ нельзя. rules — от новых редакций к старым.
+// minPriceAt считает МРЦ варианта по приказу Минфина. Действует последняя наступившая редакция
+// целиком: в ней ищется полоса «свыше X до Y % включительно», куда попадает крепость. Для другого
+// объёма цена пересчитывается пропорционально, кроме тары между same_price_over_ml и эталонной.
+// Считается в целых копейках с округлением вверх: продать хотя бы на копейку дешевле МРЦ нельзя.
+// rules — от новых редакций к старым.
 func minPriceAt(rules []MinPriceRule, volumeMl int32, abv float64, at time.Time) *int64 {
 	day := moscowDay(at)
+	var edition *time.Time
 	for _, r := range rules {
-		if r.ValidFrom.After(day) {
+		if !r.ValidFrom.After(day) {
+			edition = &r.ValidFrom
+			break
+		}
+	}
+	if edition == nil {
+		return nil
+	}
+	strength := tenths(abv)
+	for _, r := range rules {
+		if !r.ValidFrom.Equal(*edition) || strength <= tenths(r.AbvFrom) || (r.AbvTo != nil && strength > tenths(*r.AbvTo)) {
 			continue
 		}
-		if r.AbvOver != nil && tenths(abv) <= tenths(*r.AbvOver) {
-			return nil
+		if r.SamePriceOverMl != nil && volumeMl > *r.SamePriceOverMl && volumeMl <= r.VolumeMl {
+			return &r.Kopecks
 		}
 		num, den := r.Kopecks*int64(volumeMl), int64(r.VolumeMl)
-		if r.Abv != nil {
-			num, den = num*tenths(abv), den*tenths(*r.Abv)
-		}
 		v := (num + den - 1) / den
 		return &v
 	}
@@ -76,31 +86,39 @@ func minRetailPrice(ctx context.Context, q *store.Queries, p store.GetVariantPro
 	return minPriceAt(rules, *v.VolumeMl, *p.Abv, at), nil
 }
 
-func (s *Service) MinPriceRules(ctx context.Context) ([]MinPriceRule, error) {
-	return s.q.ListMinPriceRules(ctx)
+func (s *Service) MinPriceRules(ctx context.Context) ([]MinPriceRule, []store.MinPriceGroup, error) {
+	rules, err := s.q.ListMinPriceRules(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	groups, err := s.q.ListMinPriceGroups(ctx)
+	return rules, groups, err
 }
 
-// MinPriceRuleSpec — новая редакция МРЦ.
+// MinPriceRuleSpec — полоса крепости новой редакции МРЦ.
 type MinPriceRuleSpec struct {
-	KindCode     string
-	ValidFrom    time.Time
-	Kopecks      int64
-	VolumeMl     int32
-	Abv, AbvOver *float64
-	Source       string
+	GroupCode       string
+	ValidFrom       time.Time
+	AbvFrom         float64
+	AbvTo           *float64
+	Kopecks         int64
+	VolumeMl        int32
+	SamePriceOverMl *int32
+	Source          string
 }
 
 func (s *Service) CreateMinPriceRule(ctx context.Context, f MinPriceRuleSpec) (MinPriceRule, error) {
 	source := strings.TrimSpace(f.Source)
-	if f.Kopecks <= 0 || f.VolumeMl <= 0 || source == "" ||
-		(f.Abv != nil && (*f.Abv <= 0 || *f.Abv > 100)) || (f.AbvOver != nil && (*f.AbvOver < 0 || *f.AbvOver >= 100)) {
+	if f.Kopecks <= 0 || f.VolumeMl <= 0 || source == "" || f.AbvFrom < 0 || f.AbvFrom >= 100 ||
+		(f.AbvTo != nil && (*f.AbvTo <= f.AbvFrom || *f.AbvTo > 100)) || (f.SamePriceOverMl != nil && *f.SamePriceOverMl <= 0) {
 		return MinPriceRule{}, ErrInvalidMinPrice
 	}
 	var saved MinPriceRule
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		row, err := s.q.WithTx(tx).CreateMinPriceRule(ctx, store.CreateMinPriceRuleParams{
-			KindCode: f.KindCode, ValidFrom: f.ValidFrom, Kopecks: f.Kopecks, VolumeMl: f.VolumeMl,
-			Abv: f.Abv, AbvOver: f.AbvOver, Source: source,
+		q := s.q.WithTx(tx)
+		id, err := q.CreateMinPriceRule(ctx, store.CreateMinPriceRuleParams{
+			GroupCode: f.GroupCode, ValidFrom: f.ValidFrom, AbvFrom: f.AbvFrom, AbvTo: f.AbvTo, Kopecks: f.Kopecks,
+			VolumeMl: f.VolumeMl, SamePriceOverMl: f.SamePriceOverMl, Source: source,
 		})
 		switch {
 		case db.IsUniqueViolation(err):
@@ -110,16 +128,27 @@ func (s *Service) CreateMinPriceRule(ctx context.Context, f MinPriceRuleSpec) (M
 		case err != nil:
 			return err
 		}
+		row, err := q.GetMinPriceRule(ctx, id)
+		if err != nil {
+			return err
+		}
 		saved = MinPriceRule(row)
 		return audit.Record(ctx, tx, audit.Event{
-			Action: apispec.AuditActionMinPriceCreated, EntityType: audit.EntityMinPrice, EntityID: row.ID.String(),
-			Data: map[string]any{"kindCode": row.KindCode, "price": rubles(row.Kopecks), "validFrom": row.ValidFrom.Format(time.DateOnly), "source": source},
+			Action: apispec.AuditActionMinPriceCreated, EntityType: audit.EntityMinPrice, EntityID: id.String(),
+			Data: minPriceAuditData(saved),
 		})
 	})
 	return saved, err
 }
 
-// DeleteMinPriceRule удаляет редакцию, которая ещё не вступила в силу: по прошлым уже продавали.
+func minPriceAuditData(r MinPriceRule) map[string]any {
+	return map[string]any{
+		"group": r.GroupName, "abvFrom": r.AbvFrom, "abvTo": r.AbvTo, "price": rubles(r.Kopecks),
+		"volumeMl": r.VolumeMl, "validFrom": r.ValidFrom.Format(time.DateOnly), "source": r.Source,
+	}
+}
+
+// DeleteMinPriceRule удаляет полосу редакции, которая ещё не вступила в силу: по прошлым уже продавали.
 func (s *Service) DeleteMinPriceRule(ctx context.Context, id uuid.UUID) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
@@ -138,7 +167,7 @@ func (s *Service) DeleteMinPriceRule(ctx context.Context, id uuid.UUID) error {
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionMinPriceDeleted, EntityType: audit.EntityMinPrice, EntityID: id.String(),
-			Data: map[string]any{"kindCode": row.KindCode, "price": rubles(row.Kopecks), "validFrom": row.ValidFrom.Format(time.DateOnly)},
+			Data: minPriceAuditData(MinPriceRule(row)),
 		})
 	})
 }

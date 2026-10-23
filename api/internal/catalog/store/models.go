@@ -53,6 +53,11 @@ type Country struct {
 	Name   string
 }
 
+type MinPriceGroup struct {
+	Code string
+	Name string
+}
+
 type OriginRegion struct {
 	ID          uuid.UUID
 	CountryCode string
@@ -94,17 +99,24 @@ type ProductCard struct {
 	Version         int32
 }
 
-type ProductKind struct {
-	Code            string
-	Name            string
-	EgaisAccounting string
-}
-
 type ProductLine struct {
 	ID       uuid.UUID
 	BrandID  uuid.UUID
 	Name     string
 	IsActive bool
+}
+
+type Supplier struct {
+	ID                   uuid.UUID
+	Name                 string
+	INN                  string
+	KPP                  *string
+	FSRARID              *string
+	LicenseNo            *string
+	LicenseValidTo       *time.Time
+	DefaultReceivingMode string
+	Contacts             []byte
+	IsActive             bool
 }
 
 type Variant struct {

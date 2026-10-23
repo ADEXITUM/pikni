@@ -82,7 +82,9 @@ sql:
         sql_package: pgx/v5
         omit_unused_structs: true
         emit_pointers_for_null_types: true
-        initialisms: [id, inn]
+        initialisms: [id, inn, kpp]
+        rename:
+          fsrar_id: FSRARID
         overrides:
           - column: products.abv
             go_type:
@@ -92,11 +94,9 @@ sql:
             go_type:
               type: float64
               pointer: true
-          - column: min_retail_prices.abv
-            go_type:
-              type: float64
-              pointer: true
-          - column: min_retail_prices.abv_over
+          - column: min_retail_prices.abv_from
+            go_type: float64
+          - column: min_retail_prices.abv_to
             go_type:
               type: float64
               pointer: true

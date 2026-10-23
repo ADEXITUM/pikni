@@ -36,7 +36,7 @@ func TestProducersAndBrands(t *testing.T) {
 	svc := catalog.NewService(db.App)
 	ctx := t.Context()
 
-	taiga, err := svc.SaveProducer(ctx, nil, apispec.ProducerFields{Name: " ООО «Тайга» ", INN: ptr("2801000001"), CountryCode: "643"}, true)
+	taiga, err := svc.SaveProducer(ctx, nil, apispec.ProducerFields{Name: " ООО «Тайга» ", INN: ptr("2801000006"), CountryCode: "643"}, true)
 	if err != nil {
 		t.Fatalf("SaveProducer() error = %v", err)
 	}

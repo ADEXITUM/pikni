@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -24,12 +23,10 @@ var (
 	ErrDuplicate        = errors.New("record already exists")
 	ErrUnknownReference = errors.New("referenced record does not exist")
 	ErrEmptyName        = errors.New("name is required")
-	ErrInvalidINN       = errors.New("INN must be 10 or 12 digits")
+	ErrInvalidINN       = errors.New("INN must be 10 or 12 digits with valid check digits")
 	ErrInvalidVolume    = errors.New("volume must be 10 to 30000 ml")
 	ErrInvalidEgaisType = errors.New("unknown EGAIS write-off type")
 )
-
-var innPattern = regexp.MustCompile(`^([0-9]{10}|[0-9]{12})$`)
 
 type Service struct {
 	pool *pgxpool.Pool
@@ -85,7 +82,7 @@ func (s *Service) Countries(ctx context.Context) ([]store.Country, error) {
 	return s.q.ListCountries(ctx)
 }
 
-func (s *Service) ProductKinds(ctx context.Context) ([]store.ProductKind, error) {
+func (s *Service) ProductKinds(ctx context.Context) ([]store.ListProductKindsRow, error) {
 	return s.q.ListProductKinds(ctx)
 }
 
@@ -131,7 +128,7 @@ func (s *Service) SaveProducer(ctx context.Context, id *uuid.UUID, f apispec.Pro
 	var inn *string
 	if f.INN != nil && strings.TrimSpace(*f.INN) != "" {
 		v := strings.TrimSpace(*f.INN)
-		if !innPattern.MatchString(v) {
+		if !innValid(v) {
 			return store.Producer{}, ErrInvalidINN
 		}
 		inn = &v

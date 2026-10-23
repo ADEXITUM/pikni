@@ -13,54 +13,37 @@ import (
 )
 
 const createMinPriceRule = `-- name: CreateMinPriceRule :one
-insert into min_retail_prices (kind_code, valid_from, price, volume_ml, abv, abv_over, source)
-values ($1, $2, $3::bigint / 100.0, $4, $5, $6, $7)
-returning id, kind_code, valid_from, (price * 100)::bigint as kopecks, volume_ml, abv, abv_over, source
+insert into min_retail_prices (group_code, valid_from, abv_from, abv_to, price, volume_ml, same_price_over_ml, source)
+values ($1, $2, $3, $4, $5::bigint / 100.0, $6,
+        $7, $8)
+returning id
 `
 
 type CreateMinPriceRuleParams struct {
-	KindCode  string
-	ValidFrom time.Time
-	Kopecks   int64
-	VolumeMl  int32
-	Abv       *float64
-	AbvOver   *float64
-	Source    string
+	GroupCode       string
+	ValidFrom       time.Time
+	AbvFrom         float64
+	AbvTo           *float64
+	Kopecks         int64
+	VolumeMl        int32
+	SamePriceOverMl *int32
+	Source          string
 }
 
-type CreateMinPriceRuleRow struct {
-	ID        uuid.UUID
-	KindCode  string
-	ValidFrom time.Time
-	Kopecks   int64
-	VolumeMl  int32
-	Abv       *float64
-	AbvOver   *float64
-	Source    string
-}
-
-func (q *Queries) CreateMinPriceRule(ctx context.Context, arg CreateMinPriceRuleParams) (CreateMinPriceRuleRow, error) {
+func (q *Queries) CreateMinPriceRule(ctx context.Context, arg CreateMinPriceRuleParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createMinPriceRule,
-		arg.KindCode,
+		arg.GroupCode,
 		arg.ValidFrom,
+		arg.AbvFrom,
+		arg.AbvTo,
 		arg.Kopecks,
 		arg.VolumeMl,
-		arg.Abv,
-		arg.AbvOver,
+		arg.SamePriceOverMl,
 		arg.Source,
 	)
-	var i CreateMinPriceRuleRow
-	err := row.Scan(
-		&i.ID,
-		&i.KindCode,
-		&i.ValidFrom,
-		&i.Kopecks,
-		&i.VolumeMl,
-		&i.Abv,
-		&i.AbvOver,
-		&i.Source,
-	)
-	return i, err
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const createPrice = `-- name: CreatePrice :one
@@ -159,21 +142,25 @@ func (q *Queries) DeletePrice(ctx context.Context, id uuid.UUID) error {
 }
 
 const getMinPriceRule = `-- name: GetMinPriceRule :one
-select id, kind_code, valid_from, (price * 100)::bigint as kopecks, volume_ml, abv, abv_over, source
-from min_retail_prices
-where id = $1
-for update
+select r.id, r.group_code, g.name as group_name, r.valid_from, r.abv_from, r.abv_to, (r.price * 100)::bigint as kopecks,
+       r.volume_ml, r.same_price_over_ml, r.source
+from min_retail_prices r
+join min_price_groups g on g.code = r.group_code
+where r.id = $1
+for update of r
 `
 
 type GetMinPriceRuleRow struct {
-	ID        uuid.UUID
-	KindCode  string
-	ValidFrom time.Time
-	Kopecks   int64
-	VolumeMl  int32
-	Abv       *float64
-	AbvOver   *float64
-	Source    string
+	ID              uuid.UUID
+	GroupCode       string
+	GroupName       string
+	ValidFrom       time.Time
+	AbvFrom         float64
+	AbvTo           *float64
+	Kopecks         int64
+	VolumeMl        int32
+	SamePriceOverMl *int32
+	Source          string
 }
 
 func (q *Queries) GetMinPriceRule(ctx context.Context, id uuid.UUID) (GetMinPriceRuleRow, error) {
@@ -181,12 +168,14 @@ func (q *Queries) GetMinPriceRule(ctx context.Context, id uuid.UUID) (GetMinPric
 	var i GetMinPriceRuleRow
 	err := row.Scan(
 		&i.ID,
-		&i.KindCode,
+		&i.GroupCode,
+		&i.GroupName,
 		&i.ValidFrom,
+		&i.AbvFrom,
+		&i.AbvTo,
 		&i.Kopecks,
 		&i.VolumeMl,
-		&i.Abv,
-		&i.AbvOver,
+		&i.SamePriceOverMl,
 		&i.Source,
 	)
 	return i, err
@@ -221,23 +210,29 @@ func (q *Queries) GetPrice(ctx context.Context, id uuid.UUID) (GetPriceRow, erro
 }
 
 const kindMinPriceRules = `-- name: KindMinPriceRules :many
-select id, kind_code, valid_from, (price * 100)::bigint as kopecks, volume_ml, abv, abv_over, source
-from min_retail_prices
-where kind_code = $1
-order by valid_from desc
+select r.id, r.group_code, g.name as group_name, r.valid_from, r.abv_from, r.abv_to, (r.price * 100)::bigint as kopecks,
+       r.volume_ml, r.same_price_over_ml, r.source
+from min_retail_prices r
+join min_price_groups g on g.code = r.group_code
+join product_kinds k on k.min_price_group = r.group_code
+where k.code = $1
+order by r.valid_from desc, r.abv_from
 `
 
 type KindMinPriceRulesRow struct {
-	ID        uuid.UUID
-	KindCode  string
-	ValidFrom time.Time
-	Kopecks   int64
-	VolumeMl  int32
-	Abv       *float64
-	AbvOver   *float64
-	Source    string
+	ID              uuid.UUID
+	GroupCode       string
+	GroupName       string
+	ValidFrom       time.Time
+	AbvFrom         float64
+	AbvTo           *float64
+	Kopecks         int64
+	VolumeMl        int32
+	SamePriceOverMl *int32
+	Source          string
 }
 
+// Редакции МРЦ группы, к которой относится вид продукции; от новых к старым.
 func (q *Queries) KindMinPriceRules(ctx context.Context, kindCode string) ([]KindMinPriceRulesRow, error) {
 	rows, err := q.db.Query(ctx, kindMinPriceRules, kindCode)
 	if err != nil {
@@ -249,12 +244,14 @@ func (q *Queries) KindMinPriceRules(ctx context.Context, kindCode string) ([]Kin
 		var i KindMinPriceRulesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.KindCode,
+			&i.GroupCode,
+			&i.GroupName,
 			&i.ValidFrom,
+			&i.AbvFrom,
+			&i.AbvTo,
 			&i.Kopecks,
 			&i.VolumeMl,
-			&i.Abv,
-			&i.AbvOver,
+			&i.SamePriceOverMl,
 			&i.Source,
 		); err != nil {
 			return nil, err
@@ -267,21 +264,51 @@ func (q *Queries) KindMinPriceRules(ctx context.Context, kindCode string) ([]Kin
 	return items, nil
 }
 
+const listMinPriceGroups = `-- name: ListMinPriceGroups :many
+select code, name
+from min_price_groups
+order by name
+`
+
+func (q *Queries) ListMinPriceGroups(ctx context.Context) ([]MinPriceGroup, error) {
+	rows, err := q.db.Query(ctx, listMinPriceGroups)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MinPriceGroup
+	for rows.Next() {
+		var i MinPriceGroup
+		if err := rows.Scan(&i.Code, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMinPriceRules = `-- name: ListMinPriceRules :many
-select id, kind_code, valid_from, (price * 100)::bigint as kopecks, volume_ml, abv, abv_over, source
-from min_retail_prices
-order by kind_code, valid_from desc
+select r.id, r.group_code, g.name as group_name, r.valid_from, r.abv_from, r.abv_to, (r.price * 100)::bigint as kopecks,
+       r.volume_ml, r.same_price_over_ml, r.source
+from min_retail_prices r
+join min_price_groups g on g.code = r.group_code
+order by g.name, r.valid_from desc, r.abv_from
 `
 
 type ListMinPriceRulesRow struct {
-	ID        uuid.UUID
-	KindCode  string
-	ValidFrom time.Time
-	Kopecks   int64
-	VolumeMl  int32
-	Abv       *float64
-	AbvOver   *float64
-	Source    string
+	ID              uuid.UUID
+	GroupCode       string
+	GroupName       string
+	ValidFrom       time.Time
+	AbvFrom         float64
+	AbvTo           *float64
+	Kopecks         int64
+	VolumeMl        int32
+	SamePriceOverMl *int32
+	Source          string
 }
 
 func (q *Queries) ListMinPriceRules(ctx context.Context) ([]ListMinPriceRulesRow, error) {
@@ -295,12 +322,14 @@ func (q *Queries) ListMinPriceRules(ctx context.Context) ([]ListMinPriceRulesRow
 		var i ListMinPriceRulesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.KindCode,
+			&i.GroupCode,
+			&i.GroupName,
 			&i.ValidFrom,
+			&i.AbvFrom,
+			&i.AbvTo,
 			&i.Kopecks,
 			&i.VolumeMl,
-			&i.Abv,
-			&i.AbvOver,
+			&i.SamePriceOverMl,
 			&i.Source,
 		); err != nil {
 			return nil, err

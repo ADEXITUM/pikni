@@ -1547,6 +1547,71 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /suppliers:
+    get:
+      operationId: listSuppliers
+      summary: Поставщики
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Поставщики по названию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSupplier
+      summary: Добавить поставщика
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierFields"
+      responses:
+        "201":
+          description: Поставщик добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /suppliers/{id}:
+    put:
+      operationId: updateSupplier
+      summary: Изменить поставщика
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierUpdate"
+      responses:
+        "200":
+          description: Поставщик изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -2359,6 +2424,10 @@ components:
           example: Водка
         egaisAccounting:
           $ref: "#/components/schemas/EgaisAccounting"
+        minPriceGroup:
+          type: string
+          description: Группа МРЦ, если для вида есть минимальная цена
+          example: Водка
 
     ProductKindList:
       type: object
@@ -2917,36 +2986,53 @@ components:
         giftPack:
           type: boolean
 
+    MinPriceGroup:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          example: vodka
+        name:
+          type: string
+          example: Водка
+
     NewMinPrice:
       type: object
-      required: [kindCode, validFrom, price, volumeMl, source]
+      required: [groupCode, validFrom, abvFrom, price, volumeMl, source]
+      description: Полоса крепости одной редакции МРЦ — строка приложения к приказу Минфина
       properties:
-        kindCode:
+        groupCode:
           type: string
-          example: "200"
+          example: vodka
         validFrom:
           type: string
           format: date
+        abvFrom:
+          type: number
+          format: double
+          description: Крепость «свыше», %; 0 — цена не зависит от крепости
+          example: 39
+        abvTo:
+          type: number
+          format: double
+          description: Крепость «до … включительно», %; пусто — без верхней границы
+          example: 40
         price:
           type: number
           format: double
           description: Цена эталонного объёма, рубли
-          example: 349
+          example: 409
         volumeMl:
           type: integer
           format: int32
           description: Эталонный объём; для другого объёма цена пересчитывается пропорционально
           example: 500
-        abv:
-          type: number
-          format: double
-          description: Эталонная крепость; если задана, цена пересчитывается и по крепости
-          example: 40
-        abvOver:
-          type: number
-          format: double
-          description: Правило действует только для продукции крепче этого значения
-          example: 28
+        samePriceOverMl:
+          type: integer
+          format: int32
+          description: Тара свыше этого объёма и до эталонного стоит как эталонная (у водки — 375)
+          example: 375
         source:
           type: string
           description: Приказ Минфина — основание
@@ -2955,20 +3041,26 @@ components:
       allOf:
         - $ref: "#/components/schemas/NewMinPrice"
         - type: object
-          required: [id]
+          required: [id, groupName]
           properties:
             id:
               type: string
               format: uuid
+            groupName:
+              type: string
 
     MinPriceList:
       type: object
-      required: [items]
+      required: [items, groups]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/MinPrice"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinPriceGroup"
 
     PriceKind:
       type: string
@@ -3017,6 +3109,83 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Price"
+
+    ReceivingMode:
+      type: string
+      enum: [document, boxes, sample, piece]
+      description: Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+
+    SupplierContacts:
+      type: object
+      properties:
+        person:
+          type: string
+          example: Иванова Мария, менеджер
+        phone:
+          type: string
+          example: +7 4162 00-00-00
+        email:
+          type: string
+          example: sales@example.ru
+
+    SupplierFields:
+      type: object
+      required: [name, inn, defaultReceivingMode, contacts]
+      properties:
+        name:
+          type: string
+          example: ООО «Амур-Дистрибуция»
+        inn:
+          type: string
+          x-go-name: INN
+          description: 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются
+        kpp:
+          type: string
+          x-go-name: KPP
+          description: 9 цифр; у предпринимателя КПП нет
+        fsrarId:
+          type: string
+          x-go-name: FSRARID
+          description: 12 цифр
+        licenseNo:
+          type: string
+        licenseValidTo:
+          type: string
+          format: date
+        defaultReceivingMode:
+          $ref: "#/components/schemas/ReceivingMode"
+        contacts:
+          $ref: "#/components/schemas/SupplierContacts"
+
+    Supplier:
+      allOf:
+        - $ref: "#/components/schemas/SupplierFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    SupplierUpdate:
+      allOf:
+        - $ref: "#/components/schemas/SupplierFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    SupplierList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Supplier"
 
     RuSubject:
       type: object

@@ -25,7 +25,7 @@ var problems = map[error]*echo.HTTPError{
 	ErrDuplicate:        echo.NewHTTPError(http.StatusConflict, "Такая запись уже есть"),
 	ErrUnknownReference: echo.NewHTTPError(http.StatusUnprocessableEntity, "Выбранной записи нет в справочнике"),
 	ErrEmptyName:        echo.NewHTTPError(http.StatusUnprocessableEntity, "Укажите название"),
-	ErrInvalidINN:       echo.NewHTTPError(http.StatusUnprocessableEntity, "ИНН — 10 или 12 цифр"),
+	ErrInvalidINN:       echo.NewHTTPError(http.StatusUnprocessableEntity, "ИНН — 10 или 12 цифр, контрольные цифры должны сходиться"),
 	ErrInvalidVolume:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Объём — от 10 до 30 000 мл"),
 	ErrInvalidEgaisType: echo.NewHTTPError(http.StatusUnprocessableEntity, "Неизвестный тип списания ЕГАИС"),
 
@@ -65,6 +65,13 @@ var problems = map[error]*echo.HTTPError{
 	ErrPriceInEffect:    echo.NewHTTPError(http.StatusConflict, "Цена уже действует — это история, её не отменить. Назначьте новую"),
 	ErrMinPriceInEffect: echo.NewHTTPError(http.StatusConflict, "Редакция МРЦ уже действует, удалить можно только будущую"),
 	ErrInvalidMinPrice:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Проверьте МРЦ: цена и объём больше нуля, крепость от 0 до 100 %, основание указано"),
+
+	ErrInvalidKPP:           echo.NewHTTPError(http.StatusUnprocessableEntity, "КПП — 9 цифр; у предпринимателя КПП нет"),
+	ErrInvalidFSRARID:       echo.NewHTTPError(http.StatusUnprocessableEntity, "ФСРАР ID — 12 цифр"),
+	ErrFSRARIDTaken:         echo.NewHTTPError(http.StatusConflict, "Этот ФСРАР ID уже у другого поставщика"),
+	ErrSupplierExists:       echo.NewHTTPError(http.StatusConflict, "Поставщик с таким ИНН и КПП уже есть"),
+	ErrInvalidReceivingMode: echo.NewHTTPError(http.StatusUnprocessableEntity, "Неизвестный режим приёмки"),
+	ErrInvalidEmail:         echo.NewHTTPError(http.StatusUnprocessableEntity, "Проверьте адрес электронной почты"),
 }
 
 var attributeReasons = map[error]string{
@@ -115,8 +122,8 @@ func (h *Handler) ListCountries(ctx context.Context, _ apispec.ListCountriesRequ
 
 func (h *Handler) ListProductKinds(ctx context.Context, _ apispec.ListProductKindsRequestObject) (apispec.ListProductKindsResponseObject, error) {
 	rows, err := h.svc.ProductKinds(ctx)
-	items, err := list(rows, err, func(k store.ProductKind) apispec.ProductKind {
-		return apispec.ProductKind{Code: k.Code, Name: k.Name, EgaisAccounting: apispec.EgaisAccounting(k.EgaisAccounting)}
+	items, err := list(rows, err, func(k store.ListProductKindsRow) apispec.ProductKind {
+		return apispec.ProductKind{Code: k.Code, Name: k.Name, EgaisAccounting: apispec.EgaisAccounting(k.EgaisAccounting), MinPriceGroup: k.MinPriceGroup}
 	})
 	if err != nil {
 		return nil, err

@@ -70,9 +70,10 @@ where id = @id
 returning id, producer_id, name, is_active;
 
 -- name: ListProductKinds :many
-select code, name, egais_accounting
-from product_kinds
-order by code;
+select k.code, k.name, k.egais_accounting, g.name as min_price_group
+from product_kinds k
+left join min_price_groups g on g.code = k.min_price_group
+order by k.code;
 
 -- name: ListVolumes :many
 select ml, is_active
