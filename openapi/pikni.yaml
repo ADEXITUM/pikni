@@ -85,6 +85,51 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /auth/sessions:
+    get:
+      operationId: listMySessions
+      summary: Мои активные сеансы
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "200":
+          description: Сеансы от последней активности к ранней
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionList"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: endOtherSessions
+      summary: Завершить все свои сеансы, кроме текущего
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "204":
+          description: Остальные сеансы завершены
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/sessions/{id}:
+    delete:
+      operationId: endSession
+      summary: Завершить свой сеанс
+      tags: [auth]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Сеанс завершён
+        default:
+          $ref: "#/components/responses/Problem"
+
   /audit:
     get:
       operationId: listAuditLog
@@ -230,6 +275,7 @@ components:
         - auth.login_failed
         - auth.logout
         - auth.password_changed
+        - auth.session_ended
         - user.created
         - user.password_reset
 
@@ -286,6 +332,37 @@ components:
           type: integer
           format: int64
           description: Курсор следующей страницы; нет, если это последняя
+
+    SessionInfo:
+      type: object
+      required: [id, current, createdAt, lastSeenAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        current:
+          type: boolean
+          description: Сеанс, из которого сделан запрос
+        ip:
+          type: string
+        userAgent:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+          description: Обновляется не чаще раза в 5 минут
+
+    SessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionInfo"
 
     LoginRequest:
       type: object

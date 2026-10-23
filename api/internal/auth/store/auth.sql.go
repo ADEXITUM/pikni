@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,7 +45,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (u
 	return id, err
 }
 
-const deleteOtherSessions = `-- name: DeleteOtherSessions :exec
+const deleteOtherSessions = `-- name: DeleteOtherSessions :execrows
 delete from sessions
 where user_id = $1
   and id <> $2
@@ -55,9 +56,12 @@ type DeleteOtherSessionsParams struct {
 	KeepID uuid.UUID
 }
 
-func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error {
-	_, err := q.db.Exec(ctx, deleteOtherSessions, arg.UserID, arg.KeepID)
-	return err
+func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOtherSessions, arg.UserID, arg.KeepID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteSession = `-- name: DeleteSession :exec
@@ -68,6 +72,25 @@ where id = $1
 func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSession, id)
 	return err
+}
+
+const deleteUserSession = `-- name: DeleteUserSession :execrows
+delete from sessions
+where id = $1
+  and user_id = $2
+`
+
+type DeleteUserSessionParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) DeleteUserSession(ctx context.Context, arg DeleteUserSessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUserSession, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getPasswordHash = `-- name: GetPasswordHash :one
@@ -180,6 +203,55 @@ func (q *Queries) ListLocationIDs(ctx context.Context) ([]uuid.UUID, error) {
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserSessions = `-- name: ListUserSessions :many
+select id, ip, user_agent, created_at, last_seen_at
+from sessions
+where user_id = $1
+  and expires_at > $2
+  and last_seen_at > $3
+order by last_seen_at desc
+`
+
+type ListUserSessionsParams struct {
+	UserID    uuid.UUID
+	Now       time.Time
+	IdleSince time.Time
+}
+
+type ListUserSessionsRow struct {
+	ID         uuid.UUID
+	IP         *netip.Addr
+	UserAgent  *string
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+}
+
+func (q *Queries) ListUserSessions(ctx context.Context, arg ListUserSessionsParams) ([]ListUserSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listUserSessions, arg.UserID, arg.Now, arg.IdleSince)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserSessionsRow
+	for rows.Next() {
+		var i ListUserSessionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.IP,
+			&i.UserAgent,
+			&i.CreatedAt,
+			&i.LastSeenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

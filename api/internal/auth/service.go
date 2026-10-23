@@ -251,10 +251,51 @@ func (s *Service) ChangePassword(ctx context.Context, sess Session, current, nex
 		if err := q.SetPassword(ctx, store.SetPasswordParams{ID: sess.UserID, PasswordHash: newHash}); err != nil {
 			return fmt.Errorf("set password: %w", err)
 		}
-		if err := q.DeleteOtherSessions(ctx, store.DeleteOtherSessionsParams{UserID: sess.UserID, KeepID: sess.ID}); err != nil {
+		if _, err := q.DeleteOtherSessions(ctx, store.DeleteOtherSessionsParams{UserID: sess.UserID, KeepID: sess.ID}); err != nil {
 			return fmt.Errorf("delete other sessions: %w", err)
 		}
 		return audit.Record(ctx, tx, audit.Event{Action: apispec.AuditActionAuthPasswordChanged})
+	})
+}
+
+func (s *Service) ListSessions(ctx context.Context, sess Session) ([]store.ListUserSessionsRow, error) {
+	now := s.now()
+	return s.q.ListUserSessions(ctx, store.ListUserSessionsParams{
+		UserID: sess.UserID, Now: now, IdleSince: now.Add(-idleTimeout),
+	})
+}
+
+// EndSession завершает один из сеансов пользователя. Чужой сеанс для него не существует.
+func (s *Service) EndSession(ctx context.Context, sess Session, id uuid.UUID) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		n, err := s.q.WithTx(tx).DeleteUserSession(ctx, store.DeleteUserSessionParams{ID: id, UserID: sess.UserID})
+		if err != nil {
+			return fmt.Errorf("delete session: %w", err)
+		}
+		if n == 0 {
+			return ErrNoSession
+		}
+		return audit.Record(ctx, tx, audit.Event{
+			Action:     apispec.AuditActionAuthSessionEnded,
+			EntityType: audit.EntitySession,
+			EntityID:   id.String(),
+		})
+	})
+}
+
+func (s *Service) EndOtherSessions(ctx context.Context, sess Session) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		n, err := s.q.WithTx(tx).DeleteOtherSessions(ctx, store.DeleteOtherSessionsParams{UserID: sess.UserID, KeepID: sess.ID})
+		if err != nil {
+			return fmt.Errorf("delete other sessions: %w", err)
+		}
+		if n == 0 {
+			return nil
+		}
+		return audit.Record(ctx, tx, audit.Event{
+			Action: apispec.AuditActionAuthSessionEnded,
+			Data:   map[string]any{"count": n},
+		})
 	})
 }
 

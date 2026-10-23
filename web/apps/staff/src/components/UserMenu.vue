@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  mdiKeyOutline,
+  mdiAccountCircleOutline,
   mdiLogout,
   mdiThemeLightDark,
   mdiWeatherNight,
@@ -66,9 +66,9 @@ const themePreference = computed<ThemePreference>({
       <v-divider />
       <v-list density="compact">
         <v-list-item
-          :prepend-icon="mdiKeyOutline"
-          title="Сменить пароль"
-          :to="{ name: 'change-password' }"
+          :prepend-icon="mdiAccountCircleOutline"
+          title="Профиль и сеансы"
+          :to="{ name: 'profile' }"
         />
         <v-list-item :prepend-icon="mdiLogout" title="Выйти" @click="logout()" />
       </v-list>

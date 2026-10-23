@@ -26,6 +26,12 @@ const router = createRouter({
       meta: { title: 'Точки сети', permission: 'refs.view' },
     },
     {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/pages/ProfilePage.vue'),
+      meta: { title: 'Профиль' },
+    },
+    {
       path: '/forbidden',
       name: 'forbidden',
       component: () => import('@/pages/ForbiddenPage.vue'),

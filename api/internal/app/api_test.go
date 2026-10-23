@@ -188,6 +188,35 @@ func TestAuditLogAccess(t *testing.T) {
 	}
 }
 
+func TestMySessions(t *testing.T) {
+	t.Parallel()
+	pc, db := newBrowser(t)
+	createStaff(t, db, "petrova", apispec.RoleStoreManager)
+	phone := &browser{t: t, e: pc.e, header: http.Header{"User-Agent": {"Phone"}}}
+	pc.login("petrova")
+	phone.login("petrova")
+
+	rec := pc.do(http.MethodGet, "/auth/sessions", nil, http.StatusOK)
+	var list apispec.SessionList
+	if err := json.NewDecoder(rec.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	current := 0
+	for _, s := range list.Items {
+		if s.Current {
+			current++
+		}
+	}
+	if len(list.Items) != 2 || current != 1 {
+		t.Fatalf("sessions = %+v, want 2 with one current", list.Items)
+	}
+
+	pc.do(http.MethodDelete, "/auth/sessions", nil, http.StatusNoContent)
+	phone.do(http.MethodGet, "/auth/me", nil, http.StatusUnauthorized)
+	pc.do(http.MethodGet, "/auth/me", nil, http.StatusOK)
+	pc.do(http.MethodDelete, "/auth/sessions/"+uuid.NewString(), nil, http.StatusNotFound)
+}
+
 func TestMeShowsWorkLocations(t *testing.T) {
 	t.Parallel()
 	b, db := newBrowser(t)

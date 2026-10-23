@@ -282,3 +282,66 @@ func TestLoginWritesAudit(t *testing.T) {
 		t.Errorf("leaked=%d login_with_actor=%d err=%v", leaked, login, err)
 	}
 }
+
+func TestSessionManagement(t *testing.T) {
+	t.Parallel()
+	svc, db, clock := newTestService(t)
+	ctx := t.Context()
+	createUser(t, db, "petrova", "пароль-петровой")
+	createUser(t, db, "ivanov", "пароль-иванова")
+
+	login := func(user, pass string) (Session, string) {
+		t.Helper()
+		sess, token, err := svc.Login(ctx, user, pass, Client{UserAgent: "Chrome"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sess, token
+	}
+	current, _ := login("petrova", "пароль-петровой")
+	phone, _ := login("petrova", "пароль-петровой")
+	login("petrova", "пароль-петровой")
+	stranger, strangerToken := login("ivanov", "пароль-иванова")
+
+	count := func() int {
+		t.Helper()
+		list, err := svc.ListSessions(ctx, current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(list)
+	}
+	if n := count(); n != 3 {
+		t.Fatalf("sessions = %d, want 3 own sessions", n)
+	}
+
+	if err := svc.EndSession(ctx, current, stranger.ID); !errors.Is(err, ErrNoSession) {
+		t.Errorf("ending someone else's session: error = %v, want ErrNoSession", err)
+	}
+	if err := svc.EndSession(ctx, current, phone.ID); err != nil {
+		t.Fatalf("EndSession() error = %v", err)
+	}
+	if n := count(); n != 2 {
+		t.Errorf("after EndSession: %d sessions, want 2", n)
+	}
+
+	if err := svc.EndOtherSessions(ctx, current); err != nil {
+		t.Fatalf("EndOtherSessions() error = %v", err)
+	}
+	if n := count(); n != 1 {
+		t.Errorf("after EndOtherSessions: %d sessions, want only the current one", n)
+	}
+	if _, err := svc.Authenticate(ctx, strangerToken); err != nil {
+		t.Errorf("another user's session was ended: %v", err)
+	}
+
+	var ended int
+	if err := db.App.QueryRow(ctx, `select count(*) from audit_log where action = 'auth.session_ended'`).Scan(&ended); err != nil || ended != 2 {
+		t.Errorf("auth.session_ended entries = %d (%v), want 2", ended, err)
+	}
+
+	*clock = clock.Add(idleTimeout + time.Minute)
+	if n := count(); n != 0 {
+		t.Errorf("expired sessions are listed: %d", n)
+	}
+}

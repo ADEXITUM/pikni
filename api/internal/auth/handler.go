@@ -68,6 +68,51 @@ func (h *Handler) GetMe(ctx context.Context, _ apispec.GetMeRequestObject) (apis
 	return apispec.GetMe200JSONResponse(me), nil
 }
 
+func (h *Handler) ListMySessions(ctx context.Context, _ apispec.ListMySessionsRequestObject) (apispec.ListMySessionsResponseObject, error) {
+	sess, _ := FromContext(ctx)
+	rows, err := h.svc.ListSessions(ctx, sess)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]apispec.SessionInfo, 0, len(rows))
+	for _, r := range rows {
+		item := apispec.SessionInfo{
+			ID:         r.ID,
+			Current:    r.ID == sess.ID,
+			UserAgent:  r.UserAgent,
+			CreatedAt:  r.CreatedAt,
+			LastSeenAt: r.LastSeenAt,
+		}
+		if r.IP != nil {
+			ip := r.IP.String()
+			item.IP = &ip
+		}
+		items = append(items, item)
+	}
+	return apispec.ListMySessions200JSONResponse{Items: items}, nil
+}
+
+func (h *Handler) EndSession(ctx context.Context, req apispec.EndSessionRequestObject) (apispec.EndSessionResponseObject, error) {
+	sess, _ := FromContext(ctx)
+	err := h.svc.EndSession(ctx, sess, req.ID)
+	if errors.Is(err, ErrNoSession) {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "Сеанс не найден или уже завершён")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return apispec.EndSession204Response{}, nil
+}
+
+func (h *Handler) EndOtherSessions(ctx context.Context, _ apispec.EndOtherSessionsRequestObject) (apispec.EndOtherSessionsResponseObject, error) {
+	sess, _ := FromContext(ctx)
+	if err := h.svc.EndOtherSessions(ctx, sess); err != nil {
+		return nil, err
+	}
+	return apispec.EndOtherSessions204Response{}, nil
+}
+
 var changePasswordErrors = map[error]string{
 	ErrWrongPassword:        "Текущий пароль указан неверно",
 	ErrSamePassword:         "Новый пароль должен отличаться от текущего",

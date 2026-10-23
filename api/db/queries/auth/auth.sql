@@ -43,7 +43,7 @@ where id = @id;
 delete from sessions
 where id = @id;
 
--- name: DeleteOtherSessions :exec
+-- name: DeleteOtherSessions :execrows
 delete from sessions
 where user_id = @user_id
   and id <> @keep_id;
@@ -65,3 +65,16 @@ where id = @id;
 select id
 from locations
 order by code;
+
+-- name: ListUserSessions :many
+select id, ip, user_agent, created_at, last_seen_at
+from sessions
+where user_id = @user_id
+  and expires_at > @now
+  and last_seen_at > @idle_since
+order by last_seen_at desc;
+
+-- name: DeleteUserSession :execrows
+delete from sessions
+where id = @id
+  and user_id = @user_id;

@@ -12,7 +12,10 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/audit/store"
 )
 
-const EntityUser = "user"
+const (
+	EntitySession = "session"
+	EntityUser    = "user"
+)
 
 // DB — пул или транзакция. Запись передают транзакцию самого изменения,
 // чтобы изменение и запись о нём сохранились вместе.

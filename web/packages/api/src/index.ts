@@ -10,6 +10,7 @@ export type Me = components['schemas']['Me']
 export type Permission = components['schemas']['Permission']
 export type Problem = components['schemas']['Problem']
 export type Role = components['schemas']['Role']
+export type SessionInfo = components['schemas']['SessionInfo']
 
 export const api = createClient<paths>({ baseUrl: '/api/v1' })
 
