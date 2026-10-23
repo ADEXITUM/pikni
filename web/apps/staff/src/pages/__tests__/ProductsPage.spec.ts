@@ -90,4 +90,32 @@ describe('ProductsPage', () => {
     await wrapper.find('tbody tr').trigger('click')
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/products/p1'))
   })
+
+  it('скан со сканера ищется сразу по Enter и показывает, как понят код', async () => {
+    const mark = '20N00001CGUMZYCB99J1NKN31105001000056NQQMS5VP4HTF5SB46ZSQQJD8BNJP891'
+    vi.mocked(api.GET).mockImplementation(((
+      path: string,
+      init?: { params?: { query?: { q?: string } } },
+    ) =>
+      Promise.resolve({
+        data:
+          path === '/products'
+            ? init?.params?.query?.q === mark
+              ? { items: [taiga], scan: { kind: 'egais_mark', code: '0177207000002463655' } }
+              : { items: [] }
+            : { items: [], categories: [], attributes: [] },
+        response: new Response(),
+      })) as never)
+    const { wrapper } = await mountPage()
+
+    const input = wrapper.find('[data-test="search"] input')
+    await input.setValue(mark)
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="scan"]').text()).toBe(
+      'Поиск по коду: марка ЕГАИС, алкокод 0177207000002463655',
+    )
+    expect(wrapper.find('tbody tr').text()).toContain('ЧК-000001')
+  })
 })

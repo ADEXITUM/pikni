@@ -42,6 +42,7 @@ export type SaleCheck = components['schemas']['SaleCheck']
 export type SaleRule = components['schemas']['SaleRule']
 export type SaleScope = components['schemas']['SaleScope']
 export type SaleVerdict = components['schemas']['SaleVerdict']
+export type ScanKind = components['schemas']['ScanKind']
 export type SessionInfo = components['schemas']['SessionInfo']
 export type User = components['schemas']['User']
 

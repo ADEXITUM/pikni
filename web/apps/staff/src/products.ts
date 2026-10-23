@@ -1,4 +1,4 @@
-import type { CategoryAttribute, Container, EgaisAccounting, Variant } from '@pikni/api'
+import type { CategoryAttribute, Container, EgaisAccounting, ScanKind, Variant } from '@pikni/api'
 
 import { formatVolume } from '@/refs'
 
@@ -11,6 +11,15 @@ export const accountingLabels: Record<EgaisAccounting | 'none', string> = {
 }
 
 export const formatAbv = (abv: number) => `${abv.toLocaleString('ru')} %`
+
+// Как сервер понял поисковую строку.
+export const scanLabels: Record<ScanKind, string> = {
+  barcode: 'штрихкод',
+  alcocode: 'алкокод',
+  egais_mark: 'марка ЕГАИС, алкокод',
+  egais_mark_new: 'марка нового образца',
+  crpt_code: 'код «Честного знака», GTIN',
+}
 
 export const containerLabels: Record<Container, string> = {
   glass: 'стекло',

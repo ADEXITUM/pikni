@@ -1468,6 +1468,18 @@ export interface components {
              * @description Если есть — параметр after для следующей страницы
              */
             nextAfter?: string;
+            scan?: components["schemas"]["ScanResult"];
+        };
+        /**
+         * @description Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
+         * @enum {string}
+         */
+        ScanKind: "barcode" | "alcocode" | "egais_mark" | "egais_mark_new" | "crpt_code";
+        /** @description Есть, если поисковая строка похожа на код или скан */
+        ScanResult: {
+            kind: components["schemas"]["ScanKind"];
+            /** @description Что искали — штрихкод, алкокод или GTIN; для марки нового образца — её тип, серия и номер */
+            code: string;
         };
         /**
          * @description glass — стекло, pet — ПЭТ, can — банка
@@ -2815,7 +2827,7 @@ export interface operations {
     listProducts: {
         parameters: {
             query?: {
-                /** @description Часть названия или артикула */
+                /** @description Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки */
                 q?: string;
                 /** @description Категория вместе с подкатегориями */
                 categoryId?: string;

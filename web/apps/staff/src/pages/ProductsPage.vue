@@ -6,7 +6,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { categoryItems } from '@/categories'
-import { accountingLabels, formatAbv } from '@/products'
+import { accountingLabels, formatAbv, scanLabels } from '@/products'
 import { brandsQuery, categoriesQuery } from '@/queries'
 import { useMe } from '@/session'
 
@@ -21,13 +21,18 @@ const filters = reactive({
 })
 
 // Поиск уходит на сервер через 300 мс после последней буквы, а не на каждое нажатие.
+// Сканер в режиме клавиатуры заканчивает код клавишей Enter — тогда ищем сразу.
 const search = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
+function applySearch() {
+  clearTimeout(timer)
+  search.value = (filters.search ?? '').trim()
+}
 watch(
   () => filters.search,
-  (value) => {
+  () => {
     clearTimeout(timer)
-    timer = setTimeout(() => (search.value = (value ?? '').trim()), 300)
+    timer = setTimeout(applySearch, 300)
   },
 )
 
@@ -51,6 +56,7 @@ const { data, isPending, isError, error, hasNextPage, fetchNextPage, isFetchingN
     getNextPageParam: (page) => page.nextAfter,
   })
 const products = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
+const scan = computed(() => data.value?.pages[0]?.scan)
 
 const { data: tree } = useQuery(categoriesQuery)
 const { data: brands } = useQuery(brandsQuery)
@@ -99,9 +105,10 @@ function open(_: Event, { item }: { item: Product }) {
         <v-text-field
           v-model="filters.search"
           :prepend-inner-icon="mdiMagnify"
-          label="Название или артикул"
+          label="Название, артикул, штрихкод или скан марки"
           clearable
           data-test="search"
+          @keydown.enter="applySearch()"
         />
       </v-col>
       <v-col cols="12" sm="6" md="4">
@@ -125,6 +132,20 @@ function open(_: Event, { item }: { item: Product }) {
         />
       </v-col>
     </v-row>
+
+    <v-alert
+      v-if="scan?.kind === 'egais_mark_new'"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+      data-test="scan"
+    >
+      Марка нового образца {{ scan.code }} не содержит алкокода. Товар по ней найдётся после
+      приёмки, когда марка попадёт в систему из документов ЕГАИС.
+    </v-alert>
+    <p v-else-if="scan" class="text-body-2 text-medium-emphasis mb-3" data-test="scan">
+      Поиск по коду: {{ scanLabels[scan.kind] }} {{ scan.code }}
+    </p>
 
     <v-alert v-if="isError" type="error" title="Не удалось загрузить товары" class="mb-4">
       {{ error?.message }}
