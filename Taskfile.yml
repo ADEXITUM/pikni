@@ -53,6 +53,12 @@ tasks:
       - task: migrate
       - task: seed
 
+  admin:
+    desc: 'Учётные записи из консоли: task admin -- create-admin -login admin'
+    dir: api
+    cmds:
+      - go run ./cmd/admin {{.CLI_ARGS}}
+
   psql:
     desc: Открыть консоль psql
     interactive: true

@@ -5,6 +5,7 @@ go 1.27.0
 toolchain go1.27.3
 
 require (
+	github.com/alexedwards/argon2id v1.0.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/exaring/otelpgx v0.13.0
 	github.com/getkin/kin-openapi v0.144.0

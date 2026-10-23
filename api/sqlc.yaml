@@ -1,4 +1,11 @@
 version: "2"
+overrides:
+  go:
+    overrides:
+      - db_type: uuid
+        go_type: github.com/google/uuid.UUID
+      - db_type: timestamptz
+        go_type: time.Time
 sql:
   - engine: postgresql
     schema: db/migrations
@@ -9,8 +16,12 @@ sql:
         out: internal/locations/store
         sql_package: pgx/v5
         omit_unused_structs: true
-        overrides:
-          - db_type: uuid
-            go_type: github.com/google/uuid.UUID
-          - db_type: timestamptz
-            go_type: time.Time
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/users
+    gen:
+      go:
+        package: store
+        out: internal/users/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
