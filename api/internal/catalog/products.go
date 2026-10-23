@@ -35,10 +35,41 @@ type ProductFilter struct {
 	Limit               int32
 }
 
-func (s *Service) Products(ctx context.Context, f ProductFilter) ([]store.ProductCard, error) {
-	return s.q.ListProducts(ctx, store.ListProductsParams{
-		After: f.After, Search: optional(&f.Search), CategoryID: f.CategoryID, BrandID: f.BrandID, MaxRows: f.Limit,
-	})
+// Products ищет позиции (НСИ-8). Если поисковая строка похожа на код или скан, второе значение
+// говорит, как она понята: что именно искали и в каком поле.
+func (s *Service) Products(ctx context.Context, f ProductFilter) ([]store.ProductCard, *Scan, error) {
+	params := store.ListProductsParams{After: f.After, CategoryID: f.CategoryID, BrandID: f.BrandID, MaxRows: f.Limit}
+	q := strings.TrimSpace(f.Search)
+	if q == "" {
+		rows, err := s.q.ListProducts(ctx, params)
+		return rows, nil, err
+	}
+
+	params.Searching = true
+	scan, ok := parseScan(q)
+	switch {
+	case !ok:
+		params.Article, params.Words = likePattern(q), tsquery(q)
+	case scan.Kind == apispec.ScanKindEgaisMarkNew:
+		// В марке нового образца нет алкокода: товар по ней находится только по документам приёмки.
+		return []store.ProductCard{}, &scan, nil
+	case scan.Kind == apispec.ScanKindEgaisMark, scan.Kind == apispec.ScanKindAlcocode:
+		params.Alcocode = &scan.Code
+	case scan.Kind == apispec.ScanKindCrptCode:
+		params.Gtin = &scan.Code
+	default:
+		params.Code = &scan.Code
+		params.Gtin, _ = normalizeGTIN(&scan.Code)
+	}
+	// Цифры могут оказаться и частью артикула.
+	if ok && (scan.Kind == apispec.ScanKindBarcode || scan.Kind == apispec.ScanKindAlcocode) {
+		params.Article = likePattern(q)
+	}
+	rows, err := s.q.ListProducts(ctx, params)
+	if !ok {
+		return rows, nil, err
+	}
+	return rows, &scan, err
 }
 
 func (s *Service) Product(ctx context.Context, id uuid.UUID) (store.ProductCard, error) {

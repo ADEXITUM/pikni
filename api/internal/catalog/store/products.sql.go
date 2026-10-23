@@ -225,7 +225,7 @@ func (q *Queries) ListProductLines(ctx context.Context) ([]ProductLine, error) {
 
 const listProducts = `-- name: ListProducts :many
 with recursive subtree as (
-    select c.id from categories c where c.id = $3::uuid
+    select c.id from categories c where c.id = $8::uuid
     union all
     select c.id from categories c join subtree s on c.parent_id = s.id
 )
@@ -233,28 +233,44 @@ select p.id, p.article, p.name, p.category_id, p.category_name, p.kind_code, p.e
 from product_cards p
 where ($1::uuid is null
        or (p.name, p.id) > (select a.name, a.id from products a where a.id = $1::uuid))
-  and ($2::text is null
-       or p.name ilike '%' || $2::text || '%'
-       or p.article ilike '%' || $2::text || '%')
-  and ($3::uuid is null or p.category_id in (select s.id from subtree s))
-  and ($4::uuid is null or p.brand_id = $4::uuid)
+  and (not $2::boolean
+       or p.article ilike '%' || $3::text || '%'
+       or p.id in (select x.id from products x where x.search @@ to_tsquery('russian', $4::text))
+       or p.id in (select v.product_id from variants v
+                   where v.alcocode = $5::text or v.gtin = $6::text)
+       or p.id in (select v.product_id from barcodes b join variants v on v.id = b.variant_id
+                   where b.code = $7::text))
+  and ($8::uuid is null or p.category_id in (select s.id from subtree s))
+  and ($9::uuid is null or p.brand_id = $9::uuid)
 order by p.name, p.id
-limit $5
+limit $10
 `
 
 type ListProductsParams struct {
 	After      *uuid.UUID
-	Search     *string
+	Searching  bool
+	Article    *string
+	Words      *string
+	Alcocode   *string
+	Gtin       *string
+	Code       *string
 	CategoryID *uuid.UUID
 	BrandID    *uuid.UUID
 	MaxRows    int32
 }
 
 // Пустой фильтр (null) не ограничивает выборку. Страницы идут по (name, id) после позиции after.
+// При поиске позиция подходит, если совпало хоть что-то: часть артикула, слова наименования,
+// алкокод, GTIN или штрихкод одного из вариантов.
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ProductCard, error) {
 	rows, err := q.db.Query(ctx, listProducts,
 		arg.After,
-		arg.Search,
+		arg.Searching,
+		arg.Article,
+		arg.Words,
+		arg.Alcocode,
+		arg.Gtin,
+		arg.Code,
 		arg.CategoryID,
 		arg.BrandID,
 		arg.MaxRows,

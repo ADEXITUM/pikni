@@ -43,13 +43,16 @@ func (h *Handler) ListProducts(ctx context.Context, req apispec.ListProductsRequ
 	if p.Q != nil {
 		f.Search = *p.Q
 	}
-	rows, err := h.svc.Products(ctx, f)
+	rows, scan, err := h.svc.Products(ctx, f)
 	if err != nil {
 		return nil, err
 	}
 
 	// Запрошена лишняя строка: если она пришла, есть следующая страница.
 	page := apispec.ListProducts200JSONResponse{Items: make([]apispec.Product, 0, min(len(rows), limit))}
+	if scan != nil {
+		page.Scan = &apispec.ScanResult{Kind: scan.Kind, Code: scan.Code}
+	}
 	for i, r := range rows {
 		if i == limit {
 			page.NextAfter = &page.Items[limit-1].ID

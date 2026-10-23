@@ -1131,7 +1131,7 @@ paths:
       parameters:
         - name: q
           in: query
-          description: Часть названия или артикула
+          description: Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки
           schema:
             type: string
         - name: categoryId
@@ -2604,6 +2604,28 @@ components:
           type: string
           format: uuid
           description: Если есть — параметр after для следующей страницы
+        scan:
+          $ref: "#/components/schemas/ScanResult"
+
+    ScanKind:
+      type: string
+      enum: [barcode, alcocode, egais_mark, egais_mark_new, crpt_code]
+      description: >
+        Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод,
+        egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод),
+        egais_mark_new — марка нового образца (150 символов, алкокода в ней нет),
+        crpt_code — код «Честного знака» (из него взят GTIN)
+
+    ScanResult:
+      type: object
+      required: [kind, code]
+      description: Есть, если поисковая строка похожа на код или скан
+      properties:
+        kind:
+          $ref: "#/components/schemas/ScanKind"
+        code:
+          type: string
+          description: Что искали — штрихкод, алкокод или GTIN; для марки нового образца — её тип, серия и номер
 
     Container:
       type: string

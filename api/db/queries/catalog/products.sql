@@ -22,6 +22,8 @@ returning id, brand_id, name, is_active;
 
 -- name: ListProducts :many
 -- Пустой фильтр (null) не ограничивает выборку. Страницы идут по (name, id) после позиции after.
+-- При поиске позиция подходит, если совпало хоть что-то: часть артикула, слова наименования,
+-- алкокод, GTIN или штрихкод одного из вариантов.
 with recursive subtree as (
     select c.id from categories c where c.id = sqlc.narg(category_id)::uuid
     union all
@@ -31,9 +33,13 @@ select p.*
 from product_cards p
 where (sqlc.narg(after)::uuid is null
        or (p.name, p.id) > (select a.name, a.id from products a where a.id = sqlc.narg(after)::uuid))
-  and (sqlc.narg(search)::text is null
-       or p.name ilike '%' || sqlc.narg(search)::text || '%'
-       or p.article ilike '%' || sqlc.narg(search)::text || '%')
+  and (not @searching::boolean
+       or p.article ilike '%' || sqlc.narg(article)::text || '%'
+       or p.id in (select x.id from products x where x.search @@ to_tsquery('russian', sqlc.narg(words)::text))
+       or p.id in (select v.product_id from variants v
+                   where v.alcocode = sqlc.narg(alcocode)::text or v.gtin = sqlc.narg(gtin)::text)
+       or p.id in (select v.product_id from barcodes b join variants v on v.id = b.variant_id
+                   where b.code = sqlc.narg(code)::text))
   and (sqlc.narg(category_id)::uuid is null or p.category_id in (select s.id from subtree s))
   and (sqlc.narg(brand_id)::uuid is null or p.brand_id = sqlc.narg(brand_id)::uuid)
 order by p.name, p.id

@@ -245,7 +245,7 @@ func TestListProducts(t *testing.T) {
 		if filter.Limit == 0 {
 			filter.Limit = 50
 		}
-		rows, err := f.svc.Products(ctx, filter)
+		rows, _, err := f.svc.Products(ctx, filter)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -270,7 +270,7 @@ func TestListProducts(t *testing.T) {
 		t.Errorf("by brand = %s", got)
 	}
 
-	first, err := f.svc.Products(ctx, catalog.ProductFilter{Limit: 2})
+	first, _, err := f.svc.Products(ctx, catalog.ProductFilter{Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
