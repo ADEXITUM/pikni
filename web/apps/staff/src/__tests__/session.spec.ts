@@ -55,6 +55,12 @@ describe('sessionGuard', () => {
     )
   })
 
+  it('без права на раздел ведёт на страницу «Нет доступа»', async () => {
+    const audit = to('/audit', { meta: { permission: 'audit.view' } })
+    expect(await sessionGuard(clientWith(me), audit)).toEqual({ name: 'forbidden' })
+    expect(await sessionGuard(clientWith({ ...me, permissions: ['audit.view'] }), audit)).toBe(true)
+  })
+
   it('вошедшего со страницы входа возвращает туда, откуда он пришёл', async () => {
     const login = to('/login', { meta: { public: true }, query: { redirect: '/audit' } })
     expect(await sessionGuard(clientWith(me), login)).toBe('/audit')

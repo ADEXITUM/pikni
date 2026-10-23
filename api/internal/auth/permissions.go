@@ -147,3 +147,16 @@ func AllowedLocations(ctx context.Context, p apispec.Permission) ([]uuid.UUID, e
 	}
 	return nil, ErrForbidden
 }
+
+// CheckLocation проверяет точку, которую прислал клиент. Выбор точки в интерфейсе —
+// только подсказка, поэтому её проверяет каждый метод, принимающий точку.
+func CheckLocation(ctx context.Context, p apispec.Permission, location uuid.UUID) error {
+	allowed, err := AllowedLocations(ctx, p)
+	if err != nil {
+		return err
+	}
+	if allowed != nil && !slices.Contains(allowed, location) {
+		return ErrForbidden
+	}
+	return nil
+}

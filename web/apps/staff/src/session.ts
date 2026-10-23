@@ -1,11 +1,24 @@
-import { api, ApiError, type Me, type Middleware } from '@pikni/api'
+import { api, ApiError, type Me, type Middleware, type Permission } from '@pikni/api'
 import { queryOptions, useQuery, useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import {
   useRouter,
   type RouteLocationNormalized,
   type RouteLocationRaw,
+  type RouteMeta,
   type Router,
 } from 'vue-router'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string
+    // Страница доступна без входа.
+    public?: boolean
+    // Страница без шапки приложения.
+    bare?: boolean
+    // Право, без которого раздел не открывается и не виден в меню.
+    permission?: Permission
+  }
+}
 
 // Кто вошёл — это данные сервера, поэтому они живут в кеше запросов, как любые другие.
 // null — сессии нет. Перезапрашиваются только явно: при входе, выходе и смене пароля.
@@ -44,6 +57,10 @@ export function safeRedirect(value: unknown): string {
   return ok ? value : '/'
 }
 
+export function canOpen(me: Me, to: { meta: RouteMeta }): boolean {
+  return !to.meta.permission || me.permissions.includes(to.meta.permission)
+}
+
 export async function sessionGuard(
   client: QueryClient,
   to: RouteLocationNormalized,
@@ -58,6 +75,9 @@ export async function sessionGuard(
   }
   if (me.mustChangePassword && to.name !== 'change-password') {
     return { name: 'change-password', query: { redirect: to.fullPath } }
+  }
+  if (!canOpen(me, to)) {
+    return { name: 'forbidden' }
   }
   return true
 }

@@ -48,7 +48,10 @@ async function submit(event: SubmitEventPromise) {
 </script>
 
 <template>
-  <AuthCard title="Придумайте пароль" :mascot="mascotIdle">
+  <AuthCard
+    :title="me?.mustChangePassword ? 'Придумайте пароль' : 'Смена пароля'"
+    :mascot="mascotIdle"
+  >
     <p v-if="me?.mustChangePassword" class="text-body-2 text-medium-emphasis mb-4">
       Вы вошли по временному паролю. Придумайте свой, чтобы продолжить.
     </p>
@@ -83,7 +86,10 @@ async function submit(event: SubmitEventPromise) {
       <v-btn type="submit" color="primary" size="large" block :loading="isPending">
         Сохранить пароль
       </v-btn>
-      <v-btn variant="text" block class="mt-2" @click="logout()">Выйти</v-btn>
+      <v-btn v-if="me?.mustChangePassword" variant="text" block class="mt-2" @click="logout()">
+        Выйти
+      </v-btn>
+      <v-btn v-else variant="text" block class="mt-2" @click="router.back()">Отмена</v-btn>
     </v-form>
   </AuthCard>
 </template>

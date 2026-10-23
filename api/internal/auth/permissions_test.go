@@ -101,6 +101,32 @@ func TestAllowedLocations(t *testing.T) {
 	}
 }
 
+func TestCheckLocation(t *testing.T) {
+	own, other := uuid.New(), uuid.New()
+	cashier := context.WithValue(t.Context(), sessionKey, Session{Role: "cashier", LocationIDs: []uuid.UUID{own}})
+	manager := context.WithValue(t.Context(), sessionKey, Session{Role: "manager"})
+
+	tests := []struct {
+		name     string
+		ctx      context.Context
+		perm     apispec.Permission
+		location uuid.UUID
+		allowed  bool
+	}{
+		{"кассир в своём магазине", cashier, apispec.PermissionPosSell, own, true},
+		{"кассир в чужом магазине", cashier, apispec.PermissionPosSell, other, false},
+		{"кассир смотрит наличие в чужом", cashier, apispec.PermissionAvailabilityView, other, true},
+		{"руководитель в любой точке", manager, apispec.PermissionPosView, other, true},
+		{"руководитель не продаёт", manager, apispec.PermissionPosSell, own, false},
+	}
+	for _, tt := range tests {
+		err := CheckLocation(tt.ctx, tt.perm, tt.location)
+		if (err == nil) != tt.allowed {
+			t.Errorf("%s: error = %v, want allowed=%v", tt.name, err, tt.allowed)
+		}
+	}
+}
+
 func TestAuthorize(t *testing.T) {
 	cashier := Session{Role: "cashier"}
 	temporary := Session{Role: "admin", MustChangePassword: true}
