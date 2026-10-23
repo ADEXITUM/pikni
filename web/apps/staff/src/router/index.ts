@@ -26,6 +26,18 @@ const router = createRouter({
       meta: { title: 'Точки сети', permission: 'refs.view' },
     },
     {
+      path: '/locations/new',
+      name: 'location-new',
+      component: () => import('@/pages/LocationPage.vue'),
+      meta: { title: 'Новая точка', permission: 'refs.edit' },
+    },
+    {
+      path: '/locations/:id',
+      name: 'location',
+      component: () => import('@/pages/LocationPage.vue'),
+      meta: { title: 'Точка', permission: 'refs.view' },
+    },
+    {
       path: '/users',
       name: 'users',
       component: () => import('@/pages/UsersPage.vue'),

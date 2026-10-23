@@ -5,6 +5,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { makeLocation } from '@/__tests__/fixtures'
 import { meQuery } from '@/session'
 import { useCurrentLocation } from '@/stores/currentLocation'
 
@@ -18,22 +19,22 @@ vi.mock('@pikni/api', async (importOriginal) => ({
 }))
 
 const locations: Location[] = [
-  {
+  makeLocation({
     id: 'mg-1',
     code: 'МГ-01',
     name: 'Магазин на Ленина',
     kind: 'store',
     city: 'Благовещенск',
     timezone: 'Asia/Yakutsk',
-  },
-  {
+  }),
+  makeLocation({
     id: 'mg-2',
     code: 'МГ-02',
     name: 'Магазин на Мира',
     kind: 'store',
     city: 'Хабаровск',
     timezone: 'Asia/Vladivostok',
-  },
+  }),
 ]
 
 async function mountFor(locationIds: string[]) {

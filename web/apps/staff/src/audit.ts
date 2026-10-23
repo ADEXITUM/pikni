@@ -1,6 +1,7 @@
-import type { AuditAction, AuditEntry, Role } from '@pikni/api'
+import type { AuditAction, AuditEntry, LocationKind, OpeningHours, Role } from '@pikni/api'
 
-import { roleLabels } from '@/labels'
+import { formatHours } from '@/hours'
+import { locationKindLabels, roleLabels } from '@/labels'
 
 // Тот же словарь есть на сервере для выгрузки в Excel.
 export const auditActionLabels: Record<AuditAction, string> = {
@@ -14,12 +15,15 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'user.blocked': 'Блокировка сотрудника',
   'user.unblocked': 'Разблокировка сотрудника',
   'user.password_reset': 'Сброс пароля',
+  'location.created': 'Создание точки',
+  'location.updated': 'Изменение точки',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
   'auth.login_failed': 'error',
   'user.blocked': 'error',
   'user.created': 'success',
+  'location.created': 'success',
 }
 
 const failureReasons: Record<string, string> = {
@@ -27,6 +31,27 @@ const failureReasons: Record<string, string> = {
   password: 'неверный пароль',
   locked: 'вход временно закрыт после неудачных попыток',
   blocked: 'учётная запись заблокирована',
+}
+
+// Названия полей в изменениях «было → стало».
+const fieldLabels: Record<string, string> = {
+  fullName: 'ФИО',
+  role: 'Роль',
+  locationIds: 'Точки',
+  name: 'Название',
+  city: 'Город',
+  timezone: 'Часовой пояс',
+  subjectCode: 'Регион',
+  address: 'Адрес',
+  lat: 'Широта',
+  lon: 'Долгота',
+  fsrarId: 'ФСРАР ID',
+  kpp: 'КПП',
+  licenseNo: 'Лицензия',
+  licenseValidTo: 'Лицензия до',
+  openingHours: 'Режим работы',
+  isPublic: 'На публичной странице',
+  isActive: 'Действует',
 }
 
 export interface Detail {
@@ -43,6 +68,7 @@ export function auditObject(e: AuditEntry): string {
   const login = typeof e.data.login === 'string' ? e.data.login : undefined
   if (e.entityType === 'user') return login ?? e.entityId ?? ''
   if (e.entityType === 'session') return 'сеанс'
+  if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   return ''
 }
 
@@ -56,6 +82,14 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
     const list = Array.isArray(ids) ? ids.map((id) => locationCodes.get(id) ?? String(id)) : []
     return list.join(', ') || 'вся сеть'
   }
+  const show = (key: string, value: unknown): string => {
+    if (value === null || value === undefined || value === '') return '—'
+    if (typeof value === 'boolean') return value ? 'да' : 'нет'
+    if (key === 'role') return role(value)
+    if (key === 'locationIds') return places(value)
+    if (key === 'openingHours') return formatHours(value as OpeningHours)
+    return String(value)
+  }
   const take = (key: string) => {
     const value = data[key]
     delete data[key]
@@ -63,6 +97,12 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
   }
 
   take('login')
+  take('code')
+  const changes = take('changes') as Record<string, [unknown, unknown]> | undefined
+  for (const [key, [was, now]] of Object.entries(changes ?? {})) {
+    details.push({ label: fieldLabels[key] ?? key, value: `${show(key, was)} → ${show(key, now)}` })
+  }
+
   switch (e.action) {
     case 'auth.login_failed': {
       const reason = String(take('reason'))
@@ -74,15 +114,10 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
       details.push({ label: 'Роль', value: role(take('role')) })
       details.push({ label: 'Точки', value: places(take('locationIds')) })
       break
-    case 'user.updated': {
-      const changes = (take('changes') ?? {}) as Record<string, [unknown, unknown]>
-      if (changes.fullName) details.push({ label: 'ФИО', value: changes.fullName.join(' → ') })
-      if (changes.role) details.push({ label: 'Роль', value: changes.role.map(role).join(' → ') })
-      if (changes.locationIds) {
-        details.push({ label: 'Точки', value: changes.locationIds.map(places).join(' → ') })
-      }
+    case 'location.created':
+      details.push({ label: 'Название', value: String(take('name')) })
+      details.push({ label: 'Тип', value: locationKindLabels[take('kind') as LocationKind] })
       break
-    }
     case 'auth.session_ended': {
       const count = take('count')
       if (count !== undefined) details.push({ label: 'Завершено сеансов', value: String(count) })

@@ -100,7 +100,7 @@ const headers = [
       </v-btn>
     </div>
 
-    <v-row dense class="mb-2">
+    <v-row density="compact" class="mb-2">
       <v-col cols="6" md="2">
         <v-text-field v-model="filters.from" type="date" label="С" />
       </v-col>

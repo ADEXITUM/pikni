@@ -4,6 +4,8 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
+import { makeLocation } from '@/__tests__/fixtures'
+
 import UsersPage from '../UsersPage.vue'
 
 type ApiModule = typeof import('@pikni/api')
@@ -14,22 +16,22 @@ vi.mock('@pikni/api', async (importOriginal) => ({
 }))
 
 const locations: Location[] = [
-  {
+  makeLocation({
     id: 'mg-1',
     code: 'МГ-01',
     name: 'Магазин',
     kind: 'store',
     city: 'Благовещенск',
     timezone: 'Asia/Yakutsk',
-  },
-  {
+  }),
+  makeLocation({
     id: 'sk-1',
     code: 'СК-01',
     name: 'Склад',
     kind: 'warehouse',
     city: 'Благовещенск',
     timezone: 'Asia/Yakutsk',
-  },
+  }),
 ]
 
 const base = {

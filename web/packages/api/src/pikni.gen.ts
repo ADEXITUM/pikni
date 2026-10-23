@@ -272,6 +272,48 @@ export interface paths {
         /** Точки сети */
         get: operations["listLocations"];
         put?: never;
+        /**
+         * Создать точку
+         * @description Зоны учёта создаются вместе с точкой — у склада одна, у магазина две.
+         */
+        post: operations["createLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка точки */
+        get: operations["getLocation"];
+        /**
+         * Изменить точку
+         * @description Код и тип точки не меняются. Оптимистическая блокировка по version.
+         */
+        put: operations["updateLocation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ru-subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Субъекты РФ, где есть точки или правила продажи */
+        get: operations["listRuSubjects"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -294,7 +336,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -418,14 +460,9 @@ export interface components {
         };
         /** @enum {string} */
         LocationKind: "warehouse" | "store";
-        Location: {
-            /** Format: uuid */
-            id: string;
-            /** @example МГ-01 */
-            code: string;
+        LocationFields: {
             /** @example Магазин на ул. Ленина */
             name: string;
-            kind: components["schemas"]["LocationKind"];
             /** @example Благовещенск */
             city: string;
             /**
@@ -433,6 +470,85 @@ export interface components {
              * @example Asia/Yakutsk
              */
             timezone: string;
+            /**
+             * @description Код субъекта РФ, по нему действуют правила продажи алкоголя
+             * @example 28
+             */
+            subjectCode: string;
+            address?: string;
+            /** Format: double */
+            lat?: number;
+            /** Format: double */
+            lon?: number;
+            /** @description Идентификатор организации в ЕГАИС, 12 цифр */
+            fsrarId?: string;
+            kpp?: string;
+            licenseNo?: string;
+            /** Format: date */
+            licenseValidTo?: string;
+            openingHours: components["schemas"]["OpeningHours"];
+            /** @description Показывать на публичной справочной странице */
+            isPublic: boolean;
+        };
+        NewLocation: components["schemas"]["LocationFields"] & {
+            /** @example МГ-05 */
+            code: string;
+            kind: components["schemas"]["LocationKind"];
+        };
+        LocationUpdate: components["schemas"]["LocationFields"] & {
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+        };
+        Location: components["schemas"]["LocationFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** @example МГ-01 */
+            code: string;
+            kind: components["schemas"]["LocationKind"];
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+            zones: components["schemas"]["Zone"][];
+        };
+        /**
+         * @description warehouse — склад, backroom — склад магазина, floor — торговый зал
+         * @enum {string}
+         */
+        ZoneKind: "warehouse" | "backroom" | "floor";
+        Zone: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ZoneKind"];
+            name: string;
+        };
+        DayHours: {
+            /** @example 10:00 */
+            open: string;
+            /**
+             * @description 24:00 — до полуночи
+             * @example 22:00
+             */
+            close: string;
+        };
+        /** @description Часы работы по дням недели, день без часов — выходной */
+        OpeningHours: {
+            mon?: components["schemas"]["DayHours"];
+            tue?: components["schemas"]["DayHours"];
+            wed?: components["schemas"]["DayHours"];
+            thu?: components["schemas"]["DayHours"];
+            fri?: components["schemas"]["DayHours"];
+            sat?: components["schemas"]["DayHours"];
+            sun?: components["schemas"]["DayHours"];
+        };
+        RuSubject: {
+            /** @example 28 */
+            code: string;
+            /** @example Амурская область */
+            name: string;
+        };
+        RuSubjectList: {
+            items: components["schemas"]["RuSubject"][];
         };
         LocationList: {
             items: components["schemas"]["Location"][];
@@ -876,6 +992,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLocation"];
+            };
+        };
+        responses: {
+            /** @description Точка создана */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Точка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Точка изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRuSubjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Субъекты по названию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuSubjectList"];
                 };
             };
             default: components["responses"]["Problem"];
