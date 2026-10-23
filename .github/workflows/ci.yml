@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: api
+      - run: go test -race ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  web:
+    name: Web (Vue)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run type-check -w @pikni/staff
+      - run: npm run lint:check -w @pikni/staff
+      - run: npx --prefix apps/staff prettier --check .
+      - run: npm test
+      - run: npm run build-only -w @pikni/staff
+      - run: npm audit --omit=dev --audit-level=high
+
+  generated:
+    name: Generated code is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: OpenAPI → Go
+        working-directory: api
+        run: go tool oapi-codegen -config oapi-codegen.yaml ../openapi/pikni.yaml
+      - name: SQL → Go
+        run: docker run --rm -v "$PWD/api:/src" -w /src sqlc/sqlc:1.31.1 generate
+      - name: OpenAPI → TypeScript
+        working-directory: web
+        run: npm ci && npm run gen
+      - name: Nothing changed
+        run: git diff --exit-code
