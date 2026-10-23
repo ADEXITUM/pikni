@@ -31,6 +31,10 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionUserPasswordReset:   "Сброс пароля",
 	apispec.AuditActionLocationCreated:     "Создание точки",
 	apispec.AuditActionLocationUpdated:     "Изменение точки",
+	apispec.AuditActionSaleRuleCreated:     "Новая редакция правила продажи",
+	apispec.AuditActionSaleRuleDeleted:     "Удаление редакции правила продажи",
+	apispec.AuditActionSaleBanCreated:      "Новый день запрета продажи",
+	apispec.AuditActionSaleBanDeleted:      "Удаление дня запрета продажи",
 }
 
 var errTooManyRows = echo.NewHTTPError(http.StatusUnprocessableEntity,

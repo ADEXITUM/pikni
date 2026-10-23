@@ -282,6 +282,11 @@ func TestLocationPermissions(t *testing.T) {
 	kassir.do(http.MethodGet, "/locations/"+created.ID.String(), nil, http.StatusOK)
 	kassir.do(http.MethodPost, "/locations", location, http.StatusForbidden)
 	kassir.do(http.MethodGet, "/locations/"+uuid.NewString(), nil, http.StatusNotFound)
+	kassir.do(http.MethodGet, "/locations/"+created.ID.String()+"/sale-check", nil, http.StatusOK)
+	kassir.do(http.MethodGet, "/sale-rules", nil, http.StatusOK)
+	kassir.do(http.MethodPost, "/sale-rules", map[string]any{
+		"scope": "all", "validFrom": "2030-01-01", "from": "10:00", "to": "20:00", "source": "x",
+	}, http.StatusForbidden)
 }
 
 func TestMeShowsWorkLocations(t *testing.T) {

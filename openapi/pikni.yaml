@@ -446,6 +446,134 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /locations/{id}/sale-check:
+    get:
+      operationId: checkSale
+      summary: Можно ли продавать алкоголь в точке
+      description: >
+        Проверка по правилам региона точки и федеральным правилам на момент at (по умолчанию — сейчас),
+        отдельно для продукции крепче 15 % и для остальной алкогольной продукции.
+      tags: [locations]
+      x-permission: refs.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: at
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Результат проверки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleCheck"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-rules:
+    get:
+      operationId: listSaleRules
+      summary: Правила продажи алкоголя и дни полного запрета
+      tags: [locations]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Все редакции правил и дни запрета
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleRulebook"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSaleRule
+      summary: Добавить редакцию правила продажи
+      description: Без subjectCode — федеральное правило. Старые редакции не меняются.
+      tags: [locations]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSaleRule"
+      responses:
+        "201":
+          description: Редакция добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleRule"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-rules/{id}:
+    delete:
+      operationId: deleteSaleRule
+      summary: Удалить редакцию, которая ещё не вступила в силу
+      tags: [locations]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Редакция удалена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-bans:
+    post:
+      operationId: createSaleBan
+      summary: Добавить день полного запрета
+      tags: [locations]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSaleBan"
+      responses:
+        "201":
+          description: День запрета добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleBan"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-bans/{id}:
+    delete:
+      operationId: deleteSaleBan
+      summary: Удалить день запрета
+      tags: [locations]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: День запрета удалён
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -578,6 +706,10 @@ components:
         - user.password_reset
         - location.created
         - location.updated
+        - sale_rule.created
+        - sale_rule.deleted
+        - sale_ban.created
+        - sale_ban.deleted
 
     AuditEntry:
       type: object
@@ -960,6 +1092,117 @@ components:
           $ref: "#/components/schemas/DayHours"
         sun:
           $ref: "#/components/schemas/DayHours"
+
+    SaleScope:
+      type: string
+      enum: [all, strong]
+      description: all — вся алкогольная продукция, strong — крепче 15 %
+
+    NewSaleRule:
+      type: object
+      required: [scope, validFrom, from, to, source]
+      properties:
+        subjectCode:
+          type: string
+          description: Не задан — федеральное правило
+          example: "28"
+        scope:
+          $ref: "#/components/schemas/SaleScope"
+        validFrom:
+          type: string
+          format: date
+        from:
+          type: string
+          example: "11:00"
+        to:
+          type: string
+          example: "21:00"
+        source:
+          type: string
+          description: Закон-основание
+
+    SaleRule:
+      allOf:
+        - $ref: "#/components/schemas/NewSaleRule"
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+
+    NewSaleBan:
+      type: object
+      required: [subjectCode, name, scope, source]
+      description: Ровно одно из date (разовый запрет) и monthDay (ежегодный, «ММ-ДД»)
+      properties:
+        subjectCode:
+          type: string
+        name:
+          type: string
+          example: День знаний
+        scope:
+          $ref: "#/components/schemas/SaleScope"
+        date:
+          type: string
+          format: date
+        monthDay:
+          type: string
+          example: 09-01
+        source:
+          type: string
+
+    SaleBan:
+      allOf:
+        - $ref: "#/components/schemas/NewSaleBan"
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+
+    SaleRulebook:
+      type: object
+      required: [rules, bans]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleRule"
+        bans:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleBan"
+
+    SaleVerdict:
+      type: object
+      required: [allowed]
+      properties:
+        allowed:
+          type: boolean
+        from:
+          type: string
+          description: Начало окна продажи на этот день, «ЧЧ:ММ»
+        to:
+          type: string
+          description: Конец окна, не включая
+        banDay:
+          type: string
+          description: Название дня полного запрета
+
+    SaleCheck:
+      type: object
+      required: [localTime, strong, other]
+      properties:
+        localTime:
+          type: string
+          description: Местное время точки, на которое проверено
+          example: 2026-10-23T20:30:00+09:00
+        strong:
+          $ref: "#/components/schemas/SaleVerdict"
+        other:
+          $ref: "#/components/schemas/SaleVerdict"
 
     RuSubject:
       type: object

@@ -14,6 +14,8 @@ import (
 
 const (
 	EntityLocation = "location"
+	EntitySaleBan  = "sale_ban"
+	EntitySaleRule = "sale_rule"
 	EntitySession  = "session"
 	EntityUser     = "user"
 )

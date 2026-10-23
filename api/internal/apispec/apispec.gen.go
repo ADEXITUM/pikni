@@ -32,6 +32,10 @@ const (
 	AuditActionAuthSessionEnded    AuditAction = "auth.session_ended"
 	AuditActionLocationCreated     AuditAction = "location.created"
 	AuditActionLocationUpdated     AuditAction = "location.updated"
+	AuditActionSaleBanCreated      AuditAction = "sale_ban.created"
+	AuditActionSaleBanDeleted      AuditAction = "sale_ban.deleted"
+	AuditActionSaleRuleCreated     AuditAction = "sale_rule.created"
+	AuditActionSaleRuleDeleted     AuditAction = "sale_rule.deleted"
 	AuditActionUserBlocked         AuditAction = "user.blocked"
 	AuditActionUserCreated         AuditAction = "user.created"
 	AuditActionUserPasswordReset   AuditAction = "user.password_reset"
@@ -55,6 +59,14 @@ func (e AuditAction) Valid() bool {
 	case AuditActionLocationCreated:
 		return true
 	case AuditActionLocationUpdated:
+		return true
+	case AuditActionSaleBanCreated:
+		return true
+	case AuditActionSaleBanDeleted:
+		return true
+	case AuditActionSaleRuleCreated:
+		return true
+	case AuditActionSaleRuleDeleted:
 		return true
 	case AuditActionUserBlocked:
 		return true
@@ -200,6 +212,24 @@ func (e Role) Valid() bool {
 	case RoleStoreManager:
 		return true
 	case RoleStorekeeper:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaleScope.
+const (
+	SaleScopeAll    SaleScope = "all"
+	SaleScopeStrong SaleScope = "strong"
+)
+
+// Valid indicates whether the value is a known member of the SaleScope enum.
+func (e SaleScope) Valid() bool {
+	switch e {
+	case SaleScopeAll:
+		return true
+	case SaleScopeStrong:
 		return true
 	default:
 		return false
@@ -473,6 +503,43 @@ type NewLocation struct {
 	Timezone string `json:"timezone"`
 }
 
+// NewSaleBan Ровно одно из date (разовый запрет) и monthDay (ежегодный, «ММ-ДД»)
+type NewSaleBan struct {
+	Date *openapi_types.Date `json:"date,omitempty"`
+
+	// MonthDay Example: 09-01
+	MonthDay *string `json:"monthDay,omitempty"`
+
+	// Name Example: День знаний
+	Name string `json:"name"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope       SaleScope `json:"scope"`
+	Source      string    `json:"source"`
+	SubjectCode string    `json:"subjectCode"`
+}
+
+// NewSaleRule defines model for NewSaleRule.
+type NewSaleRule struct {
+	// From Example: 11:00
+	From string `json:"from"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope SaleScope `json:"scope"`
+
+	// Source Закон-основание
+	Source string `json:"source"`
+
+	// SubjectCode Не задан — федеральное правило
+	//
+	// Example: 28
+	SubjectCode *string `json:"subjectCode,omitempty"`
+
+	// To Example: 21:00
+	To        string             `json:"to"`
+	ValidFrom openapi_types.Date `json:"validFrom"`
+}
+
 // NewUser defines model for NewUser.
 type NewUser struct {
 	// FullName Example: Петрова А. В.
@@ -529,6 +596,78 @@ type RuSubject struct {
 // RuSubjectList defines model for RuSubjectList.
 type RuSubjectList struct {
 	Items []RuSubject `json:"items"`
+}
+
+// SaleBan defines model for SaleBan.
+type SaleBan struct {
+	Date *openapi_types.Date `json:"date,omitempty"`
+	ID   openapi_types.UUID  `json:"id"`
+
+	// MonthDay Example: 09-01
+	MonthDay *string `json:"monthDay,omitempty"`
+
+	// Name Example: День знаний
+	Name string `json:"name"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope       SaleScope `json:"scope"`
+	Source      string    `json:"source"`
+	SubjectCode string    `json:"subjectCode"`
+}
+
+// SaleCheck defines model for SaleCheck.
+type SaleCheck struct {
+	// LocalTime Местное время точки, на которое проверено
+	//
+	// Example: 2026-10-23T20:30:00+09:00
+	LocalTime string      `json:"localTime"`
+	Other     SaleVerdict `json:"other"`
+	Strong    SaleVerdict `json:"strong"`
+}
+
+// SaleRule defines model for SaleRule.
+type SaleRule struct {
+	// From Example: 11:00
+	From string             `json:"from"`
+	ID   openapi_types.UUID `json:"id"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope SaleScope `json:"scope"`
+
+	// Source Закон-основание
+	Source string `json:"source"`
+
+	// SubjectCode Не задан — федеральное правило
+	//
+	// Example: 28
+	SubjectCode *string `json:"subjectCode,omitempty"`
+
+	// To Example: 21:00
+	To        string             `json:"to"`
+	ValidFrom openapi_types.Date `json:"validFrom"`
+}
+
+// SaleRulebook defines model for SaleRulebook.
+type SaleRulebook struct {
+	Bans  []SaleBan  `json:"bans"`
+	Rules []SaleRule `json:"rules"`
+}
+
+// SaleScope all — вся алкогольная продукция, strong — крепче 15 %
+type SaleScope string
+
+// SaleVerdict defines model for SaleVerdict.
+type SaleVerdict struct {
+	Allowed bool `json:"allowed"`
+
+	// BanDay Название дня полного запрета
+	BanDay *string `json:"banDay,omitempty"`
+
+	// From Начало окна продажи на этот день, «ЧЧ:ММ»
+	From *string `json:"from,omitempty"`
+
+	// To Конец окна, не включая
+	To *string `json:"to,omitempty"`
 }
 
 // SessionInfo defines model for SessionInfo.
@@ -651,6 +790,11 @@ type ExportAuditLogParams struct {
 	Tz *string `form:"tz,omitempty" json:"tz,omitempty"`
 }
 
+// CheckSaleParams defines parameters for CheckSale.
+type CheckSaleParams struct {
+	At *time.Time `form:"at,omitempty" json:"at,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -662,6 +806,12 @@ type CreateLocationJSONRequestBody = NewLocation
 
 // UpdateLocationJSONRequestBody defines body for UpdateLocation for application/json ContentType.
 type UpdateLocationJSONRequestBody = LocationUpdate
+
+// CreateSaleBanJSONRequestBody defines body for CreateSaleBan for application/json ContentType.
+type CreateSaleBanJSONRequestBody = NewSaleBan
+
+// CreateSaleRuleJSONRequestBody defines body for CreateSaleRule for application/json ContentType.
+type CreateSaleRuleJSONRequestBody = NewSaleRule
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = NewUser
@@ -710,9 +860,27 @@ type ServerInterface interface {
 	// UpdateLocation Изменить точку
 	// (PUT /locations/{id})
 	UpdateLocation(ctx *echo.Context, id openapi_types.UUID) error
+	// CheckSale Можно ли продавать алкоголь в точке
+	// (GET /locations/{id}/sale-check)
+	CheckSale(ctx *echo.Context, id openapi_types.UUID, params CheckSaleParams) error
 	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
 	// (GET /ru-subjects)
 	ListRuSubjects(ctx *echo.Context) error
+	// CreateSaleBan Добавить день полного запрета
+	// (POST /sale-bans)
+	CreateSaleBan(ctx *echo.Context) error
+	// DeleteSaleBan Удалить день запрета
+	// (DELETE /sale-bans/{id})
+	DeleteSaleBan(ctx *echo.Context, id openapi_types.UUID) error
+	// ListSaleRules Правила продажи алкоголя и дни полного запрета
+	// (GET /sale-rules)
+	ListSaleRules(ctx *echo.Context) error
+	// CreateSaleRule Добавить редакцию правила продажи
+	// (POST /sale-rules)
+	CreateSaleRule(ctx *echo.Context) error
+	// DeleteSaleRule Удалить редакцию, которая ещё не вступила в силу
+	// (DELETE /sale-rules/{id})
+	DeleteSaleRule(ctx *echo.Context, id openapi_types.UUID) error
 	// ListUsers Сотрудники
 	// (GET /users)
 	ListUsers(ctx *echo.Context) error
@@ -988,12 +1156,96 @@ func (w *ServerInterfaceWrapper) UpdateLocation(ctx *echo.Context) error {
 	return err
 }
 
+// CheckSale converts echo context to params.
+func (w *ServerInterfaceWrapper) CheckSale(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CheckSaleParams
+	// ------------- Optional query parameter "at" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "at", ctx.QueryParams(), &params.At, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter at: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CheckSale(ctx, id, params)
+	return err
+}
+
 // ListRuSubjects converts echo context to params.
 func (w *ServerInterfaceWrapper) ListRuSubjects(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListRuSubjects(ctx)
+	return err
+}
+
+// CreateSaleBan converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateSaleBan(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateSaleBan(ctx)
+	return err
+}
+
+// DeleteSaleBan converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteSaleBan(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteSaleBan(ctx, id)
+	return err
+}
+
+// ListSaleRules converts echo context to params.
+func (w *ServerInterfaceWrapper) ListSaleRules(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListSaleRules(ctx)
+	return err
+}
+
+// CreateSaleRule converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateSaleRule(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateSaleRule(ctx)
+	return err
+}
+
+// DeleteSaleRule converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteSaleRule(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteSaleRule(ctx, id)
 	return err
 }
 
@@ -1162,6 +1414,12 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/locations", wrapper.CreateLocation, options.OperationMiddlewares["createLocation"]...)
 	router.GET(options.BaseURL+"/locations/:id", wrapper.GetLocation, options.OperationMiddlewares["getLocation"]...)
 	router.PUT(options.BaseURL+"/locations/:id", wrapper.UpdateLocation, options.OperationMiddlewares["updateLocation"]...)
+	router.GET(options.BaseURL+"/locations/:id/sale-check", wrapper.CheckSale, options.OperationMiddlewares["checkSale"]...)
+	router.GET(options.BaseURL+"/sale-rules", wrapper.ListSaleRules, options.OperationMiddlewares["listSaleRules"]...)
+	router.POST(options.BaseURL+"/sale-rules", wrapper.CreateSaleRule, options.OperationMiddlewares["createSaleRule"]...)
+	router.DELETE(options.BaseURL+"/sale-rules/:id", wrapper.DeleteSaleRule, options.OperationMiddlewares["deleteSaleRule"]...)
+	router.POST(options.BaseURL+"/sale-bans", wrapper.CreateSaleBan, options.OperationMiddlewares["createSaleBan"]...)
+	router.DELETE(options.BaseURL+"/sale-bans/:id", wrapper.DeleteSaleBan, options.OperationMiddlewares["deleteSaleBan"]...)
 	router.GET(options.BaseURL+"/ru-subjects", wrapper.ListRuSubjects, options.OperationMiddlewares["listRuSubjects"]...)
 
 }
@@ -1679,6 +1937,46 @@ func (response UpdateLocationdefaultApplicationProblemPlusJSONResponse) VisitUpd
 	return err
 }
 
+type CheckSaleRequestObject struct {
+	ID     openapi_types.UUID `json:"id"`
+	Params CheckSaleParams
+}
+
+type CheckSaleResponseObject interface {
+	VisitCheckSaleResponse(w http.ResponseWriter) error
+}
+
+type CheckSale200JSONResponse SaleCheck
+
+func (response CheckSale200JSONResponse) VisitCheckSaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckSaledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CheckSaledefaultApplicationProblemPlusJSONResponse) VisitCheckSaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListRuSubjectsRequestObject struct {
 }
 
@@ -1706,6 +2004,188 @@ type ListRuSubjectsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListRuSubjectsdefaultApplicationProblemPlusJSONResponse) VisitListRuSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleBanRequestObject struct {
+	Body *CreateSaleBanJSONRequestBody
+}
+
+type CreateSaleBanResponseObject interface {
+	VisitCreateSaleBanResponse(w http.ResponseWriter) error
+}
+
+type CreateSaleBan201JSONResponse SaleBan
+
+func (response CreateSaleBan201JSONResponse) VisitCreateSaleBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleBandefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateSaleBandefaultApplicationProblemPlusJSONResponse) VisitCreateSaleBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSaleBanRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type DeleteSaleBanResponseObject interface {
+	VisitDeleteSaleBanResponse(w http.ResponseWriter) error
+}
+
+type DeleteSaleBan204Response struct {
+}
+
+func (response DeleteSaleBan204Response) VisitDeleteSaleBanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteSaleBandefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteSaleBandefaultApplicationProblemPlusJSONResponse) VisitDeleteSaleBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSaleRulesRequestObject struct {
+}
+
+type ListSaleRulesResponseObject interface {
+	VisitListSaleRulesResponse(w http.ResponseWriter) error
+}
+
+type ListSaleRules200JSONResponse SaleRulebook
+
+func (response ListSaleRules200JSONResponse) VisitListSaleRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSaleRulesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListSaleRulesdefaultApplicationProblemPlusJSONResponse) VisitListSaleRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleRuleRequestObject struct {
+	Body *CreateSaleRuleJSONRequestBody
+}
+
+type CreateSaleRuleResponseObject interface {
+	VisitCreateSaleRuleResponse(w http.ResponseWriter) error
+}
+
+type CreateSaleRule201JSONResponse SaleRule
+
+func (response CreateSaleRule201JSONResponse) VisitCreateSaleRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleRuledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateSaleRuledefaultApplicationProblemPlusJSONResponse) VisitCreateSaleRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSaleRuleRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type DeleteSaleRuleResponseObject interface {
+	VisitDeleteSaleRuleResponse(w http.ResponseWriter) error
+}
+
+type DeleteSaleRule204Response struct {
+}
+
+func (response DeleteSaleRule204Response) VisitDeleteSaleRuleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteSaleRuledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteSaleRuledefaultApplicationProblemPlusJSONResponse) VisitDeleteSaleRuleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2025,9 +2505,27 @@ type StrictServerInterface interface {
 	// UpdateLocation Изменить точку
 	// (PUT /locations/{id})
 	UpdateLocation(ctx context.Context, request UpdateLocationRequestObject) (UpdateLocationResponseObject, error)
+	// CheckSale Можно ли продавать алкоголь в точке
+	// (GET /locations/{id}/sale-check)
+	CheckSale(ctx context.Context, request CheckSaleRequestObject) (CheckSaleResponseObject, error)
 	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
 	// (GET /ru-subjects)
 	ListRuSubjects(ctx context.Context, request ListRuSubjectsRequestObject) (ListRuSubjectsResponseObject, error)
+	// CreateSaleBan Добавить день полного запрета
+	// (POST /sale-bans)
+	CreateSaleBan(ctx context.Context, request CreateSaleBanRequestObject) (CreateSaleBanResponseObject, error)
+	// DeleteSaleBan Удалить день запрета
+	// (DELETE /sale-bans/{id})
+	DeleteSaleBan(ctx context.Context, request DeleteSaleBanRequestObject) (DeleteSaleBanResponseObject, error)
+	// ListSaleRules Правила продажи алкоголя и дни полного запрета
+	// (GET /sale-rules)
+	ListSaleRules(ctx context.Context, request ListSaleRulesRequestObject) (ListSaleRulesResponseObject, error)
+	// CreateSaleRule Добавить редакцию правила продажи
+	// (POST /sale-rules)
+	CreateSaleRule(ctx context.Context, request CreateSaleRuleRequestObject) (CreateSaleRuleResponseObject, error)
+	// DeleteSaleRule Удалить редакцию, которая ещё не вступила в силу
+	// (DELETE /sale-rules/{id})
+	DeleteSaleRule(ctx context.Context, request DeleteSaleRuleRequestObject) (DeleteSaleRuleResponseObject, error)
 	// ListUsers Сотрудники
 	// (GET /users)
 	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
@@ -2436,6 +2934,32 @@ func (sh *strictHandler) UpdateLocation(ctx *echo.Context, id openapi_types.UUID
 	return nil
 }
 
+// CheckSale operation middleware
+func (sh *strictHandler) CheckSale(ctx *echo.Context, id openapi_types.UUID, params CheckSaleParams) error {
+	var request CheckSaleRequestObject
+
+	request.ID = id
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckSale(ctx.Request().Context(), request.(CheckSaleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckSale")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CheckSaleResponseObject); ok {
+		return validResponse.VisitCheckSaleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListRuSubjects operation middleware
 func (sh *strictHandler) ListRuSubjects(ctx *echo.Context) error {
 	var request ListRuSubjectsRequestObject
@@ -2453,6 +2977,157 @@ func (sh *strictHandler) ListRuSubjects(ctx *echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(ListRuSubjectsResponseObject); ok {
 		return validResponse.VisitListRuSubjectsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateSaleBan operation middleware
+func (sh *strictHandler) CreateSaleBan(ctx *echo.Context) error {
+	var request CreateSaleBanRequestObject
+
+	var body CreateSaleBanJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSaleBan(ctx.Request().Context(), request.(CreateSaleBanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSaleBan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateSaleBanResponseObject); ok {
+		return validResponse.VisitCreateSaleBanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteSaleBan operation middleware
+func (sh *strictHandler) DeleteSaleBan(ctx *echo.Context, id openapi_types.UUID) error {
+	var request DeleteSaleBanRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteSaleBan(ctx.Request().Context(), request.(DeleteSaleBanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteSaleBan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteSaleBanResponseObject); ok {
+		return validResponse.VisitDeleteSaleBanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListSaleRules operation middleware
+func (sh *strictHandler) ListSaleRules(ctx *echo.Context) error {
+	var request ListSaleRulesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSaleRules(ctx.Request().Context(), request.(ListSaleRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSaleRules")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListSaleRulesResponseObject); ok {
+		return validResponse.VisitListSaleRulesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateSaleRule operation middleware
+func (sh *strictHandler) CreateSaleRule(ctx *echo.Context) error {
+	var request CreateSaleRuleRequestObject
+
+	var body CreateSaleRuleJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSaleRule(ctx.Request().Context(), request.(CreateSaleRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSaleRule")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateSaleRuleResponseObject); ok {
+		return validResponse.VisitCreateSaleRuleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteSaleRule operation middleware
+func (sh *strictHandler) DeleteSaleRule(ctx *echo.Context, id openapi_types.UUID) error {
+	var request DeleteSaleRuleRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteSaleRule(ctx.Request().Context(), request.(DeleteSaleRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteSaleRule")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteSaleRuleResponseObject); ok {
+		return validResponse.VisitDeleteSaleRuleResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -2667,91 +3342,107 @@ func (sh *strictHandler) UnblockUser(ctx *echo.Context, id openapi_types.UUID) e
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"8NvP43cvwM8i/N8A",
+	"7D1tb9tGmn+F4O0ByS0tK066t/ViP7h5uQZNGyN2Fr3mcgEtjW2uKVIlqSRuYcC2us32nIubNHstem3T",
+	"9gr0Q78ojhUrli0D+QUzf6G/5PA8M0MOyaEsObLbxd2H7ZrUcF6e99fJh2bFr9V9j3hRaE5+aC4Su0oC",
+	"/HOGhKHje+d9f8kh8KJKwkrg1CPH98xJk7832BptszW2Rju0Y9SdJc+5FTpV49SbUVS/6rnLljFDKo2A",
+	"WMaMXSMzTkT+eMW+axnTdrT4x3G77pw2LTOsLJKaDWtEy3ViTpphFDjegrmysmKZdTuwayQSu5pqVJ1o",
+	"qgKbuOS4EQngpQMber9BgmXTMj27BlPYOCY1+W8CMm9Omv8wnpx5nP8ajivzmrAqPl/0IidavnyhaA3C",
+	"f6/2PUJqrln8sd9sOEKdj9y1a3UXBjRCEphW0QKXAr+WRxP9mrbYPdqiXdoz6AFts1XaoT26TVsG3aK7",
+	"tMsesHu0w9Zpm3bZfbpPe6al3d88LKDubN4PanZkTppVOyJjkVMjxbub9TV7+5L26D5ts48zO7MMeK3u",
+	"r8U2C3YV+Ufe0/WQBJcv6PbF1gFaW2yDHtAe7dJ92qFdg27TNn3B1tg63aId2i7YEaDpclW/q0bDqWo2",
+	"tGKZAQnrvhcSpPLpwJ9zCaKz4nsR8SL4067XXadiwy7H63zEb/8cwpY/HJDK5by4YubQ37C/0g59SneR",
+	"Mgz2Ee2xVbpHW0AaxrVL543Xz732zwg9MV2GHzWAfEQ7dBtkRI8+ZRtsnXbYZsmg37ImyoxdgCLgukV3",
+	"6BZtAZzZpvHz6mPcwRoQLbxnqzBsl3ZhPN1n67RVMi2TeI2aOXnDtBvRYsn1Fxxg9+Th1rztuKSqvPMb",
+	"kXyq22F4xw+qtyqLtreQjAq51LtFvCq+BGSWKgGxo+SxUa+qj3OuX1lSfvUyL+KlAhIS2IDrcyQq88av",
+	"krlD2yW3goZLlGHJuypxifJuzvayw+CVHHUzR3KJVAqWAXH1wK+TIHI4/dkxQgeWmZZpR4MyoAU/IrHa",
+	"1aoD39vutLKBKGiQHH0+AdnAVoGUQEghG3YytGVxYjpAUbIHIsVAGnpGO3TfgOHwfZfd59/tgLCh+zAd",
+	"fcblI/5KdwTdcaG4mZzAn/szqURwglj250W+pYpy3c9ONQUpx4t+dy5Zw/EiskACHFjXfi+I9HJ1ANnC",
+	"iXAgVII8NLkser/hBKQKzIVz2sg3UqMi8m5qYIKzTNsLJE9RTkRq6T8O3Q6nzZV4HTsIbHz2yN3oDTLv",
+	"B0Qru5tsFbDLVrkEadNt1mQP2CcgvA0gG7YqRM3HbOMPqGrYumWAHQMSxmD/ycX/Ae3JCeg+20QyOBRn",
+	"WejhaQthdV2g5mj6p2TQr2HvBmvyUzSBntk9us822F/g+7+gPu3RLaT9ZnaGFyBUe3QfmaHLuQnU8Bb+",
+	"t2VaGSTON1z3HVRyhxN1ETVyOa21k3JkJ2V6vK4OkOdRgE8LIXuNvN8gYZQnwEojCIgXyXGpvUoJrduv",
+	"R+4c9k3NvnuFeAvRojl5ZuL3lllzPPn8e+uQc2a3lV5Qe14u5iXppE8ZkVrdD+xgWd3zkSSCVhhICzS3",
+	"im6jF+zlN/1GEOZ3WXH9UMO7E+cmy2Wu/bcTadxEaX+PdkxLsYUnJibLZR2+/Drx0mbzmbJ2aOZo+J0l",
+	"tqY7zhWholFtue7VeXPyRn8Qyi8uOcSthuaKlYODXyXpvdKv6Gdj5TOmdWT+ckLQyLdVHp3zfZfYqKOX",
+	"HK9qTg627bdg7Ipl3iZBKM6tir+zE1qV9YHvkcEF/Xu+R/IiXicLEFbiAMopk+3JpfO4u6lgT+Aib/FU",
+	"qwEJQy27VJxoOYOmh7RLW2AzoKz8BK3SNbqrQ8h8GNjB5Wqe3OkXdFuYsx32Ee2A5Q2CH4wWML2fcS1F",
+	"d2iLfYz+Ncjxv9HP6Kf0C/qdZZyZMOAH9hFbzS1smXfHFvwx4ZJcmrk2de3yBU4f040516lo9gMW1i7Y",
+	"4myDWz/sPtpTBj1gTfoUNAQoF9pDPYpWVotu0Z7yUlWutJ3sSiXBusaoSW/3relpVBVZi9JvzLmKOek1",
+	"anOc6FynQryQvONr8Sd+/ZPtOtVZPz2lHRG9lvIGXNoT+jDFwy1E3g63OgGCrEm7JYP+N+Ab3tJWMlda",
+	"djneQiw1+3HOVXUs2IQNpPbzQqRoPG1wxACP7D9om+6CE2XQb+kPFgpaNCDoXsZGQMNp3YhR3QGy54/o",
+	"qNPnQJUQXNjlJrSwlhU5/XvdQcEtAG7V7PRH2kJzZAspCo2wTbZmXJ56Zyo18VTo2OP/ai81onDpUOGO",
+	"SBKMrKyehloG/gqr9FMHbwmJKp3RO3ZAFv1GiLNHfkC0zpf8+oqjs1WGM5blXIfL0UJjVE5xHb3PEWq4",
+	"/tpoGM2SPUteARQJ/gXHK7QKY2s0Iaw6iQL/tq0j2/pwxmNmy9Karfczmt7W+E6VMJif9ZeIp5VuqlGe",
+	"nII+Ac8A+XQLWPbTkkEflV7BrpARisvVUMO136MW2KUdy2Br6FVwTcY26B53u1v0Kb5socdS4GnfLxn0",
+	"McgQ4ahzl60pjrHPNrmHAo7/z6ufgYezRtsGW5erm5Yg8kFOlOKVtAKSdH35QtjPZ7HMWiOM0g6ILgrG",
+	"/TAhZ7cgmgXBCRF4QJl7gEEuAMmDP3Drl63xMWwDn1G1NukBvoADI/R2ac8Yh7jV+D9pdW2dBDUHYwWD",
+	"i5Pp+Bud7x34LjlshmswZjCHTkyoBaSlEH76KGlq1LHRO+TOCdrrr+nIa3hTO+saKhavXra9Q+7M2C55",
+	"w9bFXr/lPAMkB7oa/+jQHQMkvHEKORKZj22Ant0RYbM2Wz8NwYKa70WLF+xl4xRt0+e0jcod4iAb9IVl",
+	"vPyJfkW/GqOP6eOX3dO5OIFUIoeaWXKVNFDLrxe4QBpb6zHyyH04wL6wl1/oPg0rfv1QwgVgzuBA+MJv",
+	"BBV9qCNja/UX+2kTQ1gifDvxIgUkDPu51nA1KmFeJHsUL/dMgUP8KifPkNTntMUDRmMYGtvnshuB3tYu",
+	"3dcm/Zq2Od1hEBb9fvYRRtsw+iSzUTBKtT97g9iXfho4E0XAuQ0+gcycHUKuWbwKFCZTWDJFxnNSfVGr",
+	"D9+8qi7vr6S/oU/ZJt1JtC0XCttZhUv3VAcGVsTI4C76vDw9d4AZnHXt51p9fdyaOYGWXUosuLodRSSA",
+	"w//7jamx9+yxD8pjr5dujd388Kx1dmLlN7rFj6zhipXbYdrqasbv07lEoPZjK4ptCGMCI9N0j3tv4Lh1",
+	"wQQTcYX7Bn1K23THYPekUyVyaxAflloB5WVWujiHQSAO7nEpPszw0I6GGt4YavZosTHU8AYZZvgdUh18",
+	"+IoG1Yp1pQnAyIhK2uRrlQyIKaAIgLhKy3j5U5zI+vnjR4l8bL3sctN6S5jfmzw/sE5bIn7zMVibT+jD",
+	"sd8Z9Hv6uZpGheBuWKrZHiRwLPF42yF3gJDJfPpvUnUijMqFUfK+Qpx67lGMnHd9P5C/8QfxSxTYXjhP",
+	"glIgvDTllRgfP4tP6n68G/gzJK5rWuadwImIPz8vMqGmZVb9Sliy6/XAvy388cpSZC+R5JTJq4rf8CLc",
+	"d0iC28ivCjTs27bj2nOO60TLcmmyYDthKSAV36s4yOh2GJIo3pp4EnsOSN0PlB8h/8MfdAECpQIgY1uR",
+	"yHZcvVkS2VEjTEnDc+VzuiBt5ERuVsl8LVPxL7j4QEVbIJrVD+05vxFNzrm2d3gcBn+Vy8cb1onEa0IK",
+	"xzn+ag2FK0dIgOlIxJjtRTLSciv5EZ+XCKnjU8UOFx0SaAF9rTHDrRSN350z9/XWhsYs/ZTuiTwkBHU3",
+	"Dcxad1GOr7P7h8KpohiLWujITY8ifpRA4OgBJMUNGczXUlwXTdRokJBE3r/UO0mwzPlFUlnSRX8qtjvr",
+	"1HTW6VdY17YuLVDhtYNFs57EOrh1FEc7EmO1J3Koko8UEipP/G7sTHls4uzsRHnyLOSmflt+vSiZFS0e",
+	"nqmDA/6JBFWHoyKMAt9bGOqjnCEjwRLPJrdShHvppQyFfPzoBLAP68z5voYA5uwhAiMJveajIg2XDDeR",
+	"OHt/fuPTWnybRaCfkf5dmoBt15XG3hrbzAbpwfRHuSRC+axJdzGXtGkZHOX8412k4QN2j7aNM68Z/6hW",
+	"XaHO5YO1klUlsXy+zXV9YUzlw1ZztieCAvlixqRSjLaF/WvEVRKijEcJZugTLfMD1EpCLmxfk+2Ad7xE",
+	"BOKYwtLGkMiP9MdJiIu87Bb7pMUVkGK9otrH/vQvwaklElEt5M37Gh3HqwmmhqjdEiULmtN8R9uAGrZm",
+	"8VBTSjI+40FN7qSAwx+jqcfWtNHLQTPe+iIp1w6jGUK8qUjvCovwRZfbyJxJAPII8U/gDx4iw2rI18Ap",
+	"7tB91mTrpjUgoMCCnloQoBqg3EUC1lKwkjpHH+yOwhBQCeXopsCsrgRl+CqVzHqDlZzooypHoPFRVDo5",
+	"4RuiEFQr5DKxmuOJjsDy173IcTU8EKclMhkJzpi7kLxh60oZnLbGDCTvAQwE+TUwZwybUMlDb/Aozaul",
+	"GftnLVQcqggvyGckpSoJSRaR8SgYmtdwHZmT4fMkIzxEKeAJkPYJ4f8wlBfnni3zPd/TAG5A4TFI9ggW",
+	"kEVanh4XOnIWJVSFzmU8bU5kxLUNPFgfh4QtY86uLAW+X8v8kAslWwaGfviwdVHmlEpCdRUTU62lkCvI",
+	"6JHG5MTK6EojcKLlGQARB7golh6og8niRbcg4R5KmwCLyZNiWqi6/YLuiOTsJhYWd2QmQ1gzbMM4NX11",
+	"ZtYypq/Df6Zmz79pGRcuXrk4e/E0xvaSut50LP5AeI2wA6y82RFlZl1RErNrvDt2fubapTHMi2IZu8h9",
+	"gY3OzWK6Z8SZU2GI9bDit82LfuRRILCPZb88hVwjJSMJQYIdypr0uXSAe2JvohbNgpKmXW4g8a1vocHE",
+	"1qCNRHi+ULN2dyzJ3BqnYCHiRdDFQqrcxeiyBxDUBvxDLdlf4fQwh6j+0VUJnC79myebbyqIxaT7Ju5B",
+	"S7jKrjtvkWXe9OIIKzhNClPTlwWiEdDP+e55+gLC7auo9vaxRg+i6C9/ok/wYZ92XkJh15d48rWYlHFC",
+	"AFmHrXFjFzCwraJ6y4DQ5bJdc0txSGzSTOaFORQJM2mWS2dKZVkmZtcdc9I8WyqXzvI8xyIS+ziGFeGv",
+	"BRIVZPD4pjoGd2D2+Z5Bl+9iAR9t8bKNkkG/S5XPtxAeqQq/Fkchr15oYcfFOls15rA4n5NeUqxf4hVW",
+	"gRCfINOdMMI6+Cv+gpnu9LuhKzGJax7ojnIOtsZPsYf02YNsCGfO+0BMaToVLmJB5xbft75zq7jgX9/N",
+	"5zo1J0pNVSXzdsONzMnXylgz7tRAyk2Uy1gxzp/O6BfQaYEEWuNJ/9+gg2f9gYeKLrlBh6d6Mwf9SGmO",
+	"HO4T2NjNTPPcRLncp3FuuIa5pKNF1zL3XYYZ6HPMfe5jCKGFfU4S5/pl4n0rnXmWGTZqNRvaskz6X8mE",
+	"ueYN0zIjeyHkHXDA9TctU5W25qSaZICJuXQYJ3chE1EsJL4Hef8cWAeqkrvsPkrADctg9zDly5pY/ovs",
+	"t4vZqUdxdJR3DkISATwG2cl3Tynq3IuLOmnbiD7IS4WLuL1iufD/zNCHGaxhCmpl8j7lAXbSOBTlwaxJ",
+	"91AA3xP0/sC4Pnu+qCf3g4IO5kOKdofj5NtetQSq8G7N5VI6HPPn550KqfqVRo14USmsB8SuhouERDW3",
+	"hP+fZv1Yus85nh0sa7aUZ/ofOGSMd6/MvGtaasf8eb7PsQtOWPdDRxaf9eluH4GEeMQ26DM0UHbobk4G",
+	"AS4v3q0Q90jCIlocjz31us/90YwGF66xSN2+4VeXRyZ7U5W7K2lXJgoaZOUY5f7beoGvhEyS1rw23U/T",
+	"wQyJxpJrE3TLiMHj6TsWXoEehNtjTt64maEOtfQ0boWFIoBOquo0RR/RonkzRQJ+I+pLA35DZM5VbJzT",
+	"R4i5rwVSZwc9jTZbRaOf90T8smBMsRUHXQ4wGr5RfBqFdWpEUbFpkP0Lid4m5snTbwr8KXNCcUNHYrh8",
+	"jz0mTXSOix05oEL0Znn8EKgg5Y8fHfhqqb4k29yFB+jt8FOzDdpOLV3YDJ6mW3TTIVCQt2Ny4b/jEJL6",
+	"7teBpOU5bQtYK64swtYz7kk9pPujIIrv+HSQQFtDe6Qt2+7lqptHx7iI84giGZfwqGXGtPSqVyGPPSPH",
+	"DgQUPaHwTBfbSNMDVuyPAlafK5N2eCue6HbgoOukNmHxVC06wQZbj5mvLbzd4WBq6aUWuOtvLxfDbnTi",
+	"S01qFcixBPy9VJYC4zRYxdrCJrcOL4IX10VAjGNVRALa9MUoEPUVIkNdLUcir07U4x861ZVDKFsALe8w",
+	"oYkOIaLEQneqZlZADHNfzc1BlT2HQIpFRiVM8gwiOOOFAvsjQV6G+MNC/Q2EeSUedYyMkOoT1HOCCLUD",
+	"J3Qy8Xb02Zv0QJSCbmPhEmb5kES5UbjL6z9Go/RFZZRa9i3hn0A1j4SkvHTFKlLXn+NNFRtQXn4PovO0",
+	"pVziIrUwxJD3ROUW8GBSrQV0gVmHZqqWXTbHtABSmsr3baAxjW7H/J3EzjHpdrWJaSCNfmbkdKelOYnm",
+	"VvoWndZoTASJUeRogT3WHIaQsOA2zcmx/CwyxxVU/gLSs3zCiBsFpr7ERMF6QgtqF+bwTN+ICtvWQZ6A",
+	"aj1Q1hBVUkkWjhvhBv2GHuDgPQhPwl8g8pI63KfoBO9iiqqHRVYtLgdFniXP6jwDfuL0cRzxlFST9wlH",
+	"VAaUKInTgf8bCaXG6VppJ4xUqoyHtkvGKrLCWB9Sf6LUBMckl75Wge4ZGIV9hrcg7qc4Clkg1xsHWbr8",
+	"JPgpBms5c6wbdmScKgriinw9RAIwSH/a0qQqRZQ4UyuK5nSmPhQ2Kof3VLeJB5/zRaj4Ojcxz+9m3WlS",
+	"WYKa0pNgwYKknh0Nf9nkcUr7pLZdx1XfQvMXa/IMDmjUdG06SOoR+T/POZ10aUcusc37kbjjmkE7Jhgk",
+	"bbeH1xbAg0FjTHSX9rfS4+aGYzXT0/0Y+lShcvNK3L6XvvnywUgMqOxC/IqXZ8DRBreMFRGIoiXBW9Ed",
+	"L0fDEQpGWWKvjx1zO1pW1h+bGS0XOGErOrVshiCUxnWlWJ0XBz1FREAwYySe8uN4ShFIittDD6ubH143",
+	"xjg/NGJxAd8nqP+VBC0K8MLrXml3VNGL/+HT5TAyKhTEHSmFklF2oRxvIE9tv9Fn1NZ4qT3WvCWGhSKN",
+	"hE2Bmek0eEaAhyfD3Gyl7mRUrHNI1OMhNnArFykMfk8CFHDF5Vw6GGs9qIJQh0Tk8cpoXOEXENLJuhoT",
+	"KoYZT5qlxDNtHYeATqOKPRidctZJiSEktaCAX4moziJHyujRISYtpbNosdQGJ4wutNkn7KFs4Ir79zuy",
+	"EgMzi92jup3YkN9XpF/HEccozuPGhD6iPF8x2xHWLoiqj2Iyb44oXJhdTAEuh1gesMrVBsWSN5UKfcYj",
+	"EngBA6yGtyoolyUbUiUo92fiIGRTuAaSd5OJCuuOrPQWBXFxcbkGfLIwGdzjPWVmme0oktjX+V29xySt",
+	"xfXAJyqp1ZuP9bmQLOjU+PQxRKfzpN4amPrEzRIJZ8diWB8KPUJcEywFEdZU2gBEYxePvOymgridkkH/",
+	"Jm5BT/8EWZMm1oQqAbqOuG0mbi4wzpVfLwqgCnL8ew2eKr1QJxw4HYLcR1+xkQ2d0h/oF/Qby1CKRPSB",
+	"/6MQ/zj+wxnFwQLsrjtROvoVoHSHtnLM3RpdBj03daFkM6T/lalKacvObl25w5HIYIDarUdJl1amf5V3",
+	"kiUVRffhRlI8w55UyTlZCZlfbPTuxf8GTifdJpUp+or1vzyyFmJ5UXiNhAStNKUq7O+akvPN3nrLsD+C",
+	"dJYTz+anrafRqPCnvElP0q+yk1cl3AFL0IAAlCqqX1u1zi9S0tafk14VMeLfZCpWLdf5gP9jyoVz1XGp",
+	"l2/1k4/QdE5XviutvjduAojhHjeJw0bgmpMm/IOD47fPwNVA/zsA",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
