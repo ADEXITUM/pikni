@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 func TestErrorsAreProblemJSON(t *testing.T) {
-	e := NewServer(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	e.GET("/panic", func(echo.Context) error { panic("db password is hunter2") })
-	e.GET("/conflict", func(echo.Context) error {
+	e := NewServer(slog.New(slog.NewTextHandler(io.Discard, nil)), "test")
+	e.GET("/panic", func(*echo.Context) error { panic("db password is hunter2") })
+	e.GET("/conflict", func(*echo.Context) error {
 		return echo.NewHTTPError(http.StatusConflict, "Документ уже проведён")
 	})
 

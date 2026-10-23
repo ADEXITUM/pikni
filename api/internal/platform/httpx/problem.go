@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 const problemContentType = "application/problem+json"
@@ -36,20 +36,21 @@ func title(status int) string {
 	return http.StatusText(status)
 }
 
-func errorHandler(err error, c echo.Context) {
-	if c.Response().Committed {
+func errorHandler(c *echo.Context, err error) {
+	if r, _ := echo.UnwrapResponse(c.Response()); r != nil && r.Committed {
 		return
 	}
 
 	status := http.StatusInternalServerError
-	detail := ""
+	var sc echo.HTTPStatusCoder
+	if errors.As(err, &sc) && sc.StatusCode() != 0 {
+		status = sc.StatusCode()
+	}
 
+	detail := ""
 	var he *echo.HTTPError
-	if errors.As(err, &he) {
-		status = he.Code
-		if msg, ok := he.Message.(string); ok && msg != http.StatusText(status) {
-			detail = msg
-		}
+	if errors.As(err, &he) && he.Message != http.StatusText(status) {
+		detail = he.Message
 	}
 	// Подробности внутренних ошибок клиенту не показываем: они уже в журнале запроса.
 	if status >= http.StatusInternalServerError {

@@ -18,6 +18,8 @@ type Config struct {
 
 	DatabaseURL         string `env:"DATABASE_URL" envDefault:"postgres://pikni:pikni@localhost:5432/pikni?sslmode=disable"`
 	DatabaseMigratorURL string `env:"DATABASE_MIGRATOR_URL"`
+
+	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 }
 
 func (c Config) MigratorURL() string {

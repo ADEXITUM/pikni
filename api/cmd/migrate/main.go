@@ -28,13 +28,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	log := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel)
+	log := logging.New(os.Stdout, cfg.LogFormat, cfg.LogLevel, nil)
 
 	sqlDB, err := sql.Open("pgx", cfg.MigratorURL())
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.FS)
 	if err != nil {

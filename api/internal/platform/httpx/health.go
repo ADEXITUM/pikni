@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type Check func(ctx context.Context) error
@@ -24,13 +24,13 @@ type readyResponse struct {
 const readyTimeout = 2 * time.Second
 
 func RegisterHealth(e *echo.Echo, version string) {
-	e.GET("/healthz", func(c echo.Context) error {
+	e.GET("/healthz", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, healthResponse{Status: "ok", Version: version})
 	})
 }
 
 func RegisterReady(e *echo.Echo, log *slog.Logger, checks map[string]Check) {
-	e.GET("/readyz", func(c echo.Context) error {
+	e.GET("/readyz", func(c *echo.Context) error {
 		ctx, cancel := context.WithTimeout(c.Request().Context(), readyTimeout)
 		defer cancel()
 

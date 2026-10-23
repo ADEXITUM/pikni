@@ -646,7 +646,7 @@ sequenceDiagram
 
 | Сигнал | Откуда | Что видно |
 |---|---|---|
-| **Трассировки** | middleware Echo (otelecho), драйвер pgx (otelpgx), HTTP-клиент адаптеров (otelhttp), задачи River (middleware OpenTelemetry) | Путь запроса: например, `POST /api/pos/v1/receipts` → проверки → SQL-запросы → `SubmitCheque` в имитаторе → `COMMIT`, с длительностью каждого шага. Задача, поставленная из запроса, связана с его трассировкой |
+| **Трассировки** | официальный middleware Echo v5 (echo-opentelemetry), драйвер pgx (otelpgx), HTTP-клиент адаптеров (otelhttp), задачи River (middleware OpenTelemetry) | Путь запроса: например, `POST /api/pos/v1/receipts` → проверки → SQL-запросы → `SubmitCheque` в имитаторе → `COMMIT`, с длительностью каждого шага. Задача, поставленная из запроса, связана с его трассировкой |
 | **Метрики** | те же инструменты + собственные счётчики | Технические: число запросов, ошибки и время ответа по маршрутам, пул соединений БД, очередь River по видам задач. Бизнес-метрики: `pikni_receipts_total`, `pikni_scans_total{result}`, `pikni_egais_queue_size`, `pikni_egais_errors_total`, `pikni_utm_up{location}`, `pikni_deficit_lines`, `pikni_sale_refusals_total{reason}` |
 | **Журналы** | `log/slog` в JSON через мост OpenTelemetry | Каждая запись несёт `trace_id` и `span_id`, поэтому из трассировки можно перейти к её журналам и обратно. Плюс `request_id`, `user_id`, `pos_device_id`; персональных данных нет |
 
