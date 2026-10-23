@@ -3,8 +3,11 @@ package auth
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/platform/dbtest"
@@ -223,5 +226,59 @@ func TestChangePassword(t *testing.T) {
 	}
 	if _, _, err := svc.Login(ctx, "petrova", "новый-пароль", Client{}); err != nil {
 		t.Errorf("login with new password: %v", err)
+	}
+}
+
+func TestLoginWritesAudit(t *testing.T) {
+	t.Parallel()
+	svc, db, clock := newTestService(t)
+	ctx := t.Context()
+	createUser(t, db, "petrova", "верный-пароль")
+	client := Client{IP: "203.0.113.7"}
+
+	// Пароль, по ошибке введённый в поле логина, не должен попасть в журнал.
+	_, _, _ = svc.Login(ctx, "мой-секретный-пароль", "x", client)
+	for range maxFailedLogins {
+		_, _, _ = svc.Login(ctx, "petrova", "неверный", client)
+	}
+	_, _, _ = svc.Login(ctx, "petrova", "верный-пароль", client)
+	*clock = clock.Add(lockoutDuration + time.Second)
+	if _, _, err := svc.Login(ctx, "petrova", "верный-пароль", client); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := db.App.Query(ctx, `
+		select action || coalesce(':' || (data->>'reason'), '')
+		       || case when (data->>'locked')::bool then ':locked' else '' end
+		from audit_log order by id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"auth.login_failed:unknown_login",
+		"auth.login_failed:password",
+		"auth.login_failed:password",
+		"auth.login_failed:password",
+		"auth.login_failed:password",
+		"auth.login_failed:password:locked",
+		"auth.login_failed:locked",
+		"auth.login",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("audit log:\n got %q\nwant %q", got, want)
+	}
+
+	var leaked, login int
+	err = db.App.QueryRow(ctx, `
+		select count(*) filter (where data::text like '%мой-секретный-пароль%'),
+		       count(*) filter (where action = 'auth.login' and user_id is not null
+		                          and session_id is not null and host(ip) = '203.0.113.7')
+		from audit_log`).Scan(&leaked, &login)
+	if err != nil || leaked != 0 || login != 1 {
+		t.Errorf("leaked=%d login_with_actor=%d err=%v", leaked, login, err)
 	}
 }

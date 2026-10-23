@@ -4,12 +4,14 @@ select u.id, u.login, u.full_name, u.role, u.password_hash, u.must_change_passwo
 from users u
 where lower(u.login) = lower(@login);
 
--- name: RecordFailedLogin :exec
+-- name: RecordFailedLogin :one
 -- Счётчик обнуляется в момент блокировки: после неё снова доступно max_attempts попыток.
+-- Поэтому ноль после обновления означает, что именно эта попытка заблокировала вход.
 update users
 set failed_logins = case when failed_logins + 1 >= @max_attempts::int then 0 else failed_logins + 1 end,
     locked_until  = case when failed_logins + 1 >= @max_attempts::int then @lock_until::timestamptz else locked_until end
-where id = @id;
+where id = @id
+returning failed_logins = 0 as locked;
 
 -- name: ResetFailedLogins :exec
 update users

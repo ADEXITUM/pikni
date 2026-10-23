@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/audit"
 )
 
 const (
@@ -62,7 +63,8 @@ func (s *Service) Middleware() (apispec.StrictMiddlewareFunc, error) {
 				return nil, fmt.Errorf("operation %s is not in the spec", operationID)
 			}
 			req := c.Request()
-			ctx := context.WithValue(req.Context(), clientKey, Client{IP: c.RealIP(), UserAgent: req.UserAgent()})
+			client := Client{IP: c.RealIP(), UserAgent: req.UserAgent()}
+			ctx := context.WithValue(req.Context(), clientKey, client)
 
 			if !op.public {
 				sess, err := s.sessionFor(ctx, c)
@@ -73,6 +75,7 @@ func (s *Service) Middleware() (apispec.StrictMiddlewareFunc, error) {
 					return nil, err
 				}
 				ctx = context.WithValue(ctx, sessionKey, sess)
+				ctx = audit.WithActor(ctx, audit.Actor{UserID: sess.UserID, SessionID: sess.ID, IP: client.IP})
 			}
 
 			c.SetRequest(req.WithContext(ctx))

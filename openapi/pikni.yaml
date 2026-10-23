@@ -85,6 +85,68 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /audit:
+    get:
+      operationId: listAuditLog
+      summary: Журнал действий
+      description: Записи от новых к старым. Следующая страница — параметр before из nextBefore.
+      tags: [audit]
+      x-permission: audit.view
+      parameters:
+        - name: before
+          in: query
+          description: Только записи с номером меньше указанного
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: from
+          in: query
+          description: Начало периода включительно
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Конец периода, не включая
+          schema:
+            type: string
+            format: date-time
+        - name: userId
+          in: query
+          description: Кто выполнил действие
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            $ref: "#/components/schemas/AuditAction"
+        - name: entityType
+          in: query
+          schema:
+            type: string
+            example: user
+        - name: entityId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Страница журнала
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditPage"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /locations:
     get:
       operationId: listLocations
@@ -159,6 +221,71 @@ components:
         - assets.edit
         - reports.view
         - audit.view
+
+    AuditAction:
+      type: string
+      description: Вид события. Русские названия — в словаре клиента.
+      enum:
+        - auth.login
+        - auth.login_failed
+        - auth.logout
+        - auth.password_changed
+        - user.created
+        - user.password_reset
+
+    AuditEntry:
+      type: object
+      required: [id, at, action, data]
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        action:
+          $ref: "#/components/schemas/AuditAction"
+        user:
+          $ref: "#/components/schemas/AuditUser"
+        sessionId:
+          type: string
+          format: uuid
+        ip:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+          description: Подробности события, например логин и роль созданного пользователя
+
+    AuditUser:
+      type: object
+      description: Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера
+      required: [id, login, fullName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        fullName:
+          type: string
+
+    AuditPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        nextBefore:
+          type: integer
+          format: int64
+          description: Курсор следующей страницы; нет, если это последняя
 
     LoginRequest:
       type: object

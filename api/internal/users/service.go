@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/users/store"
@@ -44,12 +46,23 @@ func (s *Service) CreateAdmin(ctx context.Context, login, fullName string) (temp
 		return "", err
 	}
 
-	_, err = s.q.CreateUser(ctx, store.CreateUserParams{Login: login, FullName: fullName, Role: RoleAdmin, PasswordHash: hash})
-	if db.IsUniqueViolation(err) {
-		return "", ErrLoginTaken
-	}
+	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		id, err := s.q.WithTx(tx).CreateUser(ctx, store.CreateUserParams{Login: login, FullName: fullName, Role: RoleAdmin, PasswordHash: hash})
+		if db.IsUniqueViolation(err) {
+			return ErrLoginTaken
+		}
+		if err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
+		return audit.Record(ctx, tx, audit.Event{
+			Action:     apispec.AuditActionUserCreated,
+			EntityType: audit.EntityUser,
+			EntityID:   id.String(),
+			Data:       map[string]any{"login": login, "role": RoleAdmin},
+		})
+	})
 	if err != nil {
-		return "", fmt.Errorf("create user: %w", err)
+		return "", err
 	}
 	return temporary, nil
 }
@@ -65,14 +78,22 @@ func (s *Service) ResetPassword(ctx context.Context, login string) (temporary st
 
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
-		id, err := q.ResetPassword(ctx, store.ResetPasswordParams{Login: strings.TrimSpace(login), PasswordHash: hash})
+		user, err := q.ResetPassword(ctx, store.ResetPasswordParams{Login: strings.TrimSpace(login), PasswordHash: hash})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return fmt.Errorf("reset password: %w", err)
 		}
-		return q.DeleteUserSessions(ctx, id)
+		if err := q.DeleteUserSessions(ctx, user.ID); err != nil {
+			return fmt.Errorf("delete sessions: %w", err)
+		}
+		return audit.Record(ctx, tx, audit.Event{
+			Action:     apispec.AuditActionUserPasswordReset,
+			EntityType: audit.EntityUser,
+			EntityID:   user.ID.String(),
+			Data:       map[string]any{"login": user.Login},
+		})
 	})
 	if err != nil {
 		return "", err

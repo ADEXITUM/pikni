@@ -5,6 +5,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	locstore "github.com/ADEXITUM/pikni/api/internal/locations/store"
@@ -13,12 +14,14 @@ import (
 // Псевдонимы нужны, чтобы встроить обработчики разных модулей с одинаковым
 // именем типа Handler: имя встроенного поля берётся из имени типа.
 type (
+	auditHandler     = audit.Handler
 	authHandler      = auth.Handler
 	locationsHandler = locations.Handler
 )
 
 // API собирает обработчики модулей в одну реализацию сгенерированного интерфейса.
 type API struct {
+	*auditHandler
 	*authHandler
 	*locationsHandler
 }
@@ -32,6 +35,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 		return err
 	}
 	api := &API{
+		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
 		locationsHandler: locations.NewHandler(locations.NewService(locstore.New(pool))),
 	}

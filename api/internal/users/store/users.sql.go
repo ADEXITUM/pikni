@@ -55,7 +55,7 @@ set password_hash        = $1,
     version              = version + 1,
     updated_at           = now()
 where lower(login) = lower($2)
-returning id
+returning id, login
 `
 
 type ResetPasswordParams struct {
@@ -63,9 +63,14 @@ type ResetPasswordParams struct {
 	Login        string
 }
 
-func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (uuid.UUID, error) {
+type ResetPasswordRow struct {
+	ID    uuid.UUID
+	Login string
+}
+
+func (q *Queries) ResetPassword(ctx context.Context, arg ResetPasswordParams) (ResetPasswordRow, error) {
 	row := q.db.QueryRow(ctx, resetPassword, arg.PasswordHash, arg.Login)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i ResetPasswordRow
+	err := row.Scan(&i.ID, &i.Login)
+	return i, err
 }

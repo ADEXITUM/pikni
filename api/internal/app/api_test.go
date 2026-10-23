@@ -128,33 +128,84 @@ func TestAuthFlow(t *testing.T) {
 	b.do(http.MethodGet, "/auth/me", nil, http.StatusUnauthorized)
 }
 
+const staffPassword = "пароль-сотрудника"
+
+func createStaff(t *testing.T, db *dbtest.DB, login string, role apispec.Role) uuid.UUID {
+	t.Helper()
+	hash, err := password.Hash(staffPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var id uuid.UUID
+	err = db.App.QueryRow(t.Context(), `
+		insert into users (login, full_name, role, password_hash, must_change_password)
+		values ($1, $1, $2, $3, false) returning id`, login, role, hash).Scan(&id)
+	if err != nil {
+		t.Fatalf("create %s: %v", login, err)
+	}
+	return id
+}
+
+func (b *browser) login(login string) {
+	b.t.Helper()
+	rec := b.do(http.MethodPost, "/auth/login", map[string]string{"login": login, "password": staffPassword}, http.StatusOK)
+	var me apispec.Me
+	if err := json.NewDecoder(rec.Body).Decode(&me); err != nil {
+		b.t.Fatal(err)
+	}
+	b.cookie, b.csrf = sessionCookie(b.t, rec), me.CsrfToken
+}
+
+func TestAuditLogAccess(t *testing.T) {
+	t.Parallel()
+	b, db := newBrowser(t)
+	kassir := createStaff(t, db, "kassir", apispec.RoleCashier)
+	createStaff(t, db, "admin", apispec.RoleAdmin)
+
+	b.login("kassir")
+	b.do(http.MethodGet, "/audit", nil, http.StatusForbidden)
+	b.do(http.MethodPost, "/auth/logout", nil, http.StatusNoContent)
+
+	b.login("admin")
+	rec := b.do(http.MethodGet, "/audit?action=auth.login&userId="+kassir.String(), nil, http.StatusOK)
+	var page apispec.AuditPage
+	if err := json.NewDecoder(rec.Body).Decode(&page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 || page.Items[0].User == nil || page.Items[0].User.Login != "kassir" {
+		t.Fatalf("cashier logins = %+v", page.Items)
+	}
+
+	rec = b.do(http.MethodGet, "/audit?limit=1", nil, http.StatusOK)
+	page = apispec.AuditPage{}
+	if err := json.NewDecoder(rec.Body).Decode(&page); err != nil {
+		t.Fatal(err)
+	}
+	// Последнее событие — вход самого администратора, а за ним есть ещё страницы.
+	if len(page.Items) != 1 || page.Items[0].Action != apispec.AuditActionAuthLogin ||
+		page.Items[0].User.Login != "admin" || page.NextBefore == nil {
+		t.Errorf("latest entry = %+v, nextBefore = %v", page.Items, page.NextBefore)
+	}
+}
+
 func TestMeShowsWorkLocations(t *testing.T) {
 	t.Parallel()
 	b, db := newBrowser(t)
 	ctx := t.Context()
 
-	hash, err := password.Hash("пароль-сотрудника")
-	if err != nil {
-		t.Fatal(err)
-	}
 	var store uuid.UUID
-	err = db.App.QueryRow(ctx, `
-		with locs as (
-			insert into locations (code, name, kind, city, timezone) values
-				('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk'),
-				('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok')
-			returning id, code
-		), staff as (
-			insert into users (login, full_name, role, password_hash, must_change_password)
-			values ('kassir', 'Кассир', 'cashier', $1, false), ('boss', 'Руководитель', 'manager', $1, false)
-			returning id, role
-		), bind as (
-			insert into user_locations (user_id, location_id)
-			select staff.id, locs.id from staff, locs where staff.role = 'cashier' and locs.code = 'МГ-01'
-		)
-		select id from locs where code = 'МГ-01'`, hash).Scan(&store)
+	err := db.App.QueryRow(ctx, `
+		insert into locations (code, name, kind, city, timezone) values
+			('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk'),
+			('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok')
+		returning id`).Scan(&store)
 	if err != nil {
-		t.Fatalf("prepare data: %v", err)
+		t.Fatalf("create locations: %v", err)
+	}
+	kassir := createStaff(t, db, "kassir", apispec.RoleCashier)
+	createStaff(t, db, "boss", apispec.RoleManager)
+	if _, err := db.App.Exec(ctx, `insert into user_locations (user_id, location_id) values ($1, $2)`, kassir, store); err != nil {
+		t.Fatal(err)
 	}
 
 	tests := []struct {
@@ -166,7 +217,7 @@ func TestMeShowsWorkLocations(t *testing.T) {
 		{"boss", 2, false},
 	}
 	for _, tt := range tests {
-		rec := b.do(http.MethodPost, "/auth/login", map[string]string{"login": tt.login, "password": "пароль-сотрудника"}, http.StatusOK)
+		rec := b.do(http.MethodPost, "/auth/login", map[string]string{"login": tt.login, "password": staffPassword}, http.StatusOK)
 		var me apispec.Me
 		if err := json.NewDecoder(rec.Body).Decode(&me); err != nil {
 			t.Fatal(err)

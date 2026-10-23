@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/auth/store"
 )
@@ -77,19 +78,23 @@ var dummyHash = sync.OnceValue(func() string {
 
 // Login возвращает сессию и токен для cookie. В базе хранится только SHA-256 токена.
 func (s *Service) Login(ctx context.Context, login, plain string, client Client) (Session, string, error) {
+	ctx = audit.WithActor(ctx, audit.Actor{IP: client.IP})
 	now := s.now()
+
 	u, err := s.q.GetUserByLogin(ctx, strings.TrimSpace(login))
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Хеш считается и здесь, иначе по времени ответа видно, существует ли логин.
+		// Введённый текст в журнал не пишется: в поле логина иногда по ошибке вводят пароль.
 		_, _ = password.Check(plain, dummyHash())
-		return Session{}, "", ErrInvalidCredentials
+		return Session{}, "", failLogin(ctx, s.pool, nil, map[string]any{"reason": "unknown_login"}, ErrInvalidCredentials)
 	}
 	if err != nil {
 		return Session{}, "", fmt.Errorf("get user: %w", err)
 	}
 
 	if u.LockedUntil != nil && now.Before(*u.LockedUntil) {
-		return Session{}, "", &LockedError{RetryAfter: u.LockedUntil.Sub(now)}
+		locked := &LockedError{RetryAfter: u.LockedUntil.Sub(now)}
+		return Session{}, "", failLogin(ctx, s.pool, &u, map[string]any{"reason": "locked"}, locked)
 	}
 
 	ok, err := password.Check(plain, u.PasswordHash)
@@ -97,20 +102,22 @@ func (s *Service) Login(ctx context.Context, login, plain string, client Client)
 		return Session{}, "", fmt.Errorf("check password: %w", err)
 	}
 	if !ok {
-		err := s.q.RecordFailedLogin(ctx, store.RecordFailedLoginParams{
-			ID: u.ID, MaxAttempts: maxFailedLogins, LockUntil: now.Add(lockoutDuration),
+		err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+			locked, err := s.q.WithTx(tx).RecordFailedLogin(ctx, store.RecordFailedLoginParams{
+				ID: u.ID, MaxAttempts: maxFailedLogins, LockUntil: now.Add(lockoutDuration),
+			})
+			if err != nil {
+				return fmt.Errorf("record failed login: %w", err)
+			}
+			return failLogin(ctx, tx, &u, map[string]any{"reason": "password", "locked": locked}, nil)
 		})
 		if err != nil {
-			return Session{}, "", fmt.Errorf("record failed login: %w", err)
+			return Session{}, "", err
 		}
 		return Session{}, "", ErrInvalidCredentials
 	}
 	if u.IsBlocked {
-		return Session{}, "", ErrBlocked
-	}
-
-	if err := s.q.ResetFailedLogins(ctx, u.ID); err != nil {
-		return Session{}, "", fmt.Errorf("reset failed logins: %w", err)
+		return Session{}, "", failLogin(ctx, s.pool, &u, map[string]any{"reason": "blocked"}, ErrBlocked)
 	}
 
 	token := rand.Text()
@@ -123,19 +130,44 @@ func (s *Service) Login(ctx context.Context, login, plain string, client Client)
 		CSRFToken:          rand.Text(),
 		LocationIDs:        u.LocationIDs,
 	}
-	sess.ID, err = s.q.CreateSession(ctx, store.CreateSessionParams{
-		UserID:     u.ID,
-		TokenHash:  hashToken(token),
-		CSRFToken:  sess.CSRFToken,
-		IP:         client.IP,
-		UserAgent:  client.UserAgent,
-		LastSeenAt: now,
-		ExpiresAt:  now.Add(sessionLifetime),
+	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		if err := q.ResetFailedLogins(ctx, u.ID); err != nil {
+			return fmt.Errorf("reset failed logins: %w", err)
+		}
+		var err error
+		sess.ID, err = q.CreateSession(ctx, store.CreateSessionParams{
+			UserID:     u.ID,
+			TokenHash:  hashToken(token),
+			CSRFToken:  sess.CSRFToken,
+			IP:         client.IP,
+			UserAgent:  client.UserAgent,
+			LastSeenAt: now,
+			ExpiresAt:  now.Add(sessionLifetime),
+		})
+		if err != nil {
+			return fmt.Errorf("create session: %w", err)
+		}
+		actor := audit.Actor{UserID: u.ID, SessionID: sess.ID, IP: client.IP}
+		return audit.Record(audit.WithActor(ctx, actor), tx, audit.Event{Action: apispec.AuditActionAuthLogin})
 	})
 	if err != nil {
-		return Session{}, "", fmt.Errorf("create session: %w", err)
+		return Session{}, "", err
 	}
 	return sess, token, nil
+}
+
+// failLogin записывает неудачную попытку входа и возвращает result, если запись удалась.
+func failLogin(ctx context.Context, db audit.DB, u *store.GetUserByLoginRow, data map[string]any, result error) error {
+	e := audit.Event{Action: apispec.AuditActionAuthLoginFailed, Data: data}
+	if u != nil {
+		e.EntityType, e.EntityID = audit.EntityUser, u.ID.String()
+		data["login"] = u.Login
+	}
+	if err := audit.Record(ctx, db, e); err != nil {
+		return err
+	}
+	return result
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
@@ -182,7 +214,12 @@ func (s *Service) WorkLocations(ctx context.Context, sess Session) ([]uuid.UUID,
 }
 
 func (s *Service) Logout(ctx context.Context, sess Session) error {
-	return s.q.DeleteSession(ctx, sess.ID)
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if err := s.q.WithTx(tx).DeleteSession(ctx, sess.ID); err != nil {
+			return fmt.Errorf("delete session: %w", err)
+		}
+		return audit.Record(ctx, tx, audit.Event{Action: apispec.AuditActionAuthLogout})
+	})
 }
 
 // ChangePassword оставляет текущую сессию и завершает остальные сессии пользователя.
@@ -214,7 +251,10 @@ func (s *Service) ChangePassword(ctx context.Context, sess Session, current, nex
 		if err := q.SetPassword(ctx, store.SetPasswordParams{ID: sess.UserID, PasswordHash: newHash}); err != nil {
 			return fmt.Errorf("set password: %w", err)
 		}
-		return q.DeleteOtherSessions(ctx, store.DeleteOtherSessionsParams{UserID: sess.UserID, KeepID: sess.ID})
+		if err := q.DeleteOtherSessions(ctx, store.DeleteOtherSessionsParams{UserID: sess.UserID, KeepID: sess.ID}); err != nil {
+			return fmt.Errorf("delete other sessions: %w", err)
+		}
+		return audit.Record(ctx, tx, audit.Event{Action: apispec.AuditActionAuthPasswordChanged})
 	})
 }
 

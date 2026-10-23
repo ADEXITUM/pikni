@@ -37,6 +37,20 @@ func TestCreateAdmin(t *testing.T) {
 	if _, err := svc.CreateAdmin(ctx, "boss", " "); !errors.Is(err, users.ErrEmptyFields) {
 		t.Errorf("CreateAdmin() with empty name error = %v, want ErrEmptyFields", err)
 	}
+
+	// Неудачная попытка откатила транзакцию вместе с записью журнала.
+	if n := auditCount(t, db, "user.created"); n != 1 {
+		t.Errorf("user.created entries = %d, want 1", n)
+	}
+}
+
+func auditCount(t *testing.T, db *dbtest.DB, action string) int {
+	t.Helper()
+	var n int
+	if err := db.App.QueryRow(t.Context(), `select count(*) from audit_log where action = $1`, action).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 func TestResetPassword(t *testing.T) {
@@ -81,5 +95,8 @@ func TestResetPassword(t *testing.T) {
 
 	if _, err := svc.ResetPassword(ctx, "nobody"); !errors.Is(err, users.ErrNotFound) {
 		t.Errorf("ResetPassword(unknown) error = %v, want ErrNotFound", err)
+	}
+	if n := auditCount(t, db, "user.password_reset"); n != 1 {
+		t.Errorf("user.password_reset entries = %d, want 1", n)
 	}
 }

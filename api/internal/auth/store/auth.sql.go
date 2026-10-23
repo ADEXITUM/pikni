@@ -187,11 +187,12 @@ func (q *Queries) ListLocationIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return items, nil
 }
 
-const recordFailedLogin = `-- name: RecordFailedLogin :exec
+const recordFailedLogin = `-- name: RecordFailedLogin :one
 update users
 set failed_logins = case when failed_logins + 1 >= $1::int then 0 else failed_logins + 1 end,
     locked_until  = case when failed_logins + 1 >= $1::int then $2::timestamptz else locked_until end
 where id = $3
+returning failed_logins = 0 as locked
 `
 
 type RecordFailedLoginParams struct {
@@ -201,9 +202,12 @@ type RecordFailedLoginParams struct {
 }
 
 // Счётчик обнуляется в момент блокировки: после неё снова доступно max_attempts попыток.
-func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginParams) error {
-	_, err := q.db.Exec(ctx, recordFailedLogin, arg.MaxAttempts, arg.LockUntil, arg.ID)
-	return err
+// Поэтому ноль после обновления означает, что именно эта попытка заблокировала вход.
+func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginParams) (bool, error) {
+	row := q.db.QueryRow(ctx, recordFailedLogin, arg.MaxAttempts, arg.LockUntil, arg.ID)
+	var locked bool
+	err := row.Scan(&locked)
+	return locked, err
 }
 
 const resetFailedLogins = `-- name: ResetFailedLogins :exec

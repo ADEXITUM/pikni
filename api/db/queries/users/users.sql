@@ -12,7 +12,7 @@ set password_hash        = sqlc.arg(password_hash),
     version              = version + 1,
     updated_at           = now()
 where lower(login) = lower(sqlc.arg(login))
-returning id;
+returning id, login;
 
 -- name: DeleteUserSessions :exec
 delete from sessions

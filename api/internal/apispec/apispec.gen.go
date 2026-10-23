@@ -14,11 +14,43 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AuditAction.
+const (
+	AuditActionAuthLogin           AuditAction = "auth.login"
+	AuditActionAuthLoginFailed     AuditAction = "auth.login_failed"
+	AuditActionAuthLogout          AuditAction = "auth.logout"
+	AuditActionAuthPasswordChanged AuditAction = "auth.password_changed"
+	AuditActionUserCreated         AuditAction = "user.created"
+	AuditActionUserPasswordReset   AuditAction = "user.password_reset"
+)
+
+// Valid indicates whether the value is a known member of the AuditAction enum.
+func (e AuditAction) Valid() bool {
+	switch e {
+	case AuditActionAuthLogin:
+		return true
+	case AuditActionAuthLoginFailed:
+		return true
+	case AuditActionAuthLogout:
+		return true
+	case AuditActionAuthPasswordChanged:
+		return true
+	case AuditActionUserCreated:
+		return true
+	case AuditActionUserPasswordReset:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for LocationKind.
 const (
@@ -152,6 +184,42 @@ func (e Role) Valid() bool {
 	}
 }
 
+// AuditAction Вид события. Русские названия — в словаре клиента.
+type AuditAction string
+
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	// Action Вид события. Русские названия — в словаре клиента.
+	Action AuditAction `json:"action"`
+	At     time.Time   `json:"at"`
+
+	// Data Подробности события, например логин и роль созданного пользователя
+	Data       map[string]interface{} `json:"data"`
+	EntityID   *string                `json:"entityId,omitempty"`
+	EntityType *string                `json:"entityType,omitempty"`
+	ID         int64                  `json:"id"`
+	IP         *string                `json:"ip,omitempty"`
+	SessionID  *openapi_types.UUID    `json:"sessionId,omitempty"`
+
+	// User Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера
+	User *AuditUser `json:"user,omitempty"`
+}
+
+// AuditPage defines model for AuditPage.
+type AuditPage struct {
+	Items []AuditEntry `json:"items"`
+
+	// NextBefore Курсор следующей страницы; нет, если это последняя
+	NextBefore *int64 `json:"nextBefore,omitempty"`
+}
+
+// AuditUser Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера
+type AuditUser struct {
+	FullName string             `json:"fullName"`
+	ID       openapi_types.UUID `json:"id"`
+	Login    string             `json:"login"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
@@ -230,6 +298,25 @@ type Problem struct {
 // Role defines model for Role.
 type Role string
 
+// ListAuditLogParams defines parameters for ListAuditLog.
+type ListAuditLogParams struct {
+	// Before Только записи с номером меньше указанного
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// From Начало периода включительно
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Конец периода, не включая
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// UserID Кто выполнил действие
+	UserID     *openapi_types.UUID `form:"userId,omitempty" json:"userId,omitempty"`
+	Action     *AuditAction        `form:"action,omitempty" json:"action,omitempty"`
+	EntityType *string             `form:"entityType,omitempty" json:"entityType,omitempty"`
+	EntityID   *string             `form:"entityId,omitempty" json:"entityId,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -238,6 +325,9 @@ type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAuditLog Журнал действий
+	// (GET /audit)
+	ListAuditLog(ctx *echo.Context, params ListAuditLogParams) error
 	// Login Вход по логину и паролю
 	// (POST /auth/login)
 	Login(ctx *echo.Context) error
@@ -258,6 +348,73 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// ListAuditLog converts echo context to params.
+func (w *ServerInterfaceWrapper) ListAuditLog(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditLogParams
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", ctx.QueryParams(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter before: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", ctx.QueryParams(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter from: %s", err))
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", ctx.QueryParams(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter to: %s", err))
+	}
+
+	// ------------- Optional query parameter "userId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "userId", ctx.QueryParams(), &params.UserID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", ctx.QueryParams(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter action: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityType" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityType", ctx.QueryParams(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityType: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityId", ctx.QueryParams(), &params.EntityID, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListAuditLog(ctx, params)
+	return err
 }
 
 // Login converts echo context to params.
@@ -356,11 +513,51 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout, options.OperationMiddlewares["logout"]...)
 	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe, options.OperationMiddlewares["getMe"]...)
 	router.POST(options.BaseURL+"/auth/password", wrapper.ChangePassword, options.OperationMiddlewares["changePassword"]...)
+	router.GET(options.BaseURL+"/audit", wrapper.ListAuditLog, options.OperationMiddlewares["listAuditLog"]...)
 	router.GET(options.BaseURL+"/locations", wrapper.ListLocations, options.OperationMiddlewares["listLocations"]...)
 
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type ListAuditLogRequestObject struct {
+	Params ListAuditLogParams
+}
+
+type ListAuditLogResponseObject interface {
+	VisitListAuditLogResponse(w http.ResponseWriter) error
+}
+
+type ListAuditLog200JSONResponse AuditPage
+
+func (response ListAuditLog200JSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListAuditLogdefaultApplicationProblemPlusJSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type LoginRequestObject struct {
 	Body *LoginJSONRequestBody
@@ -562,6 +759,9 @@ func (response ListLocationsdefaultApplicationProblemPlusJSONResponse) VisitList
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListAuditLog Журнал действий
+	// (GET /audit)
+	ListAuditLog(ctx context.Context, request ListAuditLogRequestObject) (ListAuditLogResponseObject, error)
 	// Login Вход по логину и паролю
 	// (POST /auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -589,6 +789,31 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListAuditLog operation middleware
+func (sh *strictHandler) ListAuditLog(ctx *echo.Context, params ListAuditLogParams) error {
+	var request ListAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditLog(ctx.Request().Context(), request.(ListAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditLog")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListAuditLogResponseObject); ok {
+		return validResponse.VisitListAuditLogResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // Login operation middleware
@@ -743,41 +968,53 @@ func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"DYrv6PX1c3Tj5sZ/BwA=",
+	"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",
+	"wo5VWgNFQZvXOf5vlPntC3x3bfefAwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

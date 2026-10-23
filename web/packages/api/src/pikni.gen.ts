@@ -75,6 +75,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Журнал действий
+         * @description Записи от новых к старым. Следующая страница — параметр before из nextBefore.
+         */
+        get: operations["listAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/locations": {
         parameters: {
             query?: never;
@@ -103,6 +123,43 @@ export interface components {
          * @enum {string}
          */
         Permission: "users.manage" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
+        /**
+         * @description Вид события. Русские названия — в словаре клиента.
+         * @enum {string}
+         */
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "user.created" | "user.password_reset";
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            action: components["schemas"]["AuditAction"];
+            user?: components["schemas"]["AuditUser"];
+            /** Format: uuid */
+            sessionId?: string;
+            ip?: string;
+            entityType?: string;
+            entityId?: string;
+            /** @description Подробности события, например логин и роль созданного пользователя */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера */
+        AuditUser: {
+            /** Format: uuid */
+            id: string;
+            login: string;
+            fullName: string;
+        };
+        AuditPage: {
+            items: components["schemas"]["AuditEntry"][];
+            /**
+             * Format: int64
+             * @description Курсор следующей страницы; нет, если это последняя
+             */
+            nextBefore?: number;
+        };
         LoginRequest: {
             /** @example petrova */
             login: string;
@@ -267,6 +324,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAuditLog: {
+        parameters: {
+            query?: {
+                /** @description Только записи с номером меньше указанного */
+                before?: number;
+                limit?: number;
+                /** @description Начало периода включительно */
+                from?: string;
+                /** @description Конец периода, не включая */
+                to?: string;
+                /** @description Кто выполнил действие */
+                userId?: string;
+                action?: components["schemas"]["AuditAction"];
+                entityType?: string;
+                entityId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница журнала */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
             };
             default: components["responses"]["Problem"];
         };
