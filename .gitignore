@@ -26,3 +26,12 @@ playwright-report/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Фронтенд: кеши и локальные файлы
+coverage/
+dist-ssr/
+*.local
+*.log
+.eslintcache
+__screenshots__/
+*.timestamp-*-*.mjs
