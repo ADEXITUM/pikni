@@ -43,6 +43,14 @@ tasks:
     desc: Загрузить тестовые данные в локальную базу
     cmds:
       - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
+      - task: seed:catalog
+      - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/matrix.sql'
+
+  seed:catalog:
+    internal: true
+    dir: api
+    cmds:
+      - go run ./cmd/admin import-catalog -file db/seed/catalog.csv -if-empty
 
   db:reset:
     desc: Пересоздать локальную базу с нуля

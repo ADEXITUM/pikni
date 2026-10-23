@@ -42,3 +42,19 @@ on conflict (code) do update set
     fsrar_id = excluded.fsrar_id, kpp = excluded.kpp, license_no = excluded.license_no,
     license_valid_to = excluded.license_valid_to, opening_hours = excluded.opening_hours,
     is_public = excluded.is_public;
+
+-- Регионы происхождения для демо-каталога (catalog.csv ссылается на них по названию).
+insert into origin_regions (country_code, name) values
+    ('250', 'Бордо'), ('250', 'Коньяк'), ('250', 'Шампань'), ('268', 'Кахетия'), ('724', 'Риоха'),
+    ('826', 'Шотландия'), ('840', 'Кентукки'), ('643', 'Крым'), ('643', 'Кубань')
+on conflict (country_code, name) do nothing;
+
+-- Поставщики учебной сети; ИНН, КПП и ФСРАР ID вымышленные, контрольные цифры ИНН сходятся.
+insert into suppliers (name, inn, kpp, fsrar_id, license_no, license_valid_to, default_receiving_mode, contacts) values
+    ('ООО «Амур-Дистрибуция»', '2801001056', '280101004', '030000200001', '28ЗАП0000201', '2028-12-31', 'sample',
+     '{"person": "Иванова Мария, менеджер", "phone": "+7 4162 00-11-22", "email": "sales@amur-distr.example"}'),
+    ('ООО «Хабаровский винный дом»', '2724002077', '272401003', '030000200002', '27ЗАП0000202', '2027-09-30', 'boxes',
+     '{"person": "Ким Сергей", "phone": "+7 4212 00-33-44"}'),
+    ('ООО «Приморская пивная компания»', '2540003095', '254001002', '030000200003', '25ЗАП0000203', '2029-03-31', 'document',
+     '{"phone": "+7 423 200-55-66", "email": "order@primbeer.example"}')
+on conflict (inn, kpp) do nothing;

@@ -76,6 +76,9 @@ var problems = map[error]*echo.HTTPError{
 	ErrImportTooLarge: echo.NewHTTPError(http.StatusUnprocessableEntity, "Файл больше 5 МБ или 5000 строк — разбейте его на части"),
 	ErrImportEmpty:    echo.NewHTTPError(http.StatusUnprocessableEntity, "В файле нет строк с данными"),
 	ErrImportFormat:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Нужен файл XLSX или CSV по шаблону"),
+
+	ErrInvalidMinQty: echo.NewHTTPError(http.StatusUnprocessableEntity, "Минимальный остаток — от 1 до 9999"),
+	ErrSameLocation:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Выберите другую точку: копировать матрицу в саму себя незачем"),
 }
 
 var attributeReasons = map[error]string{

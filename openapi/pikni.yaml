@@ -1691,6 +1691,100 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /locations/{id}/assortment:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listAssortment
+      summary: Ассортиментная матрица точки
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Варианты матрицы по наименованию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssortmentList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}/assortment/{variantId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: variantId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setAssortmentItem
+      summary: Добавить вариант в матрицу или изменить минимальный остаток
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssortmentItemUpdate"
+      responses:
+        "204":
+          description: Сохранено
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: removeAssortmentItem
+      summary: Убрать вариант из матрицы
+      tags: [catalog]
+      x-permission: refs.edit
+      responses:
+        "204":
+          description: Убрано
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}/assortment/copy:
+    post:
+      operationId: copyAssortment
+      summary: Добавить в матрицу точки варианты из матрицы другой точки
+      description: Варианты, которые уже есть в матрице, не меняются.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssortmentCopy"
+      responses:
+        "200":
+          description: Сколько вариантов добавлено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssortmentCopyResult"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -1839,6 +1933,9 @@ components:
         - price.deleted
         - min_price.created
         - min_price.deleted
+        - assortment.set
+        - assortment.removed
+        - assortment.copied
 
     AuditEntry:
       type: object
@@ -3306,6 +3403,69 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ImportError"
+
+    AssortmentItem:
+      type: object
+      required: [variantId, productId, article, name, giftPack, isActive, minQty]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        volumeMl:
+          type: integer
+          format: int32
+        container:
+          $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
+        isActive:
+          type: boolean
+          description: false — позиция или вариант в архиве
+        minQty:
+          type: integer
+          format: int32
+
+    AssortmentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssortmentItem"
+
+    AssortmentItemUpdate:
+      type: object
+      required: [minQty]
+      properties:
+        minQty:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 9999
+          description: Минимальный остаток, штук
+
+    AssortmentCopy:
+      type: object
+      required: [fromLocationId]
+      properties:
+        fromLocationId:
+          type: string
+          format: uuid
+
+    AssortmentCopyResult:
+      type: object
+      required: [added]
+      properties:
+        added:
+          type: integer
 
     RuSubject:
       type: object
