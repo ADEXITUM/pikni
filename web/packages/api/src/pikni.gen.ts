@@ -762,6 +762,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{id}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Варианты позиции со штрихкодами */
+        get: operations["listProductVariants"];
+        put?: never;
+        /**
+         * Добавить вариант
+         * @description Объём, тара и подарочная упаковка задают вариант и после создания не меняются.
+         */
+        post: operations["createVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variants/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать варианты по списку объёмов и видов тары
+         * @description Создаёт недостающие сочетания объёма и тары; уже существующие пропускает.
+         */
+        post: operations["generateVariants"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить вариант */
+        put: operations["updateVariant"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}/barcodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Привязать штрихкод к варианту
+         * @description Без code сервер создаёт внутренний EAN-13 с префиксом 20.
+         */
+        post: operations["addBarcode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/barcodes/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отвязать штрихкод */
+        delete: operations["deleteBarcode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -794,7 +891,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -1371,6 +1468,73 @@ export interface components {
              * @description Если есть — параметр after для следующей страницы
              */
             nextAfter?: string;
+        };
+        /**
+         * @description glass — стекло, pet — ПЭТ, can — банка
+         * @enum {string}
+         */
+        Container: "glass" | "pet" | "can";
+        /**
+         * @description Определяется сервером; internal — EAN-13 с префиксом 2 для внутреннего применения
+         * @enum {string}
+         */
+        BarcodeKind: "ean13" | "ean8" | "upca" | "code128" | "internal";
+        Barcode: {
+            /** @example 4600000000011 */
+            code: string;
+            kind: components["schemas"]["BarcodeKind"];
+        };
+        NewBarcode: {
+            /** @description Без кода сервер создаст внутренний EAN-13 */
+            code?: string;
+        };
+        VariantCodes: {
+            /**
+             * @description Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+             * @example 0177207000002463655
+             */
+            alcocode?: string;
+            /**
+             * @description GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+             * @example 04600000000011
+             */
+            gtin?: string;
+        };
+        NewVariant: components["schemas"]["VariantCodes"] & {
+            /**
+             * Format: int32
+             * @description Объём из справочника; обязателен для продукции в ЕГАИС
+             * @example 500
+             */
+            volumeMl?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+        };
+        VariantUpdate: components["schemas"]["VariantCodes"] & {
+            isActive: boolean;
+        };
+        Variant: components["schemas"]["NewVariant"] & {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            productId: string;
+            isActive: boolean;
+            barcodes: components["schemas"]["Barcode"][];
+        };
+        VariantList: {
+            items: components["schemas"]["Variant"][];
+        };
+        VariantGeneration: {
+            /**
+             * @example [
+             *       500,
+             *       700
+             *     ]
+             */
+            volumes: number[];
+            /** @description Пустой список — варианты без тары */
+            containers: components["schemas"]["Container"][];
+            giftPack: boolean;
         };
         RuSubject: {
             /** @example 28 */
@@ -2749,6 +2913,158 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Product"];
                 };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProductVariants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Варианты по объёму */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVariant"];
+            };
+        };
+        responses: {
+            /** @description Вариант добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variant"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    generateVariants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantGeneration"];
+            };
+        };
+        responses: {
+            /** @description Созданные варианты */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Вариант изменён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variant"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    addBarcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBarcode"];
+            };
+        };
+        responses: {
+            /** @description Штрихкод привязан */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Barcode"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteBarcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Штрихкод отвязан */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

@@ -51,6 +51,11 @@ export const originRegionsQuery = queryOptions({
   queryFn: () => items(api.GET('/origin-regions')),
 })
 
+export const volumesQuery = queryOptions({
+  queryKey: ['ref', 'volumes'],
+  queryFn: () => items(api.GET('/volumes')),
+})
+
 export const categoriesQuery = queryOptions({
   queryKey: ['categories'],
   queryFn: async () => {

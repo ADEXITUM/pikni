@@ -25,6 +25,10 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'ref.updated': 'Изменение записи справочника',
   'product.created': 'Создание позиции',
   'product.updated': 'Изменение позиции',
+  'variant.created': 'Новый вариант позиции',
+  'variant.updated': 'Изменение варианта',
+  'barcode.created': 'Привязка штрихкода',
+  'barcode.deleted': 'Отвязка штрихкода',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
@@ -78,6 +82,8 @@ const fieldLabels: Record<string, string> = {
   country: 'Страна',
   region: 'Регион происхождения',
   attributes: 'Характеристики',
+  alcocode: 'Алкокод',
+  gtin: 'GTIN',
 }
 
 const refEntities: Record<string, string> = {
@@ -107,6 +113,7 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'session') return 'сеанс'
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   if (e.entityType === 'product') return `${e.data.article} «${e.data.name}»`
+  if (e.entityType === 'variant') return `${e.data.article} «${e.data.name}», ${e.data.variant}`
   if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
   if (e.entityType && refEntities[e.entityType] && typeof e.data.name === 'string') {
     return `${refEntities[e.entityType]} «${e.data.name}»`
@@ -142,8 +149,9 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
 
   take('login')
   take('code')
-  if (e.action.startsWith('ref.') || e.action.startsWith('product.')) take('name')
+  if (/^(ref|product|variant|barcode)\./.test(e.action)) take('name')
   take('article')
+  take('variant')
   const changes = take('changes') as Record<string, [unknown, unknown]> | undefined
   for (const [key, [was, now]] of Object.entries(changes ?? {})) {
     details.push({ label: fieldLabels[key] ?? key, value: `${show(key, was)} → ${show(key, now)}` })
@@ -159,6 +167,10 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
     case 'user.created':
       details.push({ label: 'Роль', value: role(take('role')) })
       details.push({ label: 'Точки', value: places(take('locationIds')) })
+      break
+    case 'barcode.created':
+    case 'barcode.deleted':
+      details.push({ label: 'Штрихкод', value: String(take('code')) })
       break
     case 'product.created':
       details.push({ label: 'Категория', value: String(take('category')) })

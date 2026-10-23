@@ -81,6 +81,8 @@ const responses: Record<string, unknown> = {
   '/product-lines': { items: [] },
   '/countries': { items: [{ code: '643', alpha2: 'RU', name: 'Российская Федерация' }] },
   '/origin-regions': { items: [] },
+  '/products/{id}/variants': { items: [] },
+  '/volumes': { items: [] },
 }
 
 async function mountAt(path: string, permissions: Permission[] = ['refs.view', 'refs.edit']) {

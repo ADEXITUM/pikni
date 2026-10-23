@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { SubmitEventPromise } from 'vuetify'
 
 import { categoryItems, schemaOf } from '@/categories'
+import VariantsCard from '@/components/VariantsCard.vue'
 import {
   accountingLabels,
   attributeValues,
@@ -457,6 +458,17 @@ async function submit(event: SubmitEventPromise) {
         </v-btn>
       </div>
     </v-form>
+
+    <VariantsCard
+      v-if="product"
+      :product-id="product.id"
+      :is-egais="Boolean(product.kindCode)"
+      :can-edit="canEdit"
+      class="mt-4"
+    />
+    <p v-else-if="isNew" class="text-body-2 text-medium-emphasis mt-4">
+      Варианты — объёмы и тару — можно добавить после сохранения позиции.
+    </p>
   </v-container>
 </template>
 

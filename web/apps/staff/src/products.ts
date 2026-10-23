@@ -1,4 +1,6 @@
-import type { CategoryAttribute, EgaisAccounting } from '@pikni/api'
+import type { CategoryAttribute, Container, EgaisAccounting, Variant } from '@pikni/api'
+
+import { formatVolume } from '@/refs'
 
 export type AttributeValues = Record<string, unknown>
 
@@ -9,6 +11,20 @@ export const accountingLabels: Record<EgaisAccounting | 'none', string> = {
 }
 
 export const formatAbv = (abv: number) => `${abv.toLocaleString('ru')} %`
+
+export const containerLabels: Record<Container, string> = {
+  glass: 'стекло',
+  pet: 'ПЭТ',
+  can: 'банка',
+}
+
+export function variantLabel(v: Pick<Variant, 'volumeMl' | 'container' | 'giftPack'>): string {
+  const parts: string[] = []
+  if (v.volumeMl) parts.push(formatVolume(v.volumeMl))
+  if (v.container) parts.push(containerLabels[v.container])
+  if (v.giftPack) parts.push('подарочная упаковка')
+  return parts.join(', ') || 'без объёма и тары'
+}
 
 export const isEmpty = (v: unknown) => v === '' || v === null || v === undefined
 
