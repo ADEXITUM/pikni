@@ -15,6 +15,29 @@ type Brand struct {
 	IsActive   bool
 }
 
+type Category struct {
+	ID       uuid.UUID
+	ParentID *uuid.UUID
+	Name     string
+	Depth    int16
+	Sort     int32
+	IsActive bool
+}
+
+type CategoryAttribute struct {
+	ID             uuid.UUID
+	CategoryID     uuid.UUID
+	Code           string
+	Name           string
+	Type           string
+	Unit           *string
+	Options        []byte
+	Filterable     bool
+	UsedForAnalogs bool
+	Sort           int32
+	IsActive       bool
+}
+
 type Country struct {
 	Code   string
 	Alpha2 string

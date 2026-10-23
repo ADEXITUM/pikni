@@ -27,6 +27,16 @@ var problems = map[error]*echo.HTTPError{
 	ErrInvalidINN:       echo.NewHTTPError(http.StatusUnprocessableEntity, "ИНН — 10 или 12 цифр"),
 	ErrInvalidVolume:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Объём — от 10 до 30 000 мл"),
 	ErrInvalidEgaisType: echo.NewHTTPError(http.StatusUnprocessableEntity, "Неизвестный тип списания ЕГАИС"),
+
+	ErrCategoryTooDeep:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Категории — не больше трёх уровней"),
+	ErrInactiveParent:       echo.NewHTTPError(http.StatusUnprocessableEntity, "Родительская категория в архиве"),
+	ErrActiveSubcategories:  echo.NewHTTPError(http.StatusConflict, "Сначала отправьте в архив подкатегории"),
+	ErrInvalidCode:          echo.NewHTTPError(http.StatusUnprocessableEntity, "Код — от 2 до 32 символов: латиница в нижнем регистре, цифры и _, первая — буква"),
+	ErrInvalidAttributeType: echo.NewHTTPError(http.StatusUnprocessableEntity, "Неизвестный тип характеристики"),
+	ErrCodeTaken:            echo.NewHTTPError(http.StatusConflict, "Характеристика с таким кодом уже есть в этой ветке категорий"),
+	ErrInvalidOptions:       echo.NewHTTPError(http.StatusUnprocessableEntity, "Значения списка не должны быть пустыми или повторяться"),
+	ErrOptionRemoved:        echo.NewHTTPError(http.StatusUnprocessableEntity, "Значение списка нельзя удалить — отправьте его в архив"),
+	ErrNoActiveOptions:      echo.NewHTTPError(http.StatusUnprocessableEntity, "В списке должно остаться хотя бы одно действующее значение"),
 }
 
 func problem(err error) error {

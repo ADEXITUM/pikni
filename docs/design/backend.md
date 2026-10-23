@@ -159,8 +159,8 @@ openapi/
 | `alcohol_sale_bans` | `subject_code`, `date` или `month_day` (ежегодно), `name` («День знаний»), `scope` — дни полного запрета |
 | `zones` | `location_id`, `kind` (warehouse, backroom, floor), `name`. У склада одна зона, у магазина две: склад магазина и торговый зал |
 | `suppliers` | `name`, `inn`, `kpp`, `fsrar_id`, `license_no`, `default_receiving_mode` (document, boxes, sample, piece), `contacts` jsonb |
-| `categories` | `parent_id`, `name`, `sort` (глубина не больше трёх уровней) |
-| `category_attributes` | `category_id`, `code`, `name`, `type` (enum, number, text, bool), `options` jsonb (допустимые значения), `unit`, `filterable`, `used_for_analogs`, `sort` — схема характеристик категории; наследуется подкатегориями |
+| `categories` | `parent_id` (не меняется после создания), `name`, `depth` (1–3, считает триггер от родителя), `sort`. В архив — только после подкатегорий |
+| `category_attributes` | `category_id`, `code`, `name`, `type` (enum, number, text, bool), `options` jsonb (значения списка `{value, archived}`: добавляются и архивируются, не удаляются), `unit` (только у чисел), `filterable`, `used_for_analogs`, `sort` — схема характеристик категории; наследуется подкатегориями. `code` и `type` не меняются, `code` уникален в ветке: у предков и потомков его нет |
 | `countries` | `code` (цифровой код ОКСМ), `alpha2`, `name` — только чтение |
 | `origin_regions` | `country_code`, `name` — регионы происхождения: Шампань, Коньяк, Кахетия |
 | `producers`, `brands` | производитель: `name`, `inn` (для российских), `country_code`; бренд: `producer_id`, `name` |

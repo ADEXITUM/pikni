@@ -931,6 +931,130 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /categories:
+    get:
+      operationId: listCategories
+      summary: Дерево категорий с характеристиками
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Категории и их собственные характеристики, включая архивные
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryTree"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createCategory
+      summary: Добавить категорию
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCategory"
+      responses:
+        "201":
+          description: Категория добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /categories/{id}:
+    put:
+      operationId: updateCategory
+      summary: Изменить категорию
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Категория изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /categories/{id}/attributes:
+    post:
+      operationId: createCategoryAttribute
+      summary: Добавить характеристику категории
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCategoryAttribute"
+      responses:
+        "201":
+          description: Характеристика добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryAttribute"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /category-attributes/{id}:
+    put:
+      operationId: updateCategoryAttribute
+      summary: Изменить характеристику категории
+      description: Код и тип не меняются. Значения списка можно добавлять и отправлять в архив, но не удалять.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryAttributeUpdate"
+      responses:
+        "200":
+          description: Характеристика изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryAttribute"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -1835,6 +1959,166 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WriteoffReason"
+
+    CategoryFields:
+      type: object
+      required: [name, sort]
+      properties:
+        name:
+          type: string
+          example: Водка
+        sort:
+          type: integer
+          format: int32
+          description: Порядок среди соседних категорий
+
+    NewCategory:
+      allOf:
+        - $ref: "#/components/schemas/CategoryFields"
+        - type: object
+          properties:
+            parentId:
+              type: string
+              format: uuid
+              x-go-name: ParentID
+              description: Родитель; без него — категория верхнего уровня. После создания не меняется.
+
+    CategoryUpdate:
+      allOf:
+        - $ref: "#/components/schemas/CategoryFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    Category:
+      allOf:
+        - $ref: "#/components/schemas/CategoryFields"
+        - type: object
+          required: [id, depth, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            parentId:
+              type: string
+              format: uuid
+              x-go-name: ParentID
+            depth:
+              type: integer
+              format: int32
+              minimum: 1
+              maximum: 3
+            isActive:
+              type: boolean
+
+    AttributeType:
+      type: string
+      enum: [enum, number, text, bool]
+      description: enum — выбор из списка, number — число, text — строка, bool — да/нет
+
+    AttributeOption:
+      type: object
+      required: [value, archived]
+      properties:
+        value:
+          type: string
+          example: пшеница
+        archived:
+          type: boolean
+          description: Архивное значение остаётся у заведённых позиций, но не предлагается для новых
+
+    CategoryAttributeFields:
+      type: object
+      required: [name, filterable, usedForAnalogs, sort]
+      properties:
+        name:
+          type: string
+          example: Сырьё
+        unit:
+          type: string
+          description: Единица измерения, только для чисел
+          example: лет
+        filterable:
+          type: boolean
+          description: Показывать в фильтрах поиска
+        usedForAnalogs:
+          type: boolean
+          description: Учитывать при подборе аналогов
+        sort:
+          type: integer
+          format: int32
+
+    NewCategoryAttribute:
+      allOf:
+        - $ref: "#/components/schemas/CategoryAttributeFields"
+        - type: object
+          required: [code, type]
+          properties:
+            code:
+              type: string
+              description: Латиница в нижнем регистре, цифры и _; уникален в ветке категорий
+              example: raw_material
+            type:
+              $ref: "#/components/schemas/AttributeType"
+            options:
+              type: array
+              description: Значения списка, только для типа enum
+              items:
+                type: string
+
+    CategoryAttributeUpdate:
+      allOf:
+        - $ref: "#/components/schemas/CategoryAttributeFields"
+        - type: object
+          required: [options, isActive]
+          properties:
+            options:
+              type: array
+              description: Все прежние значения плюс новые; прежние можно только архивировать
+              items:
+                $ref: "#/components/schemas/AttributeOption"
+            isActive:
+              type: boolean
+
+    CategoryAttribute:
+      allOf:
+        - $ref: "#/components/schemas/CategoryAttributeFields"
+        - type: object
+          required: [id, categoryId, code, type, options, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            categoryId:
+              type: string
+              format: uuid
+              x-go-name: CategoryID
+            code:
+              type: string
+            type:
+              $ref: "#/components/schemas/AttributeType"
+            options:
+              type: array
+              items:
+                $ref: "#/components/schemas/AttributeOption"
+            isActive:
+              type: boolean
+
+    CategoryTree:
+      type: object
+      required: [categories, attributes]
+      description: Плоские списки; подкатегория наследует характеристики всех предков
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryAttribute"
 
     RuSubject:
       type: object
