@@ -1612,6 +1612,85 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /catalog/import/template:
+    get:
+      operationId: getImportTemplate
+      summary: Шаблон импорта номенклатуры
+      tags: [catalog]
+      x-permission: refs.edit
+      responses:
+        "200":
+          description: Файл XLSX с колонками, примером и справкой
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /catalog/import/preview:
+    post:
+      operationId: previewImport
+      summary: Предпросмотр импорта номенклатуры
+      description: Проверяет файл так же, как загрузку, но ничего не сохраняет.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+      responses:
+        "200":
+          description: Отчёт об импорте
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /catalog/import:
+    post:
+      operationId: runImport
+      summary: Импорт номенклатуры
+      description: Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+      responses:
+        "200":
+          description: Отчёт об импорте
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -3186,6 +3265,47 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Supplier"
+
+    ImportError:
+      type: object
+      required: [row, message]
+      properties:
+        row:
+          type: integer
+          description: Номер строки в файле; 0 — ошибка файла целиком
+        message:
+          type: string
+
+    ImportReport:
+      type: object
+      required: [committed, rows, products, variants, newProducers, newBrands, newLines, errors]
+      properties:
+        committed:
+          type: boolean
+          description: true — данные сохранены; при предпросмотре всегда false
+        rows:
+          type: integer
+        products:
+          type: integer
+          description: Позиций создано (или будет создано)
+        variants:
+          type: integer
+        newProducers:
+          type: array
+          items:
+            type: string
+        newBrands:
+          type: array
+          items:
+            type: string
+        newLines:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportError"
 
     RuSubject:
       type: object

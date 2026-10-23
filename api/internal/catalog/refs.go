@@ -28,13 +28,24 @@ var (
 	ErrInvalidEgaisType = errors.New("unknown EGAIS write-off type")
 )
 
+// DB — пул соединений или уже открытая транзакция. Begin у транзакции создаёт точку
+// сохранения, поэтому методы сервиса работают и внутри чужой транзакции (импорт).
+type DB interface {
+	store.DBTX
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type Service struct {
-	pool *pgxpool.Pool
+	pool DB
 	q    *store.Queries
 }
 
 func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool, q: store.New(pool)}
+}
+
+func (s *Service) withTx(tx pgx.Tx) *Service {
+	return &Service{pool: tx, q: store.New(tx)}
 }
 
 // change — изменение справочника: before == nil при создании записи.

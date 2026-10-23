@@ -72,6 +72,10 @@ var problems = map[error]*echo.HTTPError{
 	ErrSupplierExists:       echo.NewHTTPError(http.StatusConflict, "Поставщик с таким ИНН и КПП уже есть"),
 	ErrInvalidReceivingMode: echo.NewHTTPError(http.StatusUnprocessableEntity, "Неизвестный режим приёмки"),
 	ErrInvalidEmail:         echo.NewHTTPError(http.StatusUnprocessableEntity, "Проверьте адрес электронной почты"),
+
+	ErrImportTooLarge: echo.NewHTTPError(http.StatusUnprocessableEntity, "Файл больше 5 МБ или 5000 строк — разбейте его на части"),
+	ErrImportEmpty:    echo.NewHTTPError(http.StatusUnprocessableEntity, "В файле нет строк с данными"),
+	ErrImportFormat:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Нужен файл XLSX или CSV по шаблону"),
 }
 
 var attributeReasons = map[error]string{
@@ -83,6 +87,9 @@ var attributeReasons = map[error]string{
 }
 
 func problem(err error) error {
+	if ii, ok := errors.AsType[importIssue](err); ok {
+		return echo.NewHTTPError(http.StatusUnprocessableEntity, string(ii))
+	}
 	if be, ok := errors.AsType[*BelowMinPriceError](err); ok {
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, "Цена ниже минимальной розничной (МРЦ): не меньше "+rubles(be.Min))
 	}
@@ -95,6 +102,16 @@ func problem(err error) error {
 		}
 	}
 	return err
+}
+
+// userMessage — текст ошибки для пользователя, если ошибка из числа ожидаемых (неверные данные).
+// Импорт кладёт такие ошибки в отчёт по строкам, а неожиданные обрывают загрузку.
+func userMessage(err error) (string, bool) {
+	he, ok := errors.AsType[*echo.HTTPError](problem(err))
+	if !ok {
+		return "", false
+	}
+	return fmt.Sprint(he.Message), true
 }
 
 // list переводит строки справочника в ответ API; пустой список уходит как [], а не null.
