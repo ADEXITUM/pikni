@@ -15,7 +15,22 @@
 
 ## Статус
 
-Идёт разработка, итерация 0. План — [docs/plan.md](docs/plan.md).
+Итерация 0 («ходячий скелет») завершена: браузер → Vue → API на Go → PostgreSQL, с трассировками в Grafana. План — [docs/plan.md](docs/plan.md).
+
+## Запуск для разработки
+
+Нужны Docker Desktop, Go 1.27, Node.js 24 и [Task](https://taskfile.dev).
+
+```bash
+task install      # зависимости фронтенда
+task dev          # PostgreSQL + API с автоперезапуском + фронтенд: http://localhost:5173
+task dev OBS=1    # то же + Grafana с трассировками, метриками и журналами: http://localhost:3000
+task seed         # тестовые точки сети
+task gen          # код из OpenAPI и SQL
+task check        # линтеры и тесты, как в CI
+```
+
+Все команды — `task --list`.
 
 ## Документы
 
