@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { VSelect } from 'vuetify/components'
 
+import { makeLocation } from '@/__tests__/fixtures'
 import { meQuery } from '@/session'
 
 import UserFormDialog from '../UserFormDialog.vue'
@@ -22,14 +23,14 @@ vi.mock('@pikni/api', async (importOriginal) => ({
 }))
 
 const locations: Location[] = [
-  {
+  makeLocation({
     id: 'mg-1',
     code: 'МГ-01',
     name: 'Магазин',
     kind: 'store',
     city: 'Благовещенск',
     timezone: 'Asia/Yakutsk',
-  },
+  }),
 ]
 
 const me: Me = {

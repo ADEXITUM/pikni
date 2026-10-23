@@ -48,6 +48,48 @@ describe('auditDetails', () => {
     ])
   })
 
+  it('изменение точки: поля по-русски, да/нет, режим работы кратко', () => {
+    const e = entry({
+      action: 'location.updated',
+      entityType: 'location',
+      data: {
+        code: 'МГ-01',
+        changes: {
+          address: [null, 'ул. Ленина, 114'],
+          isActive: [true, false],
+          openingHours: [{}, { mon: { open: '10:00', close: '22:00' } }],
+        },
+      },
+    })
+    expect(auditDetails(e, codes)).toEqual(
+      expect.arrayContaining([
+        { label: 'Адрес', value: '— → ул. Ленина, 114' },
+        { label: 'Действует', value: 'да → нет' },
+        { label: 'Режим работы', value: 'пн–вс выходной → пн 10:00–22:00, вт–вс выходной' },
+      ]),
+    )
+    expect(auditObject(e)).toBe('МГ-01')
+  })
+
+  it('изменение характеристики: списки значений через запятую', () => {
+    const e = entry({
+      action: 'ref.updated',
+      entityType: 'category_attribute',
+      data: {
+        name: 'Регион',
+        changes: {
+          options: [['Сибирь', 'Алтай'], ['Сибирь']],
+          archivedOptions: [[], ['Алтай']],
+        },
+      },
+    })
+    expect(auditDetails(e, codes)).toEqual([
+      { label: 'Значения', value: 'Сибирь, Алтай → Сибирь' },
+      { label: 'Значения в архиве', value: '— → Алтай' },
+    ])
+    expect(auditObject(e)).toBe('характеристика «Регион»')
+  })
+
   it('незнакомые поля показывает как есть', () => {
     const e = entry({ action: 'auth.logout', data: { device: 'TC21' } })
     expect(auditDetails(e, codes)).toEqual([{ label: 'device', value: '"TC21"' }])

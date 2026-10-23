@@ -65,3 +65,28 @@ func TestUserLoginIsCaseInsensitive(t *testing.T) {
 	_, err := db.App.Exec(ctx, insert, "petrova")
 	dbtest.WantCode(t, err, uniqueViolation)
 }
+
+func TestZonesAreCreatedWithLocation(t *testing.T) {
+	t.Parallel()
+	db := dbtest.New(t)
+	ctx := t.Context()
+
+	_, err := db.App.Exec(ctx, `
+		insert into locations (code, name, kind, city, timezone, subject_code) values
+			('СК-09', 'Склад', 'warehouse', 'Благовещенск', 'Asia/Yakutsk', '28'),
+			('МГ-09', 'Магазин', 'store', 'Благовещенск', 'Asia/Yakutsk', '28')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var zones string
+	err = db.App.QueryRow(ctx, `
+		select string_agg(l.code || ':' || z.kind, ' ' order by l.code, z.kind)
+		from zones z join locations l on l.id = z.location_id`).Scan(&zones)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if zones != "МГ-09:backroom МГ-09:floor СК-09:warehouse" {
+		t.Errorf("zones = %q", zones)
+	}
+}

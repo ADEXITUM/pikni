@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
@@ -23,23 +24,74 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AttributeType.
+const (
+	AttributeTypeBool   AttributeType = "bool"
+	AttributeTypeEnum   AttributeType = "enum"
+	AttributeTypeNumber AttributeType = "number"
+	AttributeTypeText   AttributeType = "text"
+)
+
+// Valid indicates whether the value is a known member of the AttributeType enum.
+func (e AttributeType) Valid() bool {
+	switch e {
+	case AttributeTypeBool:
+		return true
+	case AttributeTypeEnum:
+		return true
+	case AttributeTypeNumber:
+		return true
+	case AttributeTypeText:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuditAction.
 const (
+	AuditActionAssortmentCopied    AuditAction = "assortment.copied"
+	AuditActionAssortmentRemoved   AuditAction = "assortment.removed"
+	AuditActionAssortmentSet       AuditAction = "assortment.set"
 	AuditActionAuthLogin           AuditAction = "auth.login"
 	AuditActionAuthLoginFailed     AuditAction = "auth.login_failed"
 	AuditActionAuthLogout          AuditAction = "auth.logout"
 	AuditActionAuthPasswordChanged AuditAction = "auth.password_changed"
 	AuditActionAuthSessionEnded    AuditAction = "auth.session_ended"
+	AuditActionBarcodeCreated      AuditAction = "barcode.created"
+	AuditActionBarcodeDeleted      AuditAction = "barcode.deleted"
+	AuditActionLocationCreated     AuditAction = "location.created"
+	AuditActionLocationUpdated     AuditAction = "location.updated"
+	AuditActionMinPriceCreated     AuditAction = "min_price.created"
+	AuditActionMinPriceDeleted     AuditAction = "min_price.deleted"
+	AuditActionPriceCreated        AuditAction = "price.created"
+	AuditActionPriceDeleted        AuditAction = "price.deleted"
+	AuditActionProductCreated      AuditAction = "product.created"
+	AuditActionProductUpdated      AuditAction = "product.updated"
+	AuditActionRefCreated          AuditAction = "ref.created"
+	AuditActionRefUpdated          AuditAction = "ref.updated"
+	AuditActionSaleBanCreated      AuditAction = "sale_ban.created"
+	AuditActionSaleBanDeleted      AuditAction = "sale_ban.deleted"
+	AuditActionSaleRuleCreated     AuditAction = "sale_rule.created"
+	AuditActionSaleRuleDeleted     AuditAction = "sale_rule.deleted"
 	AuditActionUserBlocked         AuditAction = "user.blocked"
 	AuditActionUserCreated         AuditAction = "user.created"
 	AuditActionUserPasswordReset   AuditAction = "user.password_reset"
 	AuditActionUserUnblocked       AuditAction = "user.unblocked"
 	AuditActionUserUpdated         AuditAction = "user.updated"
+	AuditActionVariantCreated      AuditAction = "variant.created"
+	AuditActionVariantUpdated      AuditAction = "variant.updated"
 )
 
 // Valid indicates whether the value is a known member of the AuditAction enum.
 func (e AuditAction) Valid() bool {
 	switch e {
+	case AuditActionAssortmentCopied:
+		return true
+	case AuditActionAssortmentRemoved:
+		return true
+	case AuditActionAssortmentSet:
+		return true
 	case AuditActionAuthLogin:
 		return true
 	case AuditActionAuthLoginFailed:
@@ -50,6 +102,38 @@ func (e AuditAction) Valid() bool {
 		return true
 	case AuditActionAuthSessionEnded:
 		return true
+	case AuditActionBarcodeCreated:
+		return true
+	case AuditActionBarcodeDeleted:
+		return true
+	case AuditActionLocationCreated:
+		return true
+	case AuditActionLocationUpdated:
+		return true
+	case AuditActionMinPriceCreated:
+		return true
+	case AuditActionMinPriceDeleted:
+		return true
+	case AuditActionPriceCreated:
+		return true
+	case AuditActionPriceDeleted:
+		return true
+	case AuditActionProductCreated:
+		return true
+	case AuditActionProductUpdated:
+		return true
+	case AuditActionRefCreated:
+		return true
+	case AuditActionRefUpdated:
+		return true
+	case AuditActionSaleBanCreated:
+		return true
+	case AuditActionSaleBanDeleted:
+		return true
+	case AuditActionSaleRuleCreated:
+		return true
+	case AuditActionSaleRuleDeleted:
+		return true
 	case AuditActionUserBlocked:
 		return true
 	case AuditActionUserCreated:
@@ -59,6 +143,121 @@ func (e AuditAction) Valid() bool {
 	case AuditActionUserUnblocked:
 		return true
 	case AuditActionUserUpdated:
+		return true
+	case AuditActionVariantCreated:
+		return true
+	case AuditActionVariantUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BarcodeKind.
+const (
+	BarcodeKindCode128  BarcodeKind = "code128"
+	BarcodeKindEan13    BarcodeKind = "ean13"
+	BarcodeKindEan8     BarcodeKind = "ean8"
+	BarcodeKindInternal BarcodeKind = "internal"
+	BarcodeKindUpca     BarcodeKind = "upca"
+)
+
+// Valid indicates whether the value is a known member of the BarcodeKind enum.
+func (e BarcodeKind) Valid() bool {
+	switch e {
+	case BarcodeKindCode128:
+		return true
+	case BarcodeKindEan13:
+		return true
+	case BarcodeKindEan8:
+		return true
+	case BarcodeKindInternal:
+		return true
+	case BarcodeKindUpca:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Container.
+const (
+	ContainerCan   Container = "can"
+	ContainerGlass Container = "glass"
+	ContainerPet   Container = "pet"
+)
+
+// Valid indicates whether the value is a known member of the Container enum.
+func (e Container) Valid() bool {
+	switch e {
+	case ContainerCan:
+		return true
+	case ContainerGlass:
+		return true
+	case ContainerPet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EgaisAccounting.
+const (
+	EgaisAccountingMarked   EgaisAccounting = "marked"
+	EgaisAccountingQuantity EgaisAccounting = "quantity"
+)
+
+// Valid indicates whether the value is a known member of the EgaisAccounting enum.
+func (e EgaisAccounting) Valid() bool {
+	switch e {
+	case EgaisAccountingMarked:
+		return true
+	case EgaisAccountingQuantity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EgaisWriteoffType.
+const (
+	EgaisWriteoffTypeArrest           EgaisWriteoffType = "Арест"
+	EgaisWriteoffTypeCooking          EgaisWriteoffType = "Приготовление"
+	EgaisWriteoffTypeInspections      EgaisWriteoffType = "Проверки"
+	EgaisWriteoffTypeLosses           EgaisWriteoffType = "Потери"
+	EgaisWriteoffTypeMarkdown         EgaisWriteoffType = "Уценка"
+	EgaisWriteoffTypeOtherPurposes    EgaisWriteoffType = "Иные цели"
+	EgaisWriteoffTypeProductionLosses EgaisWriteoffType = "Производственные потери"
+	EgaisWriteoffTypeResorting        EgaisWriteoffType = "Пересортица"
+	EgaisWriteoffTypeSale             EgaisWriteoffType = "Реализация"
+	EgaisWriteoffTypeShortage         EgaisWriteoffType = "Недостача"
+	EgaisWriteoffTypeSpoilage         EgaisWriteoffType = "Порча"
+)
+
+// Valid indicates whether the value is a known member of the EgaisWriteoffType enum.
+func (e EgaisWriteoffType) Valid() bool {
+	switch e {
+	case EgaisWriteoffTypeArrest:
+		return true
+	case EgaisWriteoffTypeCooking:
+		return true
+	case EgaisWriteoffTypeInspections:
+		return true
+	case EgaisWriteoffTypeLosses:
+		return true
+	case EgaisWriteoffTypeMarkdown:
+		return true
+	case EgaisWriteoffTypeOtherPurposes:
+		return true
+	case EgaisWriteoffTypeProductionLosses:
+		return true
+	case EgaisWriteoffTypeResorting:
+		return true
+	case EgaisWriteoffTypeSale:
+		return true
+	case EgaisWriteoffTypeShortage:
+		return true
+	case EgaisWriteoffTypeSpoilage:
 		return true
 	default:
 		return false
@@ -170,6 +369,48 @@ func (e Permission) Valid() bool {
 	}
 }
 
+// Defines values for PriceKind.
+const (
+	PriceKindPurchase PriceKind = "purchase"
+	PriceKindRetail   PriceKind = "retail"
+)
+
+// Valid indicates whether the value is a known member of the PriceKind enum.
+func (e PriceKind) Valid() bool {
+	switch e {
+	case PriceKindPurchase:
+		return true
+	case PriceKindRetail:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReceivingMode.
+const (
+	ReceivingModeBoxes    ReceivingMode = "boxes"
+	ReceivingModeDocument ReceivingMode = "document"
+	ReceivingModePiece    ReceivingMode = "piece"
+	ReceivingModeSample   ReceivingMode = "sample"
+)
+
+// Valid indicates whether the value is a known member of the ReceivingMode enum.
+func (e ReceivingMode) Valid() bool {
+	switch e {
+	case ReceivingModeBoxes:
+		return true
+	case ReceivingModeDocument:
+		return true
+	case ReceivingModePiece:
+		return true
+	case ReceivingModeSample:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	RoleAccountant   Role = "accountant"
@@ -199,6 +440,122 @@ func (e Role) Valid() bool {
 		return false
 	}
 }
+
+// Defines values for SaleScope.
+const (
+	SaleScopeAll    SaleScope = "all"
+	SaleScopeStrong SaleScope = "strong"
+)
+
+// Valid indicates whether the value is a known member of the SaleScope enum.
+func (e SaleScope) Valid() bool {
+	switch e {
+	case SaleScopeAll:
+		return true
+	case SaleScopeStrong:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScanKind.
+const (
+	ScanKindAlcocode     ScanKind = "alcocode"
+	ScanKindBarcode      ScanKind = "barcode"
+	ScanKindCrptCode     ScanKind = "crpt_code"
+	ScanKindEgaisMark    ScanKind = "egais_mark"
+	ScanKindEgaisMarkNew ScanKind = "egais_mark_new"
+)
+
+// Valid indicates whether the value is a known member of the ScanKind enum.
+func (e ScanKind) Valid() bool {
+	switch e {
+	case ScanKindAlcocode:
+		return true
+	case ScanKindBarcode:
+		return true
+	case ScanKindCrptCode:
+		return true
+	case ScanKindEgaisMark:
+		return true
+	case ScanKindEgaisMarkNew:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ZoneKind.
+const (
+	ZoneKindBackroom  ZoneKind = "backroom"
+	ZoneKindFloor     ZoneKind = "floor"
+	ZoneKindWarehouse ZoneKind = "warehouse"
+)
+
+// Valid indicates whether the value is a known member of the ZoneKind enum.
+func (e ZoneKind) Valid() bool {
+	switch e {
+	case ZoneKindBackroom:
+		return true
+	case ZoneKindFloor:
+		return true
+	case ZoneKindWarehouse:
+		return true
+	default:
+		return false
+	}
+}
+
+// AssortmentCopy defines model for AssortmentCopy.
+type AssortmentCopy struct {
+	FromLocationID openapi_types.UUID `json:"fromLocationId"`
+}
+
+// AssortmentCopyResult defines model for AssortmentCopyResult.
+type AssortmentCopyResult struct {
+	Added int `json:"added"`
+}
+
+// AssortmentItem defines model for AssortmentItem.
+type AssortmentItem struct {
+	Article string `json:"article"`
+
+	// Container glass — стекло, pet — ПЭТ, can — банка
+	Container *Container `json:"container,omitempty"`
+	GiftPack  bool       `json:"giftPack"`
+
+	// IsActive false — позиция или вариант в архиве
+	IsActive  bool               `json:"isActive"`
+	MinQty    int32              `json:"minQty"`
+	Name      string             `json:"name"`
+	ProductID openapi_types.UUID `json:"productId"`
+	VariantID openapi_types.UUID `json:"variantId"`
+	VolumeMl  *int32             `json:"volumeMl,omitempty"`
+}
+
+// AssortmentItemUpdate defines model for AssortmentItemUpdate.
+type AssortmentItemUpdate struct {
+	// MinQty Минимальный остаток, штук
+	MinQty int32 `json:"minQty"`
+}
+
+// AssortmentList defines model for AssortmentList.
+type AssortmentList struct {
+	Items []AssortmentItem `json:"items"`
+}
+
+// AttributeOption defines model for AttributeOption.
+type AttributeOption struct {
+	// Archived Архивное значение остаётся у заведённых позиций, но не предлагается для новых
+	Archived bool `json:"archived"`
+
+	// Value Example: пшеница
+	Value string `json:"value"`
+}
+
+// AttributeType enum — выбор из списка, number — число, text — строка, bool — да/нет
+type AttributeType string
 
 // AuditAction Вид события. Русские названия — в словаре клиента.
 type AuditAction string
@@ -236,10 +593,182 @@ type AuditUser struct {
 	Login    string             `json:"login"`
 }
 
+// Barcode defines model for Barcode.
+type Barcode struct {
+	// Code Example: 4600000000011
+	Code string `json:"code"`
+
+	// Kind Определяется сервером; internal — EAN-13 с префиксом 2 для внутреннего применения
+	Kind BarcodeKind `json:"kind"`
+}
+
+// BarcodeKind Определяется сервером; internal — EAN-13 с префиксом 2 для внутреннего применения
+type BarcodeKind string
+
+// Brand defines model for Brand.
+type Brand struct {
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// Name Example: Тайга
+	Name       string             `json:"name"`
+	ProducerID openapi_types.UUID `json:"producerId"`
+}
+
+// BrandFields defines model for BrandFields.
+type BrandFields struct {
+	// Name Example: Тайга
+	Name       string             `json:"name"`
+	ProducerID openapi_types.UUID `json:"producerId"`
+}
+
+// BrandList defines model for BrandList.
+type BrandList struct {
+	Items []Brand `json:"items"`
+}
+
+// BrandUpdate defines model for BrandUpdate.
+type BrandUpdate struct {
+	IsActive bool `json:"isActive"`
+
+	// Name Example: Тайга
+	Name       string             `json:"name"`
+	ProducerID openapi_types.UUID `json:"producerId"`
+}
+
+// Category defines model for Category.
+type Category struct {
+	Depth    int32              `json:"depth"`
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// Name Example: Водка
+	Name     string              `json:"name"`
+	ParentID *openapi_types.UUID `json:"parentId,omitempty"`
+
+	// Sort Порядок среди соседних категорий
+	Sort int32 `json:"sort"`
+}
+
+// CategoryAttribute defines model for CategoryAttribute.
+type CategoryAttribute struct {
+	CategoryID openapi_types.UUID `json:"categoryId"`
+	Code       string             `json:"code"`
+
+	// Filterable Показывать в фильтрах поиска
+	Filterable bool               `json:"filterable"`
+	ID         openapi_types.UUID `json:"id"`
+	IsActive   bool               `json:"isActive"`
+
+	// Name Example: Сырьё
+	Name    string            `json:"name"`
+	Options []AttributeOption `json:"options"`
+	Sort    int32             `json:"sort"`
+
+	// Type enum — выбор из списка, number — число, text — строка, bool — да/нет
+	Type AttributeType `json:"type"`
+
+	// Unit Единица измерения, только для чисел
+	//
+	// Example: лет
+	Unit *string `json:"unit,omitempty"`
+
+	// UsedForAnalogs Учитывать при подборе аналогов
+	UsedForAnalogs bool `json:"usedForAnalogs"`
+}
+
+// CategoryAttributeFields defines model for CategoryAttributeFields.
+type CategoryAttributeFields struct {
+	// Filterable Показывать в фильтрах поиска
+	Filterable bool `json:"filterable"`
+
+	// Name Example: Сырьё
+	Name string `json:"name"`
+	Sort int32  `json:"sort"`
+
+	// Unit Единица измерения, только для чисел
+	//
+	// Example: лет
+	Unit *string `json:"unit,omitempty"`
+
+	// UsedForAnalogs Учитывать при подборе аналогов
+	UsedForAnalogs bool `json:"usedForAnalogs"`
+}
+
+// CategoryAttributeUpdate defines model for CategoryAttributeUpdate.
+type CategoryAttributeUpdate struct {
+	// Filterable Показывать в фильтрах поиска
+	Filterable bool `json:"filterable"`
+	IsActive   bool `json:"isActive"`
+
+	// Name Example: Сырьё
+	Name string `json:"name"`
+
+	// Options Все прежние значения плюс новые; прежние можно только архивировать
+	Options []AttributeOption `json:"options"`
+	Sort    int32             `json:"sort"`
+
+	// Unit Единица измерения, только для чисел
+	//
+	// Example: лет
+	Unit *string `json:"unit,omitempty"`
+
+	// UsedForAnalogs Учитывать при подборе аналогов
+	UsedForAnalogs bool `json:"usedForAnalogs"`
+}
+
+// CategoryFields defines model for CategoryFields.
+type CategoryFields struct {
+	// Name Example: Водка
+	Name string `json:"name"`
+
+	// Sort Порядок среди соседних категорий
+	Sort int32 `json:"sort"`
+}
+
+// CategoryTree Плоские списки; подкатегория наследует характеристики всех предков
+type CategoryTree struct {
+	Attributes []CategoryAttribute `json:"attributes"`
+	Categories []Category          `json:"categories"`
+}
+
+// CategoryUpdate defines model for CategoryUpdate.
+type CategoryUpdate struct {
+	IsActive bool `json:"isActive"`
+
+	// Name Example: Водка
+	Name string `json:"name"`
+
+	// Sort Порядок среди соседних категорий
+	Sort int32 `json:"sort"`
+}
+
 // ChangePasswordRequest defines model for ChangePasswordRequest.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
+}
+
+// Container glass — стекло, pet — ПЭТ, can — банка
+type Container string
+
+// Country defines model for Country.
+type Country struct {
+	// Alpha2 Example: RU
+	Alpha2 string `json:"alpha2"`
+
+	// Code Цифровой код ОКСМ
+	//
+	// Example: 643
+	Code string `json:"code"`
+
+	// Name Example: Российская Федерация
+	Name string `json:"name"`
+}
+
+// CountryList defines model for CountryList.
+type CountryList struct {
+	Items []Country `json:"items"`
 }
 
 // CreatedUser defines model for CreatedUser.
@@ -248,18 +777,117 @@ type CreatedUser struct {
 	User              User   `json:"user"`
 }
 
+// DayHours defines model for DayHours.
+type DayHours struct {
+	// Close 24:00 — до полуночи
+	//
+	// Example: 22:00
+	Close string `json:"close"`
+
+	// Open Example: 10:00
+	Open string `json:"open"`
+}
+
+// EgaisAccounting marked — помарочный учёт, quantity — только количество
+type EgaisAccounting string
+
+// EgaisWriteoffType Тип списания в акте списания ЕГАИС
+type EgaisWriteoffType string
+
+// ImportError defines model for ImportError.
+type ImportError struct {
+	Message string `json:"message"`
+
+	// Row Номер строки в файле; 0 — ошибка файла целиком
+	Row int `json:"row"`
+}
+
+// ImportReport defines model for ImportReport.
+type ImportReport struct {
+	// Committed true — данные сохранены; при предпросмотре всегда false
+	Committed    bool          `json:"committed"`
+	Errors       []ImportError `json:"errors"`
+	NewBrands    []string      `json:"newBrands"`
+	NewLines     []string      `json:"newLines"`
+	NewProducers []string      `json:"newProducers"`
+
+	// Products Позиций создано (или будет создано)
+	Products int `json:"products"`
+	Rows     int `json:"rows"`
+	Variants int `json:"variants"`
+}
+
 // Location defines model for Location.
 type Location struct {
+	Address *string `json:"address,omitempty"`
+
 	// City Example: Благовещенск
 	City string `json:"city"`
 
 	// Code Example: МГ-01
-	Code string             `json:"code"`
-	ID   openapi_types.UUID `json:"id"`
-	Kind LocationKind       `json:"kind"`
+	Code string `json:"code"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID  *string            `json:"fsrarId,omitempty"`
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	Kind           LocationKind        `json:"kind"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
 
 	// Name Example: Магазин на ул. Ленина
 	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
+
+	// Timezone Часовой пояс IANA
+	//
+	// Example: Asia/Yakutsk
+	Timezone string `json:"timezone"`
+	Version  int32  `json:"version"`
+	Zones    []Zone `json:"zones"`
+}
+
+// LocationFields defines model for LocationFields.
+type LocationFields struct {
+	Address *string `json:"address,omitempty"`
+
+	// City Example: Благовещенск
+	City string `json:"city"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID *string `json:"fsrarId,omitempty"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
+
+	// Name Example: Магазин на ул. Ленина
+	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
 
 	// Timezone Часовой пояс IANA
 	//
@@ -273,6 +901,43 @@ type LocationKind string
 // LocationList defines model for LocationList.
 type LocationList struct {
 	Items []Location `json:"items"`
+}
+
+// LocationUpdate defines model for LocationUpdate.
+type LocationUpdate struct {
+	Address *string `json:"address,omitempty"`
+
+	// City Example: Благовещенск
+	City string `json:"city"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID  *string `json:"fsrarId,omitempty"`
+	IsActive bool    `json:"isActive"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
+
+	// Name Example: Магазин на ул. Ленина
+	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
+
+	// Timezone Часовой пояс IANA
+	//
+	// Example: Asia/Yakutsk
+	Timezone string `json:"timezone"`
+	Version  int32  `json:"version"`
 }
 
 // LoginRequest defines model for LoginRequest.
@@ -300,6 +965,227 @@ type Me struct {
 	Role               Role         `json:"role"`
 }
 
+// MinPrice defines model for MinPrice.
+type MinPrice struct {
+	// AbvFrom Крепость «свыше», %; 0 — цена не зависит от крепости
+	//
+	// Example: 39
+	AbvFrom float64 `json:"abvFrom"`
+
+	// AbvTo Крепость «до … включительно», %; пусто — без верхней границы
+	//
+	// Example: 40
+	AbvTo *float64 `json:"abvTo,omitempty"`
+
+	// GroupCode Example: vodka
+	GroupCode string             `json:"groupCode"`
+	GroupName string             `json:"groupName"`
+	ID        openapi_types.UUID `json:"id"`
+
+	// Price Цена эталонного объёма, рубли
+	//
+	// Example: 409
+	Price float64 `json:"price"`
+
+	// SamePriceOverMl Тара свыше этого объёма и до эталонного стоит как эталонная (у водки — 375)
+	//
+	// Example: 375
+	SamePriceOverMl *int32 `json:"samePriceOverMl,omitempty"`
+
+	// Source Приказ Минфина — основание
+	Source    string             `json:"source"`
+	ValidFrom openapi_types.Date `json:"validFrom"`
+
+	// VolumeMl Эталонный объём; для другого объёма цена пересчитывается пропорционально
+	//
+	// Example: 500
+	VolumeMl int32 `json:"volumeMl"`
+}
+
+// MinPriceGroup defines model for MinPriceGroup.
+type MinPriceGroup struct {
+	// Code Example: vodka
+	Code string `json:"code"`
+
+	// Name Example: Водка
+	Name string `json:"name"`
+}
+
+// MinPriceList defines model for MinPriceList.
+type MinPriceList struct {
+	Groups []MinPriceGroup `json:"groups"`
+	Items  []MinPrice      `json:"items"`
+}
+
+// NewBarcode defines model for NewBarcode.
+type NewBarcode struct {
+	// Code Без кода сервер создаст внутренний EAN-13
+	Code *string `json:"code,omitempty"`
+}
+
+// NewCategory defines model for NewCategory.
+type NewCategory struct {
+	// Name Example: Водка
+	Name string `json:"name"`
+
+	// ParentID Родитель; без него — категория верхнего уровня. После создания не меняется.
+	ParentID *openapi_types.UUID `json:"parentId,omitempty"`
+
+	// Sort Порядок среди соседних категорий
+	Sort int32 `json:"sort"`
+}
+
+// NewCategoryAttribute defines model for NewCategoryAttribute.
+type NewCategoryAttribute struct {
+	// Code Латиница в нижнем регистре, цифры и _; уникален в ветке категорий
+	//
+	// Example: raw_material
+	Code string `json:"code"`
+
+	// Filterable Показывать в фильтрах поиска
+	Filterable bool `json:"filterable"`
+
+	// Name Example: Сырьё
+	Name string `json:"name"`
+
+	// Options Значения списка, только для типа enum
+	Options *[]string `json:"options,omitempty"`
+	Sort    int32     `json:"sort"`
+
+	// Type enum — выбор из списка, number — число, text — строка, bool — да/нет
+	Type AttributeType `json:"type"`
+
+	// Unit Единица измерения, только для чисел
+	//
+	// Example: лет
+	Unit *string `json:"unit,omitempty"`
+
+	// UsedForAnalogs Учитывать при подборе аналогов
+	UsedForAnalogs bool `json:"usedForAnalogs"`
+}
+
+// NewLocation defines model for NewLocation.
+type NewLocation struct {
+	Address *string `json:"address,omitempty"`
+
+	// City Example: Благовещенск
+	City string `json:"city"`
+
+	// Code Example: МГ-05
+	Code string `json:"code"`
+
+	// FSRARID Идентификатор организации в ЕГАИС, 12 цифр
+	FSRARID *string `json:"fsrarId,omitempty"`
+
+	// IsPublic Показывать на публичной справочной странице
+	IsPublic       bool                `json:"isPublic"`
+	Kind           LocationKind        `json:"kind"`
+	KPP            *string             `json:"kpp,omitempty"`
+	Lat            *float64            `json:"lat,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+	Lon            *float64            `json:"lon,omitempty"`
+
+	// Name Example: Магазин на ул. Ленина
+	Name string `json:"name"`
+
+	// OpeningHours Часы работы по дням недели, день без часов — выходной
+	OpeningHours OpeningHours `json:"openingHours"`
+
+	// SubjectCode Код субъекта РФ, по нему действуют правила продажи алкоголя
+	//
+	// Example: 28
+	SubjectCode string `json:"subjectCode"`
+
+	// Timezone Часовой пояс IANA
+	//
+	// Example: Asia/Yakutsk
+	Timezone string `json:"timezone"`
+}
+
+// NewMinPrice Полоса крепости одной редакции МРЦ — строка приложения к приказу Минфина
+type NewMinPrice struct {
+	// AbvFrom Крепость «свыше», %; 0 — цена не зависит от крепости
+	//
+	// Example: 39
+	AbvFrom float64 `json:"abvFrom"`
+
+	// AbvTo Крепость «до … включительно», %; пусто — без верхней границы
+	//
+	// Example: 40
+	AbvTo *float64 `json:"abvTo,omitempty"`
+
+	// GroupCode Example: vodka
+	GroupCode string `json:"groupCode"`
+
+	// Price Цена эталонного объёма, рубли
+	//
+	// Example: 409
+	Price float64 `json:"price"`
+
+	// SamePriceOverMl Тара свыше этого объёма и до эталонного стоит как эталонная (у водки — 375)
+	//
+	// Example: 375
+	SamePriceOverMl *int32 `json:"samePriceOverMl,omitempty"`
+
+	// Source Приказ Минфина — основание
+	Source    string             `json:"source"`
+	ValidFrom openapi_types.Date `json:"validFrom"`
+
+	// VolumeMl Эталонный объём; для другого объёма цена пересчитывается пропорционально
+	//
+	// Example: 500
+	VolumeMl int32 `json:"volumeMl"`
+}
+
+// NewPrice defines model for NewPrice.
+type NewPrice struct {
+	// Price Рубли с копейками
+	//
+	// Example: 449.9
+	Price float64 `json:"price"`
+
+	// ValidFrom С какого момента действует; без него — сразу
+	ValidFrom *time.Time `json:"validFrom,omitempty"`
+}
+
+// NewSaleBan Ровно одно из date (разовый запрет) и monthDay (ежегодный, «ММ-ДД»)
+type NewSaleBan struct {
+	Date *openapi_types.Date `json:"date,omitempty"`
+
+	// MonthDay Example: 09-01
+	MonthDay *string `json:"monthDay,omitempty"`
+
+	// Name Example: День знаний
+	Name string `json:"name"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope       SaleScope `json:"scope"`
+	Source      string    `json:"source"`
+	SubjectCode string    `json:"subjectCode"`
+}
+
+// NewSaleRule defines model for NewSaleRule.
+type NewSaleRule struct {
+	// From Example: 11:00
+	From string `json:"from"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope SaleScope `json:"scope"`
+
+	// Source Закон-основание
+	Source string `json:"source"`
+
+	// SubjectCode Не задан — федеральное правило
+	//
+	// Example: 28
+	SubjectCode *string `json:"subjectCode,omitempty"`
+
+	// To Example: 21:00
+	To        string             `json:"to"`
+	ValidFrom openapi_types.Date `json:"validFrom"`
+}
+
 // NewUser defines model for NewUser.
 type NewUser struct {
 	// FullName Example: Петрова А. В.
@@ -313,8 +1199,103 @@ type NewUser struct {
 	Role  Role   `json:"role"`
 }
 
+// NewVariant defines model for NewVariant.
+type NewVariant struct {
+	// Alcocode Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+	//
+	// Example: 0177207000002463655
+	Alcocode *string `json:"alcocode,omitempty"`
+
+	// Container glass — стекло, pet — ПЭТ, can — банка
+	Container *Container `json:"container,omitempty"`
+	GiftPack  bool       `json:"giftPack"`
+
+	// Gtin GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+	//
+	// Example: 04600000000011
+	Gtin *string `json:"gtin,omitempty"`
+
+	// VolumeMl Объём из справочника; обязателен для продукции в ЕГАИС
+	//
+	// Example: 500
+	VolumeMl *int32 `json:"volumeMl,omitempty"`
+}
+
+// NewVolume defines model for NewVolume.
+type NewVolume struct {
+	// Ml Example: 500
+	Ml int32 `json:"ml"`
+}
+
+// OpeningHours Часы работы по дням недели, день без часов — выходной
+type OpeningHours struct {
+	Fri *DayHours `json:"fri,omitempty"`
+	Mon *DayHours `json:"mon,omitempty"`
+	Sat *DayHours `json:"sat,omitempty"`
+	Sun *DayHours `json:"sun,omitempty"`
+	Thu *DayHours `json:"thu,omitempty"`
+	Tue *DayHours `json:"tue,omitempty"`
+	Wed *DayHours `json:"wed,omitempty"`
+}
+
+// OriginRegion defines model for OriginRegion.
+type OriginRegion struct {
+	// CountryCode Example: 250
+	CountryCode string             `json:"countryCode"`
+	ID          openapi_types.UUID `json:"id"`
+	IsActive    bool               `json:"isActive"`
+
+	// Name Example: Шампань
+	Name string `json:"name"`
+}
+
+// OriginRegionFields defines model for OriginRegionFields.
+type OriginRegionFields struct {
+	// CountryCode Example: 250
+	CountryCode string `json:"countryCode"`
+
+	// Name Example: Шампань
+	Name string `json:"name"`
+}
+
+// OriginRegionList defines model for OriginRegionList.
+type OriginRegionList struct {
+	Items []OriginRegion `json:"items"`
+}
+
+// OriginRegionUpdate defines model for OriginRegionUpdate.
+type OriginRegionUpdate struct {
+	// CountryCode Example: 250
+	CountryCode string `json:"countryCode"`
+	IsActive    bool   `json:"isActive"`
+
+	// Name Example: Шампань
+	Name string `json:"name"`
+}
+
 // Permission Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
 type Permission string
+
+// Price defines model for Price.
+type Price struct {
+	ID openapi_types.UUID `json:"id"`
+
+	// Kind retail — розничная, purchase — закупочная по умолчанию
+	Kind  PriceKind `json:"kind"`
+	Price float64   `json:"price"`
+
+	// SetBy Кто назначил
+	SetBy     *string   `json:"setBy,omitempty"`
+	ValidFrom time.Time `json:"validFrom"`
+}
+
+// PriceKind retail — розничная, purchase — закупочная по умолчанию
+type PriceKind string
+
+// PriceList defines model for PriceList.
+type PriceList struct {
+	Items []Price `json:"items"`
+}
 
 // Problem defines model for Problem.
 type Problem struct {
@@ -330,8 +1311,363 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
+// Producer defines model for Producer.
+type Producer struct {
+	// CountryCode Example: 643
+	CountryCode string             `json:"countryCode"`
+	ID          openapi_types.UUID `json:"id"`
+
+	// INN ИНН российского производителя, 10 или 12 цифр
+	INN      *string `json:"inn,omitempty"`
+	IsActive bool    `json:"isActive"`
+
+	// Name Example: ООО «Тайга»
+	Name string `json:"name"`
+}
+
+// ProducerFields defines model for ProducerFields.
+type ProducerFields struct {
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// INN ИНН российского производителя, 10 или 12 цифр
+	INN *string `json:"inn,omitempty"`
+
+	// Name Example: ООО «Тайга»
+	Name string `json:"name"`
+}
+
+// ProducerList defines model for ProducerList.
+type ProducerList struct {
+	Items []Producer `json:"items"`
+}
+
+// ProducerUpdate defines model for ProducerUpdate.
+type ProducerUpdate struct {
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// INN ИНН российского производителя, 10 или 12 цифр
+	INN      *string `json:"inn,omitempty"`
+	IsActive bool    `json:"isActive"`
+
+	// Name Example: ООО «Тайга»
+	Name string `json:"name"`
+}
+
+// Product defines model for Product.
+type Product struct {
+	// Abv Крепость, % об.; обязательна для алкоголя
+	//
+	// Example: 40
+	Abv *float64 `json:"abv,omitempty"`
+
+	// Article Example: ЧК-000001
+	Article string `json:"article"`
+
+	// Attributes Характеристики по схеме категории — код → значение; пустые не сохраняются
+	//
+	// Example: {"raw_material":"пшеница"}
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// BrandID Бренд этого производителя
+	BrandID      *openapi_types.UUID `json:"brandId,omitempty"`
+	BrandName    *string             `json:"brandName,omitempty"`
+	CategoryID   openapi_types.UUID  `json:"categoryId"`
+	CategoryName string              `json:"categoryName"`
+
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+	CountryName string `json:"countryName"`
+
+	// CrptMarked Маркируется «Честным знаком»
+	CrptMarked bool `json:"crptMarked"`
+
+	// EgaisAccounting marked — помарочный учёт, quantity — только количество
+	EgaisAccounting *EgaisAccounting   `json:"egaisAccounting,omitempty"`
+	ID              openapi_types.UUID `json:"id"`
+	IsActive        bool               `json:"isActive"`
+
+	// KindCode Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+	//
+	// Example: 200
+	KindCode *string `json:"kindCode,omitempty"`
+	LineName *string `json:"lineName,omitempty"`
+
+	// Name Example: Водка «Тайга» на пшенице
+	Name string `json:"name"`
+
+	// OriginRegionID Регион этой страны
+	OriginRegionID *openapi_types.UUID `json:"originRegionId,omitempty"`
+	ProducerID     openapi_types.UUID  `json:"producerId"`
+	ProducerName   string              `json:"producerName"`
+
+	// ProductLineID Линейка этого бренда
+	ProductLineID *openapi_types.UUID `json:"productLineId,omitempty"`
+	RegionName    *string             `json:"regionName,omitempty"`
+
+	// Variety Разновидность в линейке
+	//
+	// Example: на пшенице
+	Variety *string `json:"variety,omitempty"`
+	Version int32   `json:"version"`
+}
+
+// ProductFields defines model for ProductFields.
+type ProductFields struct {
+	// Abv Крепость, % об.; обязательна для алкоголя
+	//
+	// Example: 40
+	Abv *float64 `json:"abv,omitempty"`
+
+	// Attributes Характеристики по схеме категории — код → значение; пустые не сохраняются
+	//
+	// Example: {"raw_material":"пшеница"}
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// BrandID Бренд этого производителя
+	BrandID    *openapi_types.UUID `json:"brandId,omitempty"`
+	CategoryID openapi_types.UUID  `json:"categoryId"`
+
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// CrptMarked Маркируется «Честным знаком»
+	CrptMarked bool `json:"crptMarked"`
+
+	// KindCode Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+	//
+	// Example: 200
+	KindCode *string `json:"kindCode,omitempty"`
+
+	// Name Example: Водка «Тайга» на пшенице
+	Name string `json:"name"`
+
+	// OriginRegionID Регион этой страны
+	OriginRegionID *openapi_types.UUID `json:"originRegionId,omitempty"`
+	ProducerID     openapi_types.UUID  `json:"producerId"`
+
+	// ProductLineID Линейка этого бренда
+	ProductLineID *openapi_types.UUID `json:"productLineId,omitempty"`
+
+	// Variety Разновидность в линейке
+	//
+	// Example: на пшенице
+	Variety *string `json:"variety,omitempty"`
+}
+
+// ProductKind defines model for ProductKind.
+type ProductKind struct {
+	// Code Код вида продукции, 3–5 цифр
+	//
+	// Example: 200
+	Code string `json:"code"`
+
+	// EgaisAccounting marked — помарочный учёт, quantity — только количество
+	EgaisAccounting EgaisAccounting `json:"egaisAccounting"`
+
+	// MinPriceGroup Группа МРЦ, если для вида есть минимальная цена
+	//
+	// Example: Водка
+	MinPriceGroup *string `json:"minPriceGroup,omitempty"`
+
+	// Name Example: Водка
+	Name string `json:"name"`
+}
+
+// ProductKindList defines model for ProductKindList.
+type ProductKindList struct {
+	Items []ProductKind `json:"items"`
+}
+
+// ProductLine defines model for ProductLine.
+type ProductLine struct {
+	BrandID  openapi_types.UUID `json:"brandId"`
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// Name Example: Тайга
+	Name string `json:"name"`
+}
+
+// ProductLineFields defines model for ProductLineFields.
+type ProductLineFields struct {
+	BrandID openapi_types.UUID `json:"brandId"`
+
+	// Name Example: Тайга
+	Name string `json:"name"`
+}
+
+// ProductLineList defines model for ProductLineList.
+type ProductLineList struct {
+	Items []ProductLine `json:"items"`
+}
+
+// ProductLineUpdate defines model for ProductLineUpdate.
+type ProductLineUpdate struct {
+	IsActive bool   `json:"isActive"`
+	Name     string `json:"name"`
+}
+
+// ProductPage defines model for ProductPage.
+type ProductPage struct {
+	Items []Product `json:"items"`
+
+	// NextAfter Если есть — параметр after для следующей страницы
+	NextAfter *openapi_types.UUID `json:"nextAfter,omitempty"`
+
+	// Scan Есть, если поисковая строка похожа на код или скан
+	Scan *ScanResult `json:"scan,omitempty"`
+}
+
+// ProductUpdate defines model for ProductUpdate.
+type ProductUpdate struct {
+	// Abv Крепость, % об.; обязательна для алкоголя
+	//
+	// Example: 40
+	Abv *float64 `json:"abv,omitempty"`
+
+	// Attributes Характеристики по схеме категории — код → значение; пустые не сохраняются
+	//
+	// Example: {"raw_material":"пшеница"}
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// BrandID Бренд этого производителя
+	BrandID    *openapi_types.UUID `json:"brandId,omitempty"`
+	CategoryID openapi_types.UUID  `json:"categoryId"`
+
+	// CountryCode Example: 643
+	CountryCode string `json:"countryCode"`
+
+	// CrptMarked Маркируется «Честным знаком»
+	CrptMarked bool `json:"crptMarked"`
+	IsActive   bool `json:"isActive"`
+
+	// KindCode Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+	//
+	// Example: 200
+	KindCode *string `json:"kindCode,omitempty"`
+
+	// Name Example: Водка «Тайга» на пшенице
+	Name string `json:"name"`
+
+	// OriginRegionID Регион этой страны
+	OriginRegionID *openapi_types.UUID `json:"originRegionId,omitempty"`
+	ProducerID     openapi_types.UUID  `json:"producerId"`
+
+	// ProductLineID Линейка этого бренда
+	ProductLineID *openapi_types.UUID `json:"productLineId,omitempty"`
+
+	// Variety Разновидность в линейке
+	//
+	// Example: на пшенице
+	Variety *string `json:"variety,omitempty"`
+	Version int32   `json:"version"`
+}
+
+// ReceivingMode Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+type ReceivingMode string
+
 // Role defines model for Role.
 type Role string
+
+// RuSubject defines model for RuSubject.
+type RuSubject struct {
+	// Code Example: 28
+	Code string `json:"code"`
+
+	// Name Example: Амурская область
+	Name string `json:"name"`
+}
+
+// RuSubjectList defines model for RuSubjectList.
+type RuSubjectList struct {
+	Items []RuSubject `json:"items"`
+}
+
+// SaleBan defines model for SaleBan.
+type SaleBan struct {
+	Date *openapi_types.Date `json:"date,omitempty"`
+	ID   openapi_types.UUID  `json:"id"`
+
+	// MonthDay Example: 09-01
+	MonthDay *string `json:"monthDay,omitempty"`
+
+	// Name Example: День знаний
+	Name string `json:"name"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope       SaleScope `json:"scope"`
+	Source      string    `json:"source"`
+	SubjectCode string    `json:"subjectCode"`
+}
+
+// SaleCheck defines model for SaleCheck.
+type SaleCheck struct {
+	// LocalTime Местное время точки, на которое проверено
+	//
+	// Example: 2026-10-23T20:30:00+09:00
+	LocalTime string      `json:"localTime"`
+	Other     SaleVerdict `json:"other"`
+	Strong    SaleVerdict `json:"strong"`
+}
+
+// SaleRule defines model for SaleRule.
+type SaleRule struct {
+	// From Example: 11:00
+	From string             `json:"from"`
+	ID   openapi_types.UUID `json:"id"`
+
+	// Scope all — вся алкогольная продукция, strong — крепче 15 %
+	Scope SaleScope `json:"scope"`
+
+	// Source Закон-основание
+	Source string `json:"source"`
+
+	// SubjectCode Не задан — федеральное правило
+	//
+	// Example: 28
+	SubjectCode *string `json:"subjectCode,omitempty"`
+
+	// To Example: 21:00
+	To        string             `json:"to"`
+	ValidFrom openapi_types.Date `json:"validFrom"`
+}
+
+// SaleRulebook defines model for SaleRulebook.
+type SaleRulebook struct {
+	Bans  []SaleBan  `json:"bans"`
+	Rules []SaleRule `json:"rules"`
+}
+
+// SaleScope all — вся алкогольная продукция, strong — крепче 15 %
+type SaleScope string
+
+// SaleVerdict defines model for SaleVerdict.
+type SaleVerdict struct {
+	Allowed bool `json:"allowed"`
+
+	// BanDay Название дня полного запрета
+	BanDay *string `json:"banDay,omitempty"`
+
+	// From Начало окна продажи на этот день, «ЧЧ:ММ»
+	From *string `json:"from,omitempty"`
+
+	// To Конец окна, не включая
+	To *string `json:"to,omitempty"`
+}
+
+// ScanKind Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
+type ScanKind string
+
+// ScanResult Есть, если поисковая строка похожа на код или скан
+type ScanResult struct {
+	// Code Что искали — штрихкод, алкокод или GTIN; для марки нового образца — её тип, серия и номер
+	Code string `json:"code"`
+
+	// Kind Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
+	Kind ScanKind `json:"kind"`
+}
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -350,6 +1686,92 @@ type SessionInfo struct {
 // SessionList defines model for SessionList.
 type SessionList struct {
 	Items []SessionInfo `json:"items"`
+}
+
+// Supplier defines model for Supplier.
+type Supplier struct {
+	Contacts SupplierContacts `json:"contacts"`
+
+	// DefaultReceivingMode Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+	DefaultReceivingMode ReceivingMode `json:"defaultReceivingMode"`
+
+	// FSRARID 12 цифр
+	FSRARID *string            `json:"fsrarId,omitempty"`
+	ID      openapi_types.UUID `json:"id"`
+
+	// INN 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются
+	INN      string `json:"inn"`
+	IsActive bool   `json:"isActive"`
+
+	// KPP 9 цифр; у предпринимателя КПП нет
+	KPP            *string             `json:"kpp,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+
+	// Name Example: ООО «Амур-Дистрибуция»
+	Name string `json:"name"`
+}
+
+// SupplierContacts defines model for SupplierContacts.
+type SupplierContacts struct {
+	// Email Example: sales@example.ru
+	Email *string `json:"email,omitempty"`
+
+	// Person Example: Иванова Мария, менеджер
+	Person *string `json:"person,omitempty"`
+
+	// Phone Example: +7 4162 00-00-00
+	Phone *string `json:"phone,omitempty"`
+}
+
+// SupplierFields defines model for SupplierFields.
+type SupplierFields struct {
+	Contacts SupplierContacts `json:"contacts"`
+
+	// DefaultReceivingMode Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+	DefaultReceivingMode ReceivingMode `json:"defaultReceivingMode"`
+
+	// FSRARID 12 цифр
+	FSRARID *string `json:"fsrarId,omitempty"`
+
+	// INN 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются
+	INN string `json:"inn"`
+
+	// KPP 9 цифр; у предпринимателя КПП нет
+	KPP            *string             `json:"kpp,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+
+	// Name Example: ООО «Амур-Дистрибуция»
+	Name string `json:"name"`
+}
+
+// SupplierList defines model for SupplierList.
+type SupplierList struct {
+	Items []Supplier `json:"items"`
+}
+
+// SupplierUpdate defines model for SupplierUpdate.
+type SupplierUpdate struct {
+	Contacts SupplierContacts `json:"contacts"`
+
+	// DefaultReceivingMode Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+	DefaultReceivingMode ReceivingMode `json:"defaultReceivingMode"`
+
+	// FSRARID 12 цифр
+	FSRARID *string `json:"fsrarId,omitempty"`
+
+	// INN 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются
+	INN      string `json:"inn"`
+	IsActive bool   `json:"isActive"`
+
+	// KPP 9 цифр; у предпринимателя КПП нет
+	KPP            *string             `json:"kpp,omitempty"`
+	LicenseNo      *string             `json:"licenseNo,omitempty"`
+	LicenseValidTo *openapi_types.Date `json:"licenseValidTo,omitempty"`
+
+	// Name Example: ООО «Амур-Дистрибуция»
+	Name string `json:"name"`
 }
 
 // TemporaryPassword defines model for TemporaryPassword.
@@ -385,6 +1807,148 @@ type UserUpdate struct {
 	Role        Role                 `json:"role"`
 	Version     int32                `json:"version"`
 }
+
+// Variant defines model for Variant.
+type Variant struct {
+	// Alcocode Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+	//
+	// Example: 0177207000002463655
+	Alcocode *string   `json:"alcocode,omitempty"`
+	Barcodes []Barcode `json:"barcodes"`
+
+	// Container glass — стекло, pet — ПЭТ, can — банка
+	Container *Container `json:"container,omitempty"`
+	GiftPack  bool       `json:"giftPack"`
+
+	// Gtin GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+	//
+	// Example: 04600000000011
+	Gtin     *string            `json:"gtin,omitempty"`
+	ID       openapi_types.UUID `json:"id"`
+	IsActive bool               `json:"isActive"`
+
+	// MinPrice Действующая МРЦ для этого объёма и крепости
+	MinPrice  *float64           `json:"minPrice,omitempty"`
+	ProductID openapi_types.UUID `json:"productId"`
+
+	// PurchasePrice Действующая закупочная цена; только при праве cost.view
+	PurchasePrice *float64 `json:"purchasePrice,omitempty"`
+
+	// RetailPrice Действующая розничная цена
+	RetailPrice *float64 `json:"retailPrice,omitempty"`
+
+	// VolumeMl Объём из справочника; обязателен для продукции в ЕГАИС
+	//
+	// Example: 500
+	VolumeMl *int32 `json:"volumeMl,omitempty"`
+}
+
+// VariantCodes defines model for VariantCodes.
+type VariantCodes struct {
+	// Alcocode Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+	//
+	// Example: 0177207000002463655
+	Alcocode *string `json:"alcocode,omitempty"`
+
+	// Gtin GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+	//
+	// Example: 04600000000011
+	Gtin *string `json:"gtin,omitempty"`
+}
+
+// VariantGeneration defines model for VariantGeneration.
+type VariantGeneration struct {
+	// Containers Пустой список — варианты без тары
+	Containers []Container `json:"containers"`
+	GiftPack   bool        `json:"giftPack"`
+
+	// Volumes Example: [500,700]
+	Volumes []int32 `json:"volumes"`
+}
+
+// VariantList defines model for VariantList.
+type VariantList struct {
+	Items []Variant `json:"items"`
+}
+
+// VariantUpdate defines model for VariantUpdate.
+type VariantUpdate struct {
+	// Alcocode Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+	//
+	// Example: 0177207000002463655
+	Alcocode *string `json:"alcocode,omitempty"`
+
+	// Gtin GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+	//
+	// Example: 04600000000011
+	Gtin     *string `json:"gtin,omitempty"`
+	IsActive bool    `json:"isActive"`
+}
+
+// Volume defines model for Volume.
+type Volume struct {
+	IsActive bool `json:"isActive"`
+
+	// Ml Example: 500
+	Ml int32 `json:"ml"`
+}
+
+// VolumeList defines model for VolumeList.
+type VolumeList struct {
+	Items []Volume `json:"items"`
+}
+
+// VolumeUpdate defines model for VolumeUpdate.
+type VolumeUpdate struct {
+	IsActive bool `json:"isActive"`
+}
+
+// WriteoffReason defines model for WriteoffReason.
+type WriteoffReason struct {
+	// EgaisType Тип списания в акте списания ЕГАИС
+	EgaisType EgaisWriteoffType  `json:"egaisType"`
+	ID        openapi_types.UUID `json:"id"`
+	IsActive  bool               `json:"isActive"`
+
+	// Name Example: Бой
+	Name string `json:"name"`
+}
+
+// WriteoffReasonFields defines model for WriteoffReasonFields.
+type WriteoffReasonFields struct {
+	// EgaisType Тип списания в акте списания ЕГАИС
+	EgaisType EgaisWriteoffType `json:"egaisType"`
+
+	// Name Example: Бой
+	Name string `json:"name"`
+}
+
+// WriteoffReasonList defines model for WriteoffReasonList.
+type WriteoffReasonList struct {
+	Items []WriteoffReason `json:"items"`
+}
+
+// WriteoffReasonUpdate defines model for WriteoffReasonUpdate.
+type WriteoffReasonUpdate struct {
+	// EgaisType Тип списания в акте списания ЕГАИС
+	EgaisType EgaisWriteoffType `json:"egaisType"`
+	IsActive  bool              `json:"isActive"`
+
+	// Name Example: Бой
+	Name string `json:"name"`
+}
+
+// Zone defines model for Zone.
+type Zone struct {
+	ID openapi_types.UUID `json:"id"`
+
+	// Kind warehouse — склад, backroom — склад магазина, floor — торговый зал
+	Kind ZoneKind `json:"kind"`
+	Name string   `json:"name"`
+}
+
+// ZoneKind warehouse — склад, backroom — склад магазина, floor — торговый зал
+type ZoneKind string
 
 // AuditActionFilter Вид события. Русские названия — в словаре клиента.
 type AuditActionFilter = AuditAction
@@ -441,17 +2005,153 @@ type ExportAuditLogParams struct {
 	Tz *string `form:"tz,omitempty" json:"tz,omitempty"`
 }
 
+// RunImportMultipartBody defines parameters for RunImport.
+type RunImportMultipartBody struct {
+	// File XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+	File openapi_types.File `json:"file"`
+}
+
+// PreviewImportMultipartBody defines parameters for PreviewImport.
+type PreviewImportMultipartBody struct {
+	// File XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+	File openapi_types.File `json:"file"`
+}
+
+// CheckSaleParams defines parameters for CheckSale.
+type CheckSaleParams struct {
+	At *time.Time `form:"at,omitempty" json:"at,omitempty"`
+}
+
+// ListProductsParams defines parameters for ListProducts.
+type ListProductsParams struct {
+	// Q Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// CategoryID Категория вместе с подкатегориями
+	CategoryID *openapi_types.UUID `form:"categoryId,omitempty" json:"categoryId,omitempty"`
+	BrandID    *openapi_types.UUID `form:"brandId,omitempty" json:"brandId,omitempty"`
+
+	// After Позиция, после которой начинается страница
+	After *openapi_types.UUID `form:"after,omitempty" json:"after,omitempty"`
+	Limit *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
 // ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
 type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
+// CreateBrandJSONRequestBody defines body for CreateBrand for application/json ContentType.
+type CreateBrandJSONRequestBody = BrandFields
+
+// UpdateBrandJSONRequestBody defines body for UpdateBrand for application/json ContentType.
+type UpdateBrandJSONRequestBody = BrandUpdate
+
+// RunImportMultipartRequestBody defines body for RunImport for multipart/form-data ContentType.
+type RunImportMultipartRequestBody RunImportMultipartBody
+
+// PreviewImportMultipartRequestBody defines body for PreviewImport for multipart/form-data ContentType.
+type PreviewImportMultipartRequestBody PreviewImportMultipartBody
+
+// CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
+type CreateCategoryJSONRequestBody = NewCategory
+
+// UpdateCategoryJSONRequestBody defines body for UpdateCategory for application/json ContentType.
+type UpdateCategoryJSONRequestBody = CategoryUpdate
+
+// CreateCategoryAttributeJSONRequestBody defines body for CreateCategoryAttribute for application/json ContentType.
+type CreateCategoryAttributeJSONRequestBody = NewCategoryAttribute
+
+// UpdateCategoryAttributeJSONRequestBody defines body for UpdateCategoryAttribute for application/json ContentType.
+type UpdateCategoryAttributeJSONRequestBody = CategoryAttributeUpdate
+
+// CreateLocationJSONRequestBody defines body for CreateLocation for application/json ContentType.
+type CreateLocationJSONRequestBody = NewLocation
+
+// UpdateLocationJSONRequestBody defines body for UpdateLocation for application/json ContentType.
+type UpdateLocationJSONRequestBody = LocationUpdate
+
+// CopyAssortmentJSONRequestBody defines body for CopyAssortment for application/json ContentType.
+type CopyAssortmentJSONRequestBody = AssortmentCopy
+
+// SetAssortmentItemJSONRequestBody defines body for SetAssortmentItem for application/json ContentType.
+type SetAssortmentItemJSONRequestBody = AssortmentItemUpdate
+
+// CreateMinPriceJSONRequestBody defines body for CreateMinPrice for application/json ContentType.
+type CreateMinPriceJSONRequestBody = NewMinPrice
+
+// CreateOriginRegionJSONRequestBody defines body for CreateOriginRegion for application/json ContentType.
+type CreateOriginRegionJSONRequestBody = OriginRegionFields
+
+// UpdateOriginRegionJSONRequestBody defines body for UpdateOriginRegion for application/json ContentType.
+type UpdateOriginRegionJSONRequestBody = OriginRegionUpdate
+
+// CreateProducerJSONRequestBody defines body for CreateProducer for application/json ContentType.
+type CreateProducerJSONRequestBody = ProducerFields
+
+// UpdateProducerJSONRequestBody defines body for UpdateProducer for application/json ContentType.
+type UpdateProducerJSONRequestBody = ProducerUpdate
+
+// CreateProductLineJSONRequestBody defines body for CreateProductLine for application/json ContentType.
+type CreateProductLineJSONRequestBody = ProductLineFields
+
+// UpdateProductLineJSONRequestBody defines body for UpdateProductLine for application/json ContentType.
+type UpdateProductLineJSONRequestBody = ProductLineUpdate
+
+// CreateProductJSONRequestBody defines body for CreateProduct for application/json ContentType.
+type CreateProductJSONRequestBody = ProductFields
+
+// UpdateProductJSONRequestBody defines body for UpdateProduct for application/json ContentType.
+type UpdateProductJSONRequestBody = ProductUpdate
+
+// CreateVariantJSONRequestBody defines body for CreateVariant for application/json ContentType.
+type CreateVariantJSONRequestBody = NewVariant
+
+// GenerateVariantsJSONRequestBody defines body for GenerateVariants for application/json ContentType.
+type GenerateVariantsJSONRequestBody = VariantGeneration
+
+// CreateSaleBanJSONRequestBody defines body for CreateSaleBan for application/json ContentType.
+type CreateSaleBanJSONRequestBody = NewSaleBan
+
+// CreateSaleRuleJSONRequestBody defines body for CreateSaleRule for application/json ContentType.
+type CreateSaleRuleJSONRequestBody = NewSaleRule
+
+// CreateSupplierJSONRequestBody defines body for CreateSupplier for application/json ContentType.
+type CreateSupplierJSONRequestBody = SupplierFields
+
+// UpdateSupplierJSONRequestBody defines body for UpdateSupplier for application/json ContentType.
+type UpdateSupplierJSONRequestBody = SupplierUpdate
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = NewUser
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UserUpdate
+
+// UpdateVariantJSONRequestBody defines body for UpdateVariant for application/json ContentType.
+type UpdateVariantJSONRequestBody = VariantUpdate
+
+// AddBarcodeJSONRequestBody defines body for AddBarcode for application/json ContentType.
+type AddBarcodeJSONRequestBody = NewBarcode
+
+// SetPurchasePriceJSONRequestBody defines body for SetPurchasePrice for application/json ContentType.
+type SetPurchasePriceJSONRequestBody = NewPrice
+
+// SetRetailPriceJSONRequestBody defines body for SetRetailPrice for application/json ContentType.
+type SetRetailPriceJSONRequestBody = NewPrice
+
+// CreateVolumeJSONRequestBody defines body for CreateVolume for application/json ContentType.
+type CreateVolumeJSONRequestBody = NewVolume
+
+// UpdateVolumeJSONRequestBody defines body for UpdateVolume for application/json ContentType.
+type UpdateVolumeJSONRequestBody = VolumeUpdate
+
+// CreateWriteoffReasonJSONRequestBody defines body for CreateWriteoffReason for application/json ContentType.
+type CreateWriteoffReasonJSONRequestBody = WriteoffReasonFields
+
+// UpdateWriteoffReasonJSONRequestBody defines body for UpdateWriteoffReason for application/json ContentType.
+type UpdateWriteoffReasonJSONRequestBody = WriteoffReasonUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -482,9 +2182,162 @@ type ServerInterface interface {
 	// EndSession Завершить свой сеанс
 	// (DELETE /auth/sessions/{id})
 	EndSession(ctx *echo.Context, id openapi_types.UUID) error
+	// DeleteBarcode Отвязать штрихкод
+	// (DELETE /barcodes/{code})
+	DeleteBarcode(ctx *echo.Context, code string) error
+	// ListBrands Бренды
+	// (GET /brands)
+	ListBrands(ctx *echo.Context) error
+	// CreateBrand Добавить — бренды
+	// (POST /brands)
+	CreateBrand(ctx *echo.Context) error
+	// UpdateBrand Изменить — бренды
+	// (PUT /brands/{id})
+	UpdateBrand(ctx *echo.Context, id openapi_types.UUID) error
+	// RunImport Импорт номенклатуры
+	// (POST /catalog/import)
+	RunImport(ctx *echo.Context) error
+	// PreviewImport Предпросмотр импорта номенклатуры
+	// (POST /catalog/import/preview)
+	PreviewImport(ctx *echo.Context) error
+	// GetImportTemplate Шаблон импорта номенклатуры
+	// (GET /catalog/import/template)
+	GetImportTemplate(ctx *echo.Context) error
+	// ListCategories Дерево категорий с характеристиками
+	// (GET /categories)
+	ListCategories(ctx *echo.Context) error
+	// CreateCategory Добавить категорию
+	// (POST /categories)
+	CreateCategory(ctx *echo.Context) error
+	// UpdateCategory Изменить категорию
+	// (PUT /categories/{id})
+	UpdateCategory(ctx *echo.Context, id openapi_types.UUID) error
+	// CreateCategoryAttribute Добавить характеристику категории
+	// (POST /categories/{id}/attributes)
+	CreateCategoryAttribute(ctx *echo.Context, id openapi_types.UUID) error
+	// UpdateCategoryAttribute Изменить характеристику категории
+	// (PUT /category-attributes/{id})
+	UpdateCategoryAttribute(ctx *echo.Context, id openapi_types.UUID) error
+	// ListCountries Страны (ОКСМ)
+	// (GET /countries)
+	ListCountries(ctx *echo.Context) error
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx *echo.Context) error
+	// CreateLocation Создать точку
+	// (POST /locations)
+	CreateLocation(ctx *echo.Context) error
+	// GetLocation Карточка точки
+	// (GET /locations/{id})
+	GetLocation(ctx *echo.Context, id openapi_types.UUID) error
+	// UpdateLocation Изменить точку
+	// (PUT /locations/{id})
+	UpdateLocation(ctx *echo.Context, id openapi_types.UUID) error
+	// ListAssortment Ассортиментная матрица точки
+	// (GET /locations/{id}/assortment)
+	ListAssortment(ctx *echo.Context, id openapi_types.UUID) error
+	// CopyAssortment Добавить в матрицу точки варианты из матрицы другой точки
+	// (POST /locations/{id}/assortment/copy)
+	CopyAssortment(ctx *echo.Context, id openapi_types.UUID) error
+	// RemoveAssortmentItem Убрать вариант из матрицы
+	// (DELETE /locations/{id}/assortment/{variantId})
+	RemoveAssortmentItem(ctx *echo.Context, id openapi_types.UUID, variantID openapi_types.UUID) error
+	// SetAssortmentItem Добавить вариант в матрицу или изменить минимальный остаток
+	// (PUT /locations/{id}/assortment/{variantId})
+	SetAssortmentItem(ctx *echo.Context, id openapi_types.UUID, variantID openapi_types.UUID) error
+	// CheckSale Можно ли продавать алкоголь в точке
+	// (GET /locations/{id}/sale-check)
+	CheckSale(ctx *echo.Context, id openapi_types.UUID, params CheckSaleParams) error
+	// ListMinPrices МРЦ — минимальные розничные цены Минфина
+	// (GET /min-prices)
+	ListMinPrices(ctx *echo.Context) error
+	// CreateMinPrice Добавить редакцию МРЦ
+	// (POST /min-prices)
+	CreateMinPrice(ctx *echo.Context) error
+	// DeleteMinPrice Удалить редакцию МРЦ, которая ещё не вступила в силу
+	// (DELETE /min-prices/{id})
+	DeleteMinPrice(ctx *echo.Context, id openapi_types.UUID) error
+	// ListOriginRegions Регионы происхождения
+	// (GET /origin-regions)
+	ListOriginRegions(ctx *echo.Context) error
+	// CreateOriginRegion Добавить — регионы происхождения
+	// (POST /origin-regions)
+	CreateOriginRegion(ctx *echo.Context) error
+	// UpdateOriginRegion Изменить — регионы происхождения
+	// (PUT /origin-regions/{id})
+	UpdateOriginRegion(ctx *echo.Context, id openapi_types.UUID) error
+	// DeletePrice Отменить цену, назначенную на будущее
+	// (DELETE /prices/{id})
+	DeletePrice(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProducers Производители
+	// (GET /producers)
+	ListProducers(ctx *echo.Context) error
+	// CreateProducer Добавить — производители
+	// (POST /producers)
+	CreateProducer(ctx *echo.Context) error
+	// UpdateProducer Изменить — производители
+	// (PUT /producers/{id})
+	UpdateProducer(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProductKinds Виды продукции ЕГАИС
+	// (GET /product-kinds)
+	ListProductKinds(ctx *echo.Context) error
+	// ListProductLines Линейки
+	// (GET /product-lines)
+	ListProductLines(ctx *echo.Context) error
+	// CreateProductLine Добавить — линейки
+	// (POST /product-lines)
+	CreateProductLine(ctx *echo.Context) error
+	// UpdateProductLine Изменить — линейки
+	// (PUT /product-lines/{id})
+	UpdateProductLine(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProducts Позиции
+	// (GET /products)
+	ListProducts(ctx *echo.Context, params ListProductsParams) error
+	// CreateProduct Добавить позицию
+	// (POST /products)
+	CreateProduct(ctx *echo.Context) error
+	// GetProduct Карточка позиции
+	// (GET /products/{id})
+	GetProduct(ctx *echo.Context, id openapi_types.UUID) error
+	// UpdateProduct Изменить позицию
+	// (PUT /products/{id})
+	UpdateProduct(ctx *echo.Context, id openapi_types.UUID) error
+	// ListProductVariants Варианты позиции со штрихкодами
+	// (GET /products/{id}/variants)
+	ListProductVariants(ctx *echo.Context, id openapi_types.UUID) error
+	// CreateVariant Добавить вариант
+	// (POST /products/{id}/variants)
+	CreateVariant(ctx *echo.Context, id openapi_types.UUID) error
+	// GenerateVariants Создать варианты по списку объёмов и видов тары
+	// (POST /products/{id}/variants/generate)
+	GenerateVariants(ctx *echo.Context, id openapi_types.UUID) error
+	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
+	// (GET /ru-subjects)
+	ListRuSubjects(ctx *echo.Context) error
+	// CreateSaleBan Добавить день полного запрета
+	// (POST /sale-bans)
+	CreateSaleBan(ctx *echo.Context) error
+	// DeleteSaleBan Удалить день запрета
+	// (DELETE /sale-bans/{id})
+	DeleteSaleBan(ctx *echo.Context, id openapi_types.UUID) error
+	// ListSaleRules Правила продажи алкоголя и дни полного запрета
+	// (GET /sale-rules)
+	ListSaleRules(ctx *echo.Context) error
+	// CreateSaleRule Добавить редакцию правила продажи
+	// (POST /sale-rules)
+	CreateSaleRule(ctx *echo.Context) error
+	// DeleteSaleRule Удалить редакцию, которая ещё не вступила в силу
+	// (DELETE /sale-rules/{id})
+	DeleteSaleRule(ctx *echo.Context, id openapi_types.UUID) error
+	// ListSuppliers Поставщики
+	// (GET /suppliers)
+	ListSuppliers(ctx *echo.Context) error
+	// CreateSupplier Добавить поставщика
+	// (POST /suppliers)
+	CreateSupplier(ctx *echo.Context) error
+	// UpdateSupplier Изменить поставщика
+	// (PUT /suppliers/{id})
+	UpdateSupplier(ctx *echo.Context, id openapi_types.UUID) error
 	// ListUsers Сотрудники
 	// (GET /users)
 	ListUsers(ctx *echo.Context) error
@@ -506,6 +2359,42 @@ type ServerInterface interface {
 	// UnblockUser Разблокировать сотрудника
 	// (POST /users/{id}/unblock)
 	UnblockUser(ctx *echo.Context, id openapi_types.UUID) error
+	// UpdateVariant Изменить вариант
+	// (PUT /variants/{id})
+	UpdateVariant(ctx *echo.Context, id openapi_types.UUID) error
+	// AddBarcode Привязать штрихкод к варианту
+	// (POST /variants/{id}/barcodes)
+	AddBarcode(ctx *echo.Context, id openapi_types.UUID) error
+	// ListPurchasePrices История закупочных цен
+	// (GET /variants/{id}/purchase-prices)
+	ListPurchasePrices(ctx *echo.Context, id openapi_types.UUID) error
+	// SetPurchasePrice Назначить закупочную цену
+	// (POST /variants/{id}/purchase-prices)
+	SetPurchasePrice(ctx *echo.Context, id openapi_types.UUID) error
+	// ListRetailPrices История розничных цен
+	// (GET /variants/{id}/retail-prices)
+	ListRetailPrices(ctx *echo.Context, id openapi_types.UUID) error
+	// SetRetailPrice Назначить розничную цену
+	// (POST /variants/{id}/retail-prices)
+	SetRetailPrice(ctx *echo.Context, id openapi_types.UUID) error
+	// ListVolumes Объёмы тары
+	// (GET /volumes)
+	ListVolumes(ctx *echo.Context) error
+	// CreateVolume Добавить — объёмы тары
+	// (POST /volumes)
+	CreateVolume(ctx *echo.Context) error
+	// UpdateVolume Изменить — объёмы тары
+	// (PUT /volumes/{ml})
+	UpdateVolume(ctx *echo.Context, ml int32) error
+	// ListWriteoffReasons Причины списания
+	// (GET /writeoff-reasons)
+	ListWriteoffReasons(ctx *echo.Context) error
+	// CreateWriteoffReason Добавить — причины списания
+	// (POST /writeoff-reasons)
+	CreateWriteoffReason(ctx *echo.Context) error
+	// UpdateWriteoffReason Изменить — причины списания
+	// (PUT /writeoff-reasons/{id})
+	UpdateWriteoffReason(ctx *echo.Context, id openapi_types.UUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -710,12 +2599,708 @@ func (w *ServerInterfaceWrapper) EndSession(ctx *echo.Context) error {
 	return err
 }
 
+// DeleteBarcode converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteBarcode(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", ctx.Param("code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteBarcode(ctx, code)
+	return err
+}
+
+// ListBrands converts echo context to params.
+func (w *ServerInterfaceWrapper) ListBrands(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListBrands(ctx)
+	return err
+}
+
+// CreateBrand converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateBrand(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateBrand(ctx)
+	return err
+}
+
+// UpdateBrand converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateBrand(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateBrand(ctx, id)
+	return err
+}
+
+// RunImport converts echo context to params.
+func (w *ServerInterfaceWrapper) RunImport(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RunImport(ctx)
+	return err
+}
+
+// PreviewImport converts echo context to params.
+func (w *ServerInterfaceWrapper) PreviewImport(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PreviewImport(ctx)
+	return err
+}
+
+// GetImportTemplate converts echo context to params.
+func (w *ServerInterfaceWrapper) GetImportTemplate(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetImportTemplate(ctx)
+	return err
+}
+
+// ListCategories converts echo context to params.
+func (w *ServerInterfaceWrapper) ListCategories(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListCategories(ctx)
+	return err
+}
+
+// CreateCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateCategory(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateCategory(ctx)
+	return err
+}
+
+// UpdateCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateCategory(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateCategory(ctx, id)
+	return err
+}
+
+// CreateCategoryAttribute converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateCategoryAttribute(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateCategoryAttribute(ctx, id)
+	return err
+}
+
+// UpdateCategoryAttribute converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateCategoryAttribute(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateCategoryAttribute(ctx, id)
+	return err
+}
+
+// ListCountries converts echo context to params.
+func (w *ServerInterfaceWrapper) ListCountries(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListCountries(ctx)
+	return err
+}
+
 // ListLocations converts echo context to params.
 func (w *ServerInterfaceWrapper) ListLocations(ctx *echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListLocations(ctx)
+	return err
+}
+
+// CreateLocation converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateLocation(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateLocation(ctx)
+	return err
+}
+
+// GetLocation converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLocation(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLocation(ctx, id)
+	return err
+}
+
+// UpdateLocation converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateLocation(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateLocation(ctx, id)
+	return err
+}
+
+// ListAssortment converts echo context to params.
+func (w *ServerInterfaceWrapper) ListAssortment(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListAssortment(ctx, id)
+	return err
+}
+
+// CopyAssortment converts echo context to params.
+func (w *ServerInterfaceWrapper) CopyAssortment(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CopyAssortment(ctx, id)
+	return err
+}
+
+// RemoveAssortmentItem converts echo context to params.
+func (w *ServerInterfaceWrapper) RemoveAssortmentItem(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "variantId" -------------
+	var variantID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "variantId", ctx.Param("variantId"), &variantID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter variantId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.RemoveAssortmentItem(ctx, id, variantID)
+	return err
+}
+
+// SetAssortmentItem converts echo context to params.
+func (w *ServerInterfaceWrapper) SetAssortmentItem(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "variantId" -------------
+	var variantID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "variantId", ctx.Param("variantId"), &variantID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter variantId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SetAssortmentItem(ctx, id, variantID)
+	return err
+}
+
+// CheckSale converts echo context to params.
+func (w *ServerInterfaceWrapper) CheckSale(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CheckSaleParams
+	// ------------- Optional query parameter "at" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "at", ctx.QueryParams(), &params.At, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter at: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CheckSale(ctx, id, params)
+	return err
+}
+
+// ListMinPrices converts echo context to params.
+func (w *ServerInterfaceWrapper) ListMinPrices(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListMinPrices(ctx)
+	return err
+}
+
+// CreateMinPrice converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateMinPrice(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateMinPrice(ctx)
+	return err
+}
+
+// DeleteMinPrice converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteMinPrice(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteMinPrice(ctx, id)
+	return err
+}
+
+// ListOriginRegions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListOriginRegions(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListOriginRegions(ctx)
+	return err
+}
+
+// CreateOriginRegion converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateOriginRegion(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateOriginRegion(ctx)
+	return err
+}
+
+// UpdateOriginRegion converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateOriginRegion(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateOriginRegion(ctx, id)
+	return err
+}
+
+// DeletePrice converts echo context to params.
+func (w *ServerInterfaceWrapper) DeletePrice(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeletePrice(ctx, id)
+	return err
+}
+
+// ListProducers converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProducers(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProducers(ctx)
+	return err
+}
+
+// CreateProducer converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateProducer(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateProducer(ctx)
+	return err
+}
+
+// UpdateProducer converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateProducer(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateProducer(ctx, id)
+	return err
+}
+
+// ListProductKinds converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProductKinds(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProductKinds(ctx)
+	return err
+}
+
+// ListProductLines converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProductLines(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProductLines(ctx)
+	return err
+}
+
+// CreateProductLine converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateProductLine(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateProductLine(ctx)
+	return err
+}
+
+// UpdateProductLine converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateProductLine(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateProductLine(ctx, id)
+	return err
+}
+
+// ListProducts converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProducts(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProductsParams
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", ctx.QueryParams(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter q: %s", err))
+	}
+
+	// ------------- Optional query parameter "categoryId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "categoryId", ctx.QueryParams(), &params.CategoryID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter categoryId: %s", err))
+	}
+
+	// ------------- Optional query parameter "brandId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "brandId", ctx.QueryParams(), &params.BrandID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter brandId: %s", err))
+	}
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", ctx.QueryParams(), &params.After, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter after: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProducts(ctx, params)
+	return err
+}
+
+// CreateProduct converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateProduct(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateProduct(ctx)
+	return err
+}
+
+// GetProduct converts echo context to params.
+func (w *ServerInterfaceWrapper) GetProduct(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetProduct(ctx, id)
+	return err
+}
+
+// UpdateProduct converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateProduct(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateProduct(ctx, id)
+	return err
+}
+
+// ListProductVariants converts echo context to params.
+func (w *ServerInterfaceWrapper) ListProductVariants(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListProductVariants(ctx, id)
+	return err
+}
+
+// CreateVariant converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateVariant(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateVariant(ctx, id)
+	return err
+}
+
+// GenerateVariants converts echo context to params.
+func (w *ServerInterfaceWrapper) GenerateVariants(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GenerateVariants(ctx, id)
+	return err
+}
+
+// ListRuSubjects converts echo context to params.
+func (w *ServerInterfaceWrapper) ListRuSubjects(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListRuSubjects(ctx)
+	return err
+}
+
+// CreateSaleBan converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateSaleBan(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateSaleBan(ctx)
+	return err
+}
+
+// DeleteSaleBan converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteSaleBan(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteSaleBan(ctx, id)
+	return err
+}
+
+// ListSaleRules converts echo context to params.
+func (w *ServerInterfaceWrapper) ListSaleRules(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListSaleRules(ctx)
+	return err
+}
+
+// CreateSaleRule converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateSaleRule(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateSaleRule(ctx)
+	return err
+}
+
+// DeleteSaleRule converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteSaleRule(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteSaleRule(ctx, id)
+	return err
+}
+
+// ListSuppliers converts echo context to params.
+func (w *ServerInterfaceWrapper) ListSuppliers(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListSuppliers(ctx)
+	return err
+}
+
+// CreateSupplier converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateSupplier(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateSupplier(ctx)
+	return err
+}
+
+// UpdateSupplier converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateSupplier(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateSupplier(ctx, id)
 	return err
 }
 
@@ -817,6 +3402,170 @@ func (w *ServerInterfaceWrapper) UnblockUser(ctx *echo.Context) error {
 	return err
 }
 
+// UpdateVariant converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateVariant(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateVariant(ctx, id)
+	return err
+}
+
+// AddBarcode converts echo context to params.
+func (w *ServerInterfaceWrapper) AddBarcode(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AddBarcode(ctx, id)
+	return err
+}
+
+// ListPurchasePrices converts echo context to params.
+func (w *ServerInterfaceWrapper) ListPurchasePrices(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListPurchasePrices(ctx, id)
+	return err
+}
+
+// SetPurchasePrice converts echo context to params.
+func (w *ServerInterfaceWrapper) SetPurchasePrice(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SetPurchasePrice(ctx, id)
+	return err
+}
+
+// ListRetailPrices converts echo context to params.
+func (w *ServerInterfaceWrapper) ListRetailPrices(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListRetailPrices(ctx, id)
+	return err
+}
+
+// SetRetailPrice converts echo context to params.
+func (w *ServerInterfaceWrapper) SetRetailPrice(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SetRetailPrice(ctx, id)
+	return err
+}
+
+// ListVolumes converts echo context to params.
+func (w *ServerInterfaceWrapper) ListVolumes(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListVolumes(ctx)
+	return err
+}
+
+// CreateVolume converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateVolume(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateVolume(ctx)
+	return err
+}
+
+// UpdateVolume converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateVolume(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "ml" -------------
+	var ml int32
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ml", ctx.Param("ml"), &ml, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int32", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter ml: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateVolume(ctx, ml)
+	return err
+}
+
+// ListWriteoffReasons converts echo context to params.
+func (w *ServerInterfaceWrapper) ListWriteoffReasons(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListWriteoffReasons(ctx)
+	return err
+}
+
+// CreateWriteoffReason converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateWriteoffReason(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateWriteoffReason(ctx)
+	return err
+}
+
+// UpdateWriteoffReason converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateWriteoffReason(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateWriteoffReason(ctx, id)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -881,6 +3630,69 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.DELETE(options.BaseURL+"/users/:id/sessions", wrapper.EndUserSessions, options.OperationMiddlewares["endUserSessions"]...)
 	router.GET(options.BaseURL+"/audit/export", wrapper.ExportAuditLog, options.OperationMiddlewares["exportAuditLog"]...)
 	router.GET(options.BaseURL+"/locations", wrapper.ListLocations, options.OperationMiddlewares["listLocations"]...)
+	router.POST(options.BaseURL+"/locations", wrapper.CreateLocation, options.OperationMiddlewares["createLocation"]...)
+	router.GET(options.BaseURL+"/locations/:id", wrapper.GetLocation, options.OperationMiddlewares["getLocation"]...)
+	router.PUT(options.BaseURL+"/locations/:id", wrapper.UpdateLocation, options.OperationMiddlewares["updateLocation"]...)
+	router.GET(options.BaseURL+"/locations/:id/sale-check", wrapper.CheckSale, options.OperationMiddlewares["checkSale"]...)
+	router.GET(options.BaseURL+"/sale-rules", wrapper.ListSaleRules, options.OperationMiddlewares["listSaleRules"]...)
+	router.POST(options.BaseURL+"/sale-rules", wrapper.CreateSaleRule, options.OperationMiddlewares["createSaleRule"]...)
+	router.DELETE(options.BaseURL+"/sale-rules/:id", wrapper.DeleteSaleRule, options.OperationMiddlewares["deleteSaleRule"]...)
+	router.POST(options.BaseURL+"/sale-bans", wrapper.CreateSaleBan, options.OperationMiddlewares["createSaleBan"]...)
+	router.DELETE(options.BaseURL+"/sale-bans/:id", wrapper.DeleteSaleBan, options.OperationMiddlewares["deleteSaleBan"]...)
+	router.GET(options.BaseURL+"/countries", wrapper.ListCountries, options.OperationMiddlewares["listCountries"]...)
+	router.GET(options.BaseURL+"/origin-regions", wrapper.ListOriginRegions, options.OperationMiddlewares["listOriginRegions"]...)
+	router.POST(options.BaseURL+"/origin-regions", wrapper.CreateOriginRegion, options.OperationMiddlewares["createOriginRegion"]...)
+	router.PUT(options.BaseURL+"/origin-regions/:id", wrapper.UpdateOriginRegion, options.OperationMiddlewares["updateOriginRegion"]...)
+	router.GET(options.BaseURL+"/producers", wrapper.ListProducers, options.OperationMiddlewares["listProducers"]...)
+	router.POST(options.BaseURL+"/producers", wrapper.CreateProducer, options.OperationMiddlewares["createProducer"]...)
+	router.PUT(options.BaseURL+"/producers/:id", wrapper.UpdateProducer, options.OperationMiddlewares["updateProducer"]...)
+	router.GET(options.BaseURL+"/brands", wrapper.ListBrands, options.OperationMiddlewares["listBrands"]...)
+	router.POST(options.BaseURL+"/brands", wrapper.CreateBrand, options.OperationMiddlewares["createBrand"]...)
+	router.PUT(options.BaseURL+"/brands/:id", wrapper.UpdateBrand, options.OperationMiddlewares["updateBrand"]...)
+	router.GET(options.BaseURL+"/product-kinds", wrapper.ListProductKinds, options.OperationMiddlewares["listProductKinds"]...)
+	router.GET(options.BaseURL+"/volumes", wrapper.ListVolumes, options.OperationMiddlewares["listVolumes"]...)
+	router.POST(options.BaseURL+"/volumes", wrapper.CreateVolume, options.OperationMiddlewares["createVolume"]...)
+	router.PUT(options.BaseURL+"/volumes/:ml", wrapper.UpdateVolume, options.OperationMiddlewares["updateVolume"]...)
+	router.GET(options.BaseURL+"/writeoff-reasons", wrapper.ListWriteoffReasons, options.OperationMiddlewares["listWriteoffReasons"]...)
+	router.POST(options.BaseURL+"/writeoff-reasons", wrapper.CreateWriteoffReason, options.OperationMiddlewares["createWriteoffReason"]...)
+	router.PUT(options.BaseURL+"/writeoff-reasons/:id", wrapper.UpdateWriteoffReason, options.OperationMiddlewares["updateWriteoffReason"]...)
+	router.GET(options.BaseURL+"/categories", wrapper.ListCategories, options.OperationMiddlewares["listCategories"]...)
+	router.POST(options.BaseURL+"/categories", wrapper.CreateCategory, options.OperationMiddlewares["createCategory"]...)
+	router.PUT(options.BaseURL+"/categories/:id", wrapper.UpdateCategory, options.OperationMiddlewares["updateCategory"]...)
+	router.POST(options.BaseURL+"/categories/:id/attributes", wrapper.CreateCategoryAttribute, options.OperationMiddlewares["createCategoryAttribute"]...)
+	router.PUT(options.BaseURL+"/category-attributes/:id", wrapper.UpdateCategoryAttribute, options.OperationMiddlewares["updateCategoryAttribute"]...)
+	router.GET(options.BaseURL+"/product-lines", wrapper.ListProductLines, options.OperationMiddlewares["listProductLines"]...)
+	router.POST(options.BaseURL+"/product-lines", wrapper.CreateProductLine, options.OperationMiddlewares["createProductLine"]...)
+	router.PUT(options.BaseURL+"/product-lines/:id", wrapper.UpdateProductLine, options.OperationMiddlewares["updateProductLine"]...)
+	router.GET(options.BaseURL+"/products", wrapper.ListProducts, options.OperationMiddlewares["listProducts"]...)
+	router.POST(options.BaseURL+"/products", wrapper.CreateProduct, options.OperationMiddlewares["createProduct"]...)
+	router.GET(options.BaseURL+"/products/:id", wrapper.GetProduct, options.OperationMiddlewares["getProduct"]...)
+	router.PUT(options.BaseURL+"/products/:id", wrapper.UpdateProduct, options.OperationMiddlewares["updateProduct"]...)
+	router.GET(options.BaseURL+"/products/:id/variants", wrapper.ListProductVariants, options.OperationMiddlewares["listProductVariants"]...)
+	router.POST(options.BaseURL+"/products/:id/variants", wrapper.CreateVariant, options.OperationMiddlewares["createVariant"]...)
+	router.POST(options.BaseURL+"/products/:id/variants/generate", wrapper.GenerateVariants, options.OperationMiddlewares["generateVariants"]...)
+	router.PUT(options.BaseURL+"/variants/:id", wrapper.UpdateVariant, options.OperationMiddlewares["updateVariant"]...)
+	router.POST(options.BaseURL+"/variants/:id/barcodes", wrapper.AddBarcode, options.OperationMiddlewares["addBarcode"]...)
+	router.DELETE(options.BaseURL+"/barcodes/:code", wrapper.DeleteBarcode, options.OperationMiddlewares["deleteBarcode"]...)
+	router.GET(options.BaseURL+"/variants/:id/retail-prices", wrapper.ListRetailPrices, options.OperationMiddlewares["listRetailPrices"]...)
+	router.POST(options.BaseURL+"/variants/:id/retail-prices", wrapper.SetRetailPrice, options.OperationMiddlewares["setRetailPrice"]...)
+	router.GET(options.BaseURL+"/variants/:id/purchase-prices", wrapper.ListPurchasePrices, options.OperationMiddlewares["listPurchasePrices"]...)
+	router.POST(options.BaseURL+"/variants/:id/purchase-prices", wrapper.SetPurchasePrice, options.OperationMiddlewares["setPurchasePrice"]...)
+	router.DELETE(options.BaseURL+"/prices/:id", wrapper.DeletePrice, options.OperationMiddlewares["deletePrice"]...)
+	router.GET(options.BaseURL+"/min-prices", wrapper.ListMinPrices, options.OperationMiddlewares["listMinPrices"]...)
+	router.POST(options.BaseURL+"/min-prices", wrapper.CreateMinPrice, options.OperationMiddlewares["createMinPrice"]...)
+	router.DELETE(options.BaseURL+"/min-prices/:id", wrapper.DeleteMinPrice, options.OperationMiddlewares["deleteMinPrice"]...)
+	router.GET(options.BaseURL+"/suppliers", wrapper.ListSuppliers, options.OperationMiddlewares["listSuppliers"]...)
+	router.POST(options.BaseURL+"/suppliers", wrapper.CreateSupplier, options.OperationMiddlewares["createSupplier"]...)
+	router.PUT(options.BaseURL+"/suppliers/:id", wrapper.UpdateSupplier, options.OperationMiddlewares["updateSupplier"]...)
+	router.GET(options.BaseURL+"/catalog/import/template", wrapper.GetImportTemplate, options.OperationMiddlewares["getImportTemplate"]...)
+	router.POST(options.BaseURL+"/catalog/import/preview", wrapper.PreviewImport, options.OperationMiddlewares["previewImport"]...)
+	router.POST(options.BaseURL+"/catalog/import", wrapper.RunImport, options.OperationMiddlewares["runImport"]...)
+	router.GET(options.BaseURL+"/locations/:id/assortment", wrapper.ListAssortment, options.OperationMiddlewares["listAssortment"]...)
+	router.DELETE(options.BaseURL+"/locations/:id/assortment/:variantId", wrapper.RemoveAssortmentItem, options.OperationMiddlewares["removeAssortmentItem"]...)
+	router.PUT(options.BaseURL+"/locations/:id/assortment/:variantId", wrapper.SetAssortmentItem, options.OperationMiddlewares["setAssortmentItem"]...)
+	router.POST(options.BaseURL+"/locations/:id/assortment/copy", wrapper.CopyAssortment, options.OperationMiddlewares["copyAssortment"]...)
+	router.GET(options.BaseURL+"/ru-subjects", wrapper.ListRuSubjects, options.OperationMiddlewares["listRuSubjects"]...)
 
 }
 
@@ -1241,6 +4053,521 @@ func (response EndSessiondefaultApplicationProblemPlusJSONResponse) VisitEndSess
 	return err
 }
 
+type DeleteBarcodeRequestObject struct {
+	Code string `json:"code"`
+}
+
+type DeleteBarcodeResponseObject interface {
+	VisitDeleteBarcodeResponse(w http.ResponseWriter) error
+}
+
+type DeleteBarcode204Response struct {
+}
+
+func (response DeleteBarcode204Response) VisitDeleteBarcodeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteBarcodedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteBarcodedefaultApplicationProblemPlusJSONResponse) VisitDeleteBarcodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrandsRequestObject struct {
+}
+
+type ListBrandsResponseObject interface {
+	VisitListBrandsResponse(w http.ResponseWriter) error
+}
+
+type ListBrands200JSONResponse BrandList
+
+func (response ListBrands200JSONResponse) VisitListBrandsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrandsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListBrandsdefaultApplicationProblemPlusJSONResponse) VisitListBrandsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrandRequestObject struct {
+	Body *CreateBrandJSONRequestBody
+}
+
+type CreateBrandResponseObject interface {
+	VisitCreateBrandResponse(w http.ResponseWriter) error
+}
+
+type CreateBrand201JSONResponse Brand
+
+func (response CreateBrand201JSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBranddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateBranddefaultApplicationProblemPlusJSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBrandRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateBrandJSONRequestBody
+}
+
+type UpdateBrandResponseObject interface {
+	VisitUpdateBrandResponse(w http.ResponseWriter) error
+}
+
+type UpdateBrand200JSONResponse Brand
+
+func (response UpdateBrand200JSONResponse) VisitUpdateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBranddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateBranddefaultApplicationProblemPlusJSONResponse) VisitUpdateBrandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunImportRequestObject struct {
+	Body *multipart.Reader
+}
+
+type RunImportResponseObject interface {
+	VisitRunImportResponse(w http.ResponseWriter) error
+}
+
+type RunImport200JSONResponse ImportReport
+
+func (response RunImport200JSONResponse) VisitRunImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunImportdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RunImportdefaultApplicationProblemPlusJSONResponse) VisitRunImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewImportRequestObject struct {
+	Body *multipart.Reader
+}
+
+type PreviewImportResponseObject interface {
+	VisitPreviewImportResponse(w http.ResponseWriter) error
+}
+
+type PreviewImport200JSONResponse ImportReport
+
+func (response PreviewImport200JSONResponse) VisitPreviewImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewImportdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PreviewImportdefaultApplicationProblemPlusJSONResponse) VisitPreviewImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetImportTemplateRequestObject struct {
+}
+
+type GetImportTemplateResponseObject interface {
+	VisitGetImportTemplateResponse(w http.ResponseWriter) error
+}
+
+type GetImportTemplate200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type GetImportTemplate200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse struct {
+	Body          io.Reader
+	Headers       GetImportTemplate200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetImportTemplate200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse) VisitGetImportTemplateResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetImportTemplatedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetImportTemplatedefaultApplicationProblemPlusJSONResponse) VisitGetImportTemplateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCategoriesRequestObject struct {
+}
+
+type ListCategoriesResponseObject interface {
+	VisitListCategoriesResponse(w http.ResponseWriter) error
+}
+
+type ListCategories200JSONResponse CategoryTree
+
+func (response ListCategories200JSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCategoriesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCategoriesdefaultApplicationProblemPlusJSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategoryRequestObject struct {
+	Body *CreateCategoryJSONRequestBody
+}
+
+type CreateCategoryResponseObject interface {
+	VisitCreateCategoryResponse(w http.ResponseWriter) error
+}
+
+type CreateCategory201JSONResponse Category
+
+func (response CreateCategory201JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategorydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateCategorydefaultApplicationProblemPlusJSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategoryRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateCategoryJSONRequestBody
+}
+
+type UpdateCategoryResponseObject interface {
+	VisitUpdateCategoryResponse(w http.ResponseWriter) error
+}
+
+type UpdateCategory200JSONResponse Category
+
+func (response UpdateCategory200JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategorydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateCategorydefaultApplicationProblemPlusJSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategoryAttributeRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *CreateCategoryAttributeJSONRequestBody
+}
+
+type CreateCategoryAttributeResponseObject interface {
+	VisitCreateCategoryAttributeResponse(w http.ResponseWriter) error
+}
+
+type CreateCategoryAttribute201JSONResponse CategoryAttribute
+
+func (response CreateCategoryAttribute201JSONResponse) VisitCreateCategoryAttributeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCategoryAttributedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateCategoryAttributedefaultApplicationProblemPlusJSONResponse) VisitCreateCategoryAttributeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategoryAttributeRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateCategoryAttributeJSONRequestBody
+}
+
+type UpdateCategoryAttributeResponseObject interface {
+	VisitUpdateCategoryAttributeResponse(w http.ResponseWriter) error
+}
+
+type UpdateCategoryAttribute200JSONResponse CategoryAttribute
+
+func (response UpdateCategoryAttribute200JSONResponse) VisitUpdateCategoryAttributeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCategoryAttributedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateCategoryAttributedefaultApplicationProblemPlusJSONResponse) VisitUpdateCategoryAttributeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCountriesRequestObject struct {
+}
+
+type ListCountriesResponseObject interface {
+	VisitListCountriesResponse(w http.ResponseWriter) error
+}
+
+type ListCountries200JSONResponse CountryList
+
+func (response ListCountries200JSONResponse) VisitListCountriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCountriesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCountriesdefaultApplicationProblemPlusJSONResponse) VisitListCountriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListLocationsRequestObject struct {
 }
 
@@ -1268,6 +4595,1457 @@ type ListLocationsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListLocationsdefaultApplicationProblemPlusJSONResponse) VisitListLocationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocationRequestObject struct {
+	Body *CreateLocationJSONRequestBody
+}
+
+type CreateLocationResponseObject interface {
+	VisitCreateLocationResponse(w http.ResponseWriter) error
+}
+
+type CreateLocation201JSONResponse Location
+
+func (response CreateLocation201JSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateLocationdefaultApplicationProblemPlusJSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocationRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type GetLocationResponseObject interface {
+	VisitGetLocationResponse(w http.ResponseWriter) error
+}
+
+type GetLocation200JSONResponse Location
+
+func (response GetLocation200JSONResponse) VisitGetLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetLocationdefaultApplicationProblemPlusJSONResponse) VisitGetLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocationRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateLocationJSONRequestBody
+}
+
+type UpdateLocationResponseObject interface {
+	VisitUpdateLocationResponse(w http.ResponseWriter) error
+}
+
+type UpdateLocation200JSONResponse Location
+
+func (response UpdateLocation200JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocationdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateLocationdefaultApplicationProblemPlusJSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAssortmentRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type ListAssortmentResponseObject interface {
+	VisitListAssortmentResponse(w http.ResponseWriter) error
+}
+
+type ListAssortment200JSONResponse AssortmentList
+
+func (response ListAssortment200JSONResponse) VisitListAssortmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAssortmentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListAssortmentdefaultApplicationProblemPlusJSONResponse) VisitListAssortmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CopyAssortmentRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *CopyAssortmentJSONRequestBody
+}
+
+type CopyAssortmentResponseObject interface {
+	VisitCopyAssortmentResponse(w http.ResponseWriter) error
+}
+
+type CopyAssortment200JSONResponse AssortmentCopyResult
+
+func (response CopyAssortment200JSONResponse) VisitCopyAssortmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CopyAssortmentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CopyAssortmentdefaultApplicationProblemPlusJSONResponse) VisitCopyAssortmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAssortmentItemRequestObject struct {
+	ID        openapi_types.UUID `json:"id"`
+	VariantID openapi_types.UUID `json:"variantId"`
+}
+
+type RemoveAssortmentItemResponseObject interface {
+	VisitRemoveAssortmentItemResponse(w http.ResponseWriter) error
+}
+
+type RemoveAssortmentItem204Response struct {
+}
+
+func (response RemoveAssortmentItem204Response) VisitRemoveAssortmentItemResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveAssortmentItemdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RemoveAssortmentItemdefaultApplicationProblemPlusJSONResponse) VisitRemoveAssortmentItemResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAssortmentItemRequestObject struct {
+	ID        openapi_types.UUID `json:"id"`
+	VariantID openapi_types.UUID `json:"variantId"`
+	Body      *SetAssortmentItemJSONRequestBody
+}
+
+type SetAssortmentItemResponseObject interface {
+	VisitSetAssortmentItemResponse(w http.ResponseWriter) error
+}
+
+type SetAssortmentItem204Response struct {
+}
+
+func (response SetAssortmentItem204Response) VisitSetAssortmentItemResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetAssortmentItemdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetAssortmentItemdefaultApplicationProblemPlusJSONResponse) VisitSetAssortmentItemResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckSaleRequestObject struct {
+	ID     openapi_types.UUID `json:"id"`
+	Params CheckSaleParams
+}
+
+type CheckSaleResponseObject interface {
+	VisitCheckSaleResponse(w http.ResponseWriter) error
+}
+
+type CheckSale200JSONResponse SaleCheck
+
+func (response CheckSale200JSONResponse) VisitCheckSaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckSaledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CheckSaledefaultApplicationProblemPlusJSONResponse) VisitCheckSaleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMinPricesRequestObject struct {
+}
+
+type ListMinPricesResponseObject interface {
+	VisitListMinPricesResponse(w http.ResponseWriter) error
+}
+
+type ListMinPrices200JSONResponse MinPriceList
+
+func (response ListMinPrices200JSONResponse) VisitListMinPricesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMinPricesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListMinPricesdefaultApplicationProblemPlusJSONResponse) VisitListMinPricesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMinPriceRequestObject struct {
+	Body *CreateMinPriceJSONRequestBody
+}
+
+type CreateMinPriceResponseObject interface {
+	VisitCreateMinPriceResponse(w http.ResponseWriter) error
+}
+
+type CreateMinPrice201JSONResponse MinPrice
+
+func (response CreateMinPrice201JSONResponse) VisitCreateMinPriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMinPricedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateMinPricedefaultApplicationProblemPlusJSONResponse) VisitCreateMinPriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMinPriceRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type DeleteMinPriceResponseObject interface {
+	VisitDeleteMinPriceResponse(w http.ResponseWriter) error
+}
+
+type DeleteMinPrice204Response struct {
+}
+
+func (response DeleteMinPrice204Response) VisitDeleteMinPriceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMinPricedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteMinPricedefaultApplicationProblemPlusJSONResponse) VisitDeleteMinPriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOriginRegionsRequestObject struct {
+}
+
+type ListOriginRegionsResponseObject interface {
+	VisitListOriginRegionsResponse(w http.ResponseWriter) error
+}
+
+type ListOriginRegions200JSONResponse OriginRegionList
+
+func (response ListOriginRegions200JSONResponse) VisitListOriginRegionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOriginRegionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListOriginRegionsdefaultApplicationProblemPlusJSONResponse) VisitListOriginRegionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOriginRegionRequestObject struct {
+	Body *CreateOriginRegionJSONRequestBody
+}
+
+type CreateOriginRegionResponseObject interface {
+	VisitCreateOriginRegionResponse(w http.ResponseWriter) error
+}
+
+type CreateOriginRegion201JSONResponse OriginRegion
+
+func (response CreateOriginRegion201JSONResponse) VisitCreateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOriginRegiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateOriginRegiondefaultApplicationProblemPlusJSONResponse) VisitCreateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOriginRegionRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateOriginRegionJSONRequestBody
+}
+
+type UpdateOriginRegionResponseObject interface {
+	VisitUpdateOriginRegionResponse(w http.ResponseWriter) error
+}
+
+type UpdateOriginRegion200JSONResponse OriginRegion
+
+func (response UpdateOriginRegion200JSONResponse) VisitUpdateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateOriginRegiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateOriginRegiondefaultApplicationProblemPlusJSONResponse) VisitUpdateOriginRegionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePriceRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type DeletePriceResponseObject interface {
+	VisitDeletePriceResponse(w http.ResponseWriter) error
+}
+
+type DeletePrice204Response struct {
+}
+
+func (response DeletePrice204Response) VisitDeletePriceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePricedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeletePricedefaultApplicationProblemPlusJSONResponse) VisitDeletePriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProducersRequestObject struct {
+}
+
+type ListProducersResponseObject interface {
+	VisitListProducersResponse(w http.ResponseWriter) error
+}
+
+type ListProducers200JSONResponse ProducerList
+
+func (response ListProducers200JSONResponse) VisitListProducersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProducersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProducersdefaultApplicationProblemPlusJSONResponse) VisitListProducersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProducerRequestObject struct {
+	Body *CreateProducerJSONRequestBody
+}
+
+type CreateProducerResponseObject interface {
+	VisitCreateProducerResponse(w http.ResponseWriter) error
+}
+
+type CreateProducer201JSONResponse Producer
+
+func (response CreateProducer201JSONResponse) VisitCreateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProducerdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProducerdefaultApplicationProblemPlusJSONResponse) VisitCreateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProducerRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateProducerJSONRequestBody
+}
+
+type UpdateProducerResponseObject interface {
+	VisitUpdateProducerResponse(w http.ResponseWriter) error
+}
+
+type UpdateProducer200JSONResponse Producer
+
+func (response UpdateProducer200JSONResponse) VisitUpdateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProducerdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateProducerdefaultApplicationProblemPlusJSONResponse) VisitUpdateProducerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductKindsRequestObject struct {
+}
+
+type ListProductKindsResponseObject interface {
+	VisitListProductKindsResponse(w http.ResponseWriter) error
+}
+
+type ListProductKinds200JSONResponse ProductKindList
+
+func (response ListProductKinds200JSONResponse) VisitListProductKindsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductKindsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductKindsdefaultApplicationProblemPlusJSONResponse) VisitListProductKindsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductLinesRequestObject struct {
+}
+
+type ListProductLinesResponseObject interface {
+	VisitListProductLinesResponse(w http.ResponseWriter) error
+}
+
+type ListProductLines200JSONResponse ProductLineList
+
+func (response ListProductLines200JSONResponse) VisitListProductLinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductLinesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductLinesdefaultApplicationProblemPlusJSONResponse) VisitListProductLinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductLineRequestObject struct {
+	Body *CreateProductLineJSONRequestBody
+}
+
+type CreateProductLineResponseObject interface {
+	VisitCreateProductLineResponse(w http.ResponseWriter) error
+}
+
+type CreateProductLine201JSONResponse ProductLine
+
+func (response CreateProductLine201JSONResponse) VisitCreateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductLinedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProductLinedefaultApplicationProblemPlusJSONResponse) VisitCreateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductLineRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateProductLineJSONRequestBody
+}
+
+type UpdateProductLineResponseObject interface {
+	VisitUpdateProductLineResponse(w http.ResponseWriter) error
+}
+
+type UpdateProductLine200JSONResponse ProductLine
+
+func (response UpdateProductLine200JSONResponse) VisitUpdateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductLinedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateProductLinedefaultApplicationProblemPlusJSONResponse) VisitUpdateProductLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductsRequestObject struct {
+	Params ListProductsParams
+}
+
+type ListProductsResponseObject interface {
+	VisitListProductsResponse(w http.ResponseWriter) error
+}
+
+type ListProducts200JSONResponse ProductPage
+
+func (response ListProducts200JSONResponse) VisitListProductsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductsdefaultApplicationProblemPlusJSONResponse) VisitListProductsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductRequestObject struct {
+	Body *CreateProductJSONRequestBody
+}
+
+type CreateProductResponseObject interface {
+	VisitCreateProductResponse(w http.ResponseWriter) error
+}
+
+type CreateProduct201JSONResponse Product
+
+func (response CreateProduct201JSONResponse) VisitCreateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateProductdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateProductdefaultApplicationProblemPlusJSONResponse) VisitCreateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProductRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type GetProductResponseObject interface {
+	VisitGetProductResponse(w http.ResponseWriter) error
+}
+
+type GetProduct200JSONResponse Product
+
+func (response GetProduct200JSONResponse) VisitGetProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetProductdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetProductdefaultApplicationProblemPlusJSONResponse) VisitGetProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateProductJSONRequestBody
+}
+
+type UpdateProductResponseObject interface {
+	VisitUpdateProductResponse(w http.ResponseWriter) error
+}
+
+type UpdateProduct200JSONResponse Product
+
+func (response UpdateProduct200JSONResponse) VisitUpdateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateProductdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateProductdefaultApplicationProblemPlusJSONResponse) VisitUpdateProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductVariantsRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type ListProductVariantsResponseObject interface {
+	VisitListProductVariantsResponse(w http.ResponseWriter) error
+}
+
+type ListProductVariants200JSONResponse VariantList
+
+func (response ListProductVariants200JSONResponse) VisitListProductVariantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProductVariantsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProductVariantsdefaultApplicationProblemPlusJSONResponse) VisitListProductVariantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateVariantRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *CreateVariantJSONRequestBody
+}
+
+type CreateVariantResponseObject interface {
+	VisitCreateVariantResponse(w http.ResponseWriter) error
+}
+
+type CreateVariant201JSONResponse Variant
+
+func (response CreateVariant201JSONResponse) VisitCreateVariantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateVariantdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateVariantdefaultApplicationProblemPlusJSONResponse) VisitCreateVariantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateVariantsRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *GenerateVariantsJSONRequestBody
+}
+
+type GenerateVariantsResponseObject interface {
+	VisitGenerateVariantsResponse(w http.ResponseWriter) error
+}
+
+type GenerateVariants201JSONResponse VariantList
+
+func (response GenerateVariants201JSONResponse) VisitGenerateVariantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateVariantsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GenerateVariantsdefaultApplicationProblemPlusJSONResponse) VisitGenerateVariantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuSubjectsRequestObject struct {
+}
+
+type ListRuSubjectsResponseObject interface {
+	VisitListRuSubjectsResponse(w http.ResponseWriter) error
+}
+
+type ListRuSubjects200JSONResponse RuSubjectList
+
+func (response ListRuSubjects200JSONResponse) VisitListRuSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRuSubjectsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRuSubjectsdefaultApplicationProblemPlusJSONResponse) VisitListRuSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleBanRequestObject struct {
+	Body *CreateSaleBanJSONRequestBody
+}
+
+type CreateSaleBanResponseObject interface {
+	VisitCreateSaleBanResponse(w http.ResponseWriter) error
+}
+
+type CreateSaleBan201JSONResponse SaleBan
+
+func (response CreateSaleBan201JSONResponse) VisitCreateSaleBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleBandefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateSaleBandefaultApplicationProblemPlusJSONResponse) VisitCreateSaleBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSaleBanRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type DeleteSaleBanResponseObject interface {
+	VisitDeleteSaleBanResponse(w http.ResponseWriter) error
+}
+
+type DeleteSaleBan204Response struct {
+}
+
+func (response DeleteSaleBan204Response) VisitDeleteSaleBanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteSaleBandefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteSaleBandefaultApplicationProblemPlusJSONResponse) VisitDeleteSaleBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSaleRulesRequestObject struct {
+}
+
+type ListSaleRulesResponseObject interface {
+	VisitListSaleRulesResponse(w http.ResponseWriter) error
+}
+
+type ListSaleRules200JSONResponse SaleRulebook
+
+func (response ListSaleRules200JSONResponse) VisitListSaleRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSaleRulesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListSaleRulesdefaultApplicationProblemPlusJSONResponse) VisitListSaleRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleRuleRequestObject struct {
+	Body *CreateSaleRuleJSONRequestBody
+}
+
+type CreateSaleRuleResponseObject interface {
+	VisitCreateSaleRuleResponse(w http.ResponseWriter) error
+}
+
+type CreateSaleRule201JSONResponse SaleRule
+
+func (response CreateSaleRule201JSONResponse) VisitCreateSaleRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSaleRuledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateSaleRuledefaultApplicationProblemPlusJSONResponse) VisitCreateSaleRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSaleRuleRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type DeleteSaleRuleResponseObject interface {
+	VisitDeleteSaleRuleResponse(w http.ResponseWriter) error
+}
+
+type DeleteSaleRule204Response struct {
+}
+
+func (response DeleteSaleRule204Response) VisitDeleteSaleRuleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteSaleRuledefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteSaleRuledefaultApplicationProblemPlusJSONResponse) VisitDeleteSaleRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSuppliersRequestObject struct {
+}
+
+type ListSuppliersResponseObject interface {
+	VisitListSuppliersResponse(w http.ResponseWriter) error
+}
+
+type ListSuppliers200JSONResponse SupplierList
+
+func (response ListSuppliers200JSONResponse) VisitListSuppliersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSuppliersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListSuppliersdefaultApplicationProblemPlusJSONResponse) VisitListSuppliersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSupplierRequestObject struct {
+	Body *CreateSupplierJSONRequestBody
+}
+
+type CreateSupplierResponseObject interface {
+	VisitCreateSupplierResponse(w http.ResponseWriter) error
+}
+
+type CreateSupplier201JSONResponse Supplier
+
+func (response CreateSupplier201JSONResponse) VisitCreateSupplierResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSupplierdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateSupplierdefaultApplicationProblemPlusJSONResponse) VisitCreateSupplierResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSupplierRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateSupplierJSONRequestBody
+}
+
+type UpdateSupplierResponseObject interface {
+	VisitUpdateSupplierResponse(w http.ResponseWriter) error
+}
+
+type UpdateSupplier200JSONResponse Supplier
+
+func (response UpdateSupplier200JSONResponse) VisitUpdateSupplierResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSupplierdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateSupplierdefaultApplicationProblemPlusJSONResponse) VisitUpdateSupplierResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1546,6 +6324,478 @@ func (response UnblockUserdefaultApplicationProblemPlusJSONResponse) VisitUnbloc
 	return err
 }
 
+type UpdateVariantRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateVariantJSONRequestBody
+}
+
+type UpdateVariantResponseObject interface {
+	VisitUpdateVariantResponse(w http.ResponseWriter) error
+}
+
+type UpdateVariant200JSONResponse Variant
+
+func (response UpdateVariant200JSONResponse) VisitUpdateVariantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateVariantdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateVariantdefaultApplicationProblemPlusJSONResponse) VisitUpdateVariantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBarcodeRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *AddBarcodeJSONRequestBody
+}
+
+type AddBarcodeResponseObject interface {
+	VisitAddBarcodeResponse(w http.ResponseWriter) error
+}
+
+type AddBarcode201JSONResponse Barcode
+
+func (response AddBarcode201JSONResponse) VisitAddBarcodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBarcodedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AddBarcodedefaultApplicationProblemPlusJSONResponse) VisitAddBarcodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPurchasePricesRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type ListPurchasePricesResponseObject interface {
+	VisitListPurchasePricesResponse(w http.ResponseWriter) error
+}
+
+type ListPurchasePrices200JSONResponse PriceList
+
+func (response ListPurchasePrices200JSONResponse) VisitListPurchasePricesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPurchasePricesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListPurchasePricesdefaultApplicationProblemPlusJSONResponse) VisitListPurchasePricesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPurchasePriceRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *SetPurchasePriceJSONRequestBody
+}
+
+type SetPurchasePriceResponseObject interface {
+	VisitSetPurchasePriceResponse(w http.ResponseWriter) error
+}
+
+type SetPurchasePrice201JSONResponse Price
+
+func (response SetPurchasePrice201JSONResponse) VisitSetPurchasePriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPurchasePricedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetPurchasePricedefaultApplicationProblemPlusJSONResponse) VisitSetPurchasePriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRetailPricesRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type ListRetailPricesResponseObject interface {
+	VisitListRetailPricesResponse(w http.ResponseWriter) error
+}
+
+type ListRetailPrices200JSONResponse PriceList
+
+func (response ListRetailPrices200JSONResponse) VisitListRetailPricesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRetailPricesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListRetailPricesdefaultApplicationProblemPlusJSONResponse) VisitListRetailPricesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetRetailPriceRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *SetRetailPriceJSONRequestBody
+}
+
+type SetRetailPriceResponseObject interface {
+	VisitSetRetailPriceResponse(w http.ResponseWriter) error
+}
+
+type SetRetailPrice201JSONResponse Price
+
+func (response SetRetailPrice201JSONResponse) VisitSetRetailPriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetRetailPricedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetRetailPricedefaultApplicationProblemPlusJSONResponse) VisitSetRetailPriceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVolumesRequestObject struct {
+}
+
+type ListVolumesResponseObject interface {
+	VisitListVolumesResponse(w http.ResponseWriter) error
+}
+
+type ListVolumes200JSONResponse VolumeList
+
+func (response ListVolumes200JSONResponse) VisitListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListVolumesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListVolumesdefaultApplicationProblemPlusJSONResponse) VisitListVolumesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateVolumeRequestObject struct {
+	Body *CreateVolumeJSONRequestBody
+}
+
+type CreateVolumeResponseObject interface {
+	VisitCreateVolumeResponse(w http.ResponseWriter) error
+}
+
+type CreateVolume201JSONResponse Volume
+
+func (response CreateVolume201JSONResponse) VisitCreateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateVolumedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateVolumedefaultApplicationProblemPlusJSONResponse) VisitCreateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateVolumeRequestObject struct {
+	Ml   int32 `json:"ml"`
+	Body *UpdateVolumeJSONRequestBody
+}
+
+type UpdateVolumeResponseObject interface {
+	VisitUpdateVolumeResponse(w http.ResponseWriter) error
+}
+
+type UpdateVolume200JSONResponse Volume
+
+func (response UpdateVolume200JSONResponse) VisitUpdateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateVolumedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateVolumedefaultApplicationProblemPlusJSONResponse) VisitUpdateVolumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWriteoffReasonsRequestObject struct {
+}
+
+type ListWriteoffReasonsResponseObject interface {
+	VisitListWriteoffReasonsResponse(w http.ResponseWriter) error
+}
+
+type ListWriteoffReasons200JSONResponse WriteoffReasonList
+
+func (response ListWriteoffReasons200JSONResponse) VisitListWriteoffReasonsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWriteoffReasonsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListWriteoffReasonsdefaultApplicationProblemPlusJSONResponse) VisitListWriteoffReasonsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWriteoffReasonRequestObject struct {
+	Body *CreateWriteoffReasonJSONRequestBody
+}
+
+type CreateWriteoffReasonResponseObject interface {
+	VisitCreateWriteoffReasonResponse(w http.ResponseWriter) error
+}
+
+type CreateWriteoffReason201JSONResponse WriteoffReason
+
+func (response CreateWriteoffReason201JSONResponse) VisitCreateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWriteoffReasondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateWriteoffReasondefaultApplicationProblemPlusJSONResponse) VisitCreateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWriteoffReasonRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateWriteoffReasonJSONRequestBody
+}
+
+type UpdateWriteoffReasonResponseObject interface {
+	VisitUpdateWriteoffReasonResponse(w http.ResponseWriter) error
+}
+
+type UpdateWriteoffReason200JSONResponse WriteoffReason
+
+func (response UpdateWriteoffReason200JSONResponse) VisitUpdateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWriteoffReasondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateWriteoffReasondefaultApplicationProblemPlusJSONResponse) VisitUpdateWriteoffReasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListAuditLog Журнал действий
@@ -1575,9 +6825,162 @@ type StrictServerInterface interface {
 	// EndSession Завершить свой сеанс
 	// (DELETE /auth/sessions/{id})
 	EndSession(ctx context.Context, request EndSessionRequestObject) (EndSessionResponseObject, error)
+	// DeleteBarcode Отвязать штрихкод
+	// (DELETE /barcodes/{code})
+	DeleteBarcode(ctx context.Context, request DeleteBarcodeRequestObject) (DeleteBarcodeResponseObject, error)
+	// ListBrands Бренды
+	// (GET /brands)
+	ListBrands(ctx context.Context, request ListBrandsRequestObject) (ListBrandsResponseObject, error)
+	// CreateBrand Добавить — бренды
+	// (POST /brands)
+	CreateBrand(ctx context.Context, request CreateBrandRequestObject) (CreateBrandResponseObject, error)
+	// UpdateBrand Изменить — бренды
+	// (PUT /brands/{id})
+	UpdateBrand(ctx context.Context, request UpdateBrandRequestObject) (UpdateBrandResponseObject, error)
+	// RunImport Импорт номенклатуры
+	// (POST /catalog/import)
+	RunImport(ctx context.Context, request RunImportRequestObject) (RunImportResponseObject, error)
+	// PreviewImport Предпросмотр импорта номенклатуры
+	// (POST /catalog/import/preview)
+	PreviewImport(ctx context.Context, request PreviewImportRequestObject) (PreviewImportResponseObject, error)
+	// GetImportTemplate Шаблон импорта номенклатуры
+	// (GET /catalog/import/template)
+	GetImportTemplate(ctx context.Context, request GetImportTemplateRequestObject) (GetImportTemplateResponseObject, error)
+	// ListCategories Дерево категорий с характеристиками
+	// (GET /categories)
+	ListCategories(ctx context.Context, request ListCategoriesRequestObject) (ListCategoriesResponseObject, error)
+	// CreateCategory Добавить категорию
+	// (POST /categories)
+	CreateCategory(ctx context.Context, request CreateCategoryRequestObject) (CreateCategoryResponseObject, error)
+	// UpdateCategory Изменить категорию
+	// (PUT /categories/{id})
+	UpdateCategory(ctx context.Context, request UpdateCategoryRequestObject) (UpdateCategoryResponseObject, error)
+	// CreateCategoryAttribute Добавить характеристику категории
+	// (POST /categories/{id}/attributes)
+	CreateCategoryAttribute(ctx context.Context, request CreateCategoryAttributeRequestObject) (CreateCategoryAttributeResponseObject, error)
+	// UpdateCategoryAttribute Изменить характеристику категории
+	// (PUT /category-attributes/{id})
+	UpdateCategoryAttribute(ctx context.Context, request UpdateCategoryAttributeRequestObject) (UpdateCategoryAttributeResponseObject, error)
+	// ListCountries Страны (ОКСМ)
+	// (GET /countries)
+	ListCountries(ctx context.Context, request ListCountriesRequestObject) (ListCountriesResponseObject, error)
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx context.Context, request ListLocationsRequestObject) (ListLocationsResponseObject, error)
+	// CreateLocation Создать точку
+	// (POST /locations)
+	CreateLocation(ctx context.Context, request CreateLocationRequestObject) (CreateLocationResponseObject, error)
+	// GetLocation Карточка точки
+	// (GET /locations/{id})
+	GetLocation(ctx context.Context, request GetLocationRequestObject) (GetLocationResponseObject, error)
+	// UpdateLocation Изменить точку
+	// (PUT /locations/{id})
+	UpdateLocation(ctx context.Context, request UpdateLocationRequestObject) (UpdateLocationResponseObject, error)
+	// ListAssortment Ассортиментная матрица точки
+	// (GET /locations/{id}/assortment)
+	ListAssortment(ctx context.Context, request ListAssortmentRequestObject) (ListAssortmentResponseObject, error)
+	// CopyAssortment Добавить в матрицу точки варианты из матрицы другой точки
+	// (POST /locations/{id}/assortment/copy)
+	CopyAssortment(ctx context.Context, request CopyAssortmentRequestObject) (CopyAssortmentResponseObject, error)
+	// RemoveAssortmentItem Убрать вариант из матрицы
+	// (DELETE /locations/{id}/assortment/{variantId})
+	RemoveAssortmentItem(ctx context.Context, request RemoveAssortmentItemRequestObject) (RemoveAssortmentItemResponseObject, error)
+	// SetAssortmentItem Добавить вариант в матрицу или изменить минимальный остаток
+	// (PUT /locations/{id}/assortment/{variantId})
+	SetAssortmentItem(ctx context.Context, request SetAssortmentItemRequestObject) (SetAssortmentItemResponseObject, error)
+	// CheckSale Можно ли продавать алкоголь в точке
+	// (GET /locations/{id}/sale-check)
+	CheckSale(ctx context.Context, request CheckSaleRequestObject) (CheckSaleResponseObject, error)
+	// ListMinPrices МРЦ — минимальные розничные цены Минфина
+	// (GET /min-prices)
+	ListMinPrices(ctx context.Context, request ListMinPricesRequestObject) (ListMinPricesResponseObject, error)
+	// CreateMinPrice Добавить редакцию МРЦ
+	// (POST /min-prices)
+	CreateMinPrice(ctx context.Context, request CreateMinPriceRequestObject) (CreateMinPriceResponseObject, error)
+	// DeleteMinPrice Удалить редакцию МРЦ, которая ещё не вступила в силу
+	// (DELETE /min-prices/{id})
+	DeleteMinPrice(ctx context.Context, request DeleteMinPriceRequestObject) (DeleteMinPriceResponseObject, error)
+	// ListOriginRegions Регионы происхождения
+	// (GET /origin-regions)
+	ListOriginRegions(ctx context.Context, request ListOriginRegionsRequestObject) (ListOriginRegionsResponseObject, error)
+	// CreateOriginRegion Добавить — регионы происхождения
+	// (POST /origin-regions)
+	CreateOriginRegion(ctx context.Context, request CreateOriginRegionRequestObject) (CreateOriginRegionResponseObject, error)
+	// UpdateOriginRegion Изменить — регионы происхождения
+	// (PUT /origin-regions/{id})
+	UpdateOriginRegion(ctx context.Context, request UpdateOriginRegionRequestObject) (UpdateOriginRegionResponseObject, error)
+	// DeletePrice Отменить цену, назначенную на будущее
+	// (DELETE /prices/{id})
+	DeletePrice(ctx context.Context, request DeletePriceRequestObject) (DeletePriceResponseObject, error)
+	// ListProducers Производители
+	// (GET /producers)
+	ListProducers(ctx context.Context, request ListProducersRequestObject) (ListProducersResponseObject, error)
+	// CreateProducer Добавить — производители
+	// (POST /producers)
+	CreateProducer(ctx context.Context, request CreateProducerRequestObject) (CreateProducerResponseObject, error)
+	// UpdateProducer Изменить — производители
+	// (PUT /producers/{id})
+	UpdateProducer(ctx context.Context, request UpdateProducerRequestObject) (UpdateProducerResponseObject, error)
+	// ListProductKinds Виды продукции ЕГАИС
+	// (GET /product-kinds)
+	ListProductKinds(ctx context.Context, request ListProductKindsRequestObject) (ListProductKindsResponseObject, error)
+	// ListProductLines Линейки
+	// (GET /product-lines)
+	ListProductLines(ctx context.Context, request ListProductLinesRequestObject) (ListProductLinesResponseObject, error)
+	// CreateProductLine Добавить — линейки
+	// (POST /product-lines)
+	CreateProductLine(ctx context.Context, request CreateProductLineRequestObject) (CreateProductLineResponseObject, error)
+	// UpdateProductLine Изменить — линейки
+	// (PUT /product-lines/{id})
+	UpdateProductLine(ctx context.Context, request UpdateProductLineRequestObject) (UpdateProductLineResponseObject, error)
+	// ListProducts Позиции
+	// (GET /products)
+	ListProducts(ctx context.Context, request ListProductsRequestObject) (ListProductsResponseObject, error)
+	// CreateProduct Добавить позицию
+	// (POST /products)
+	CreateProduct(ctx context.Context, request CreateProductRequestObject) (CreateProductResponseObject, error)
+	// GetProduct Карточка позиции
+	// (GET /products/{id})
+	GetProduct(ctx context.Context, request GetProductRequestObject) (GetProductResponseObject, error)
+	// UpdateProduct Изменить позицию
+	// (PUT /products/{id})
+	UpdateProduct(ctx context.Context, request UpdateProductRequestObject) (UpdateProductResponseObject, error)
+	// ListProductVariants Варианты позиции со штрихкодами
+	// (GET /products/{id}/variants)
+	ListProductVariants(ctx context.Context, request ListProductVariantsRequestObject) (ListProductVariantsResponseObject, error)
+	// CreateVariant Добавить вариант
+	// (POST /products/{id}/variants)
+	CreateVariant(ctx context.Context, request CreateVariantRequestObject) (CreateVariantResponseObject, error)
+	// GenerateVariants Создать варианты по списку объёмов и видов тары
+	// (POST /products/{id}/variants/generate)
+	GenerateVariants(ctx context.Context, request GenerateVariantsRequestObject) (GenerateVariantsResponseObject, error)
+	// ListRuSubjects Субъекты РФ, где есть точки или правила продажи
+	// (GET /ru-subjects)
+	ListRuSubjects(ctx context.Context, request ListRuSubjectsRequestObject) (ListRuSubjectsResponseObject, error)
+	// CreateSaleBan Добавить день полного запрета
+	// (POST /sale-bans)
+	CreateSaleBan(ctx context.Context, request CreateSaleBanRequestObject) (CreateSaleBanResponseObject, error)
+	// DeleteSaleBan Удалить день запрета
+	// (DELETE /sale-bans/{id})
+	DeleteSaleBan(ctx context.Context, request DeleteSaleBanRequestObject) (DeleteSaleBanResponseObject, error)
+	// ListSaleRules Правила продажи алкоголя и дни полного запрета
+	// (GET /sale-rules)
+	ListSaleRules(ctx context.Context, request ListSaleRulesRequestObject) (ListSaleRulesResponseObject, error)
+	// CreateSaleRule Добавить редакцию правила продажи
+	// (POST /sale-rules)
+	CreateSaleRule(ctx context.Context, request CreateSaleRuleRequestObject) (CreateSaleRuleResponseObject, error)
+	// DeleteSaleRule Удалить редакцию, которая ещё не вступила в силу
+	// (DELETE /sale-rules/{id})
+	DeleteSaleRule(ctx context.Context, request DeleteSaleRuleRequestObject) (DeleteSaleRuleResponseObject, error)
+	// ListSuppliers Поставщики
+	// (GET /suppliers)
+	ListSuppliers(ctx context.Context, request ListSuppliersRequestObject) (ListSuppliersResponseObject, error)
+	// CreateSupplier Добавить поставщика
+	// (POST /suppliers)
+	CreateSupplier(ctx context.Context, request CreateSupplierRequestObject) (CreateSupplierResponseObject, error)
+	// UpdateSupplier Изменить поставщика
+	// (PUT /suppliers/{id})
+	UpdateSupplier(ctx context.Context, request UpdateSupplierRequestObject) (UpdateSupplierResponseObject, error)
 	// ListUsers Сотрудники
 	// (GET /users)
 	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
@@ -1599,6 +7002,42 @@ type StrictServerInterface interface {
 	// UnblockUser Разблокировать сотрудника
 	// (POST /users/{id}/unblock)
 	UnblockUser(ctx context.Context, request UnblockUserRequestObject) (UnblockUserResponseObject, error)
+	// UpdateVariant Изменить вариант
+	// (PUT /variants/{id})
+	UpdateVariant(ctx context.Context, request UpdateVariantRequestObject) (UpdateVariantResponseObject, error)
+	// AddBarcode Привязать штрихкод к варианту
+	// (POST /variants/{id}/barcodes)
+	AddBarcode(ctx context.Context, request AddBarcodeRequestObject) (AddBarcodeResponseObject, error)
+	// ListPurchasePrices История закупочных цен
+	// (GET /variants/{id}/purchase-prices)
+	ListPurchasePrices(ctx context.Context, request ListPurchasePricesRequestObject) (ListPurchasePricesResponseObject, error)
+	// SetPurchasePrice Назначить закупочную цену
+	// (POST /variants/{id}/purchase-prices)
+	SetPurchasePrice(ctx context.Context, request SetPurchasePriceRequestObject) (SetPurchasePriceResponseObject, error)
+	// ListRetailPrices История розничных цен
+	// (GET /variants/{id}/retail-prices)
+	ListRetailPrices(ctx context.Context, request ListRetailPricesRequestObject) (ListRetailPricesResponseObject, error)
+	// SetRetailPrice Назначить розничную цену
+	// (POST /variants/{id}/retail-prices)
+	SetRetailPrice(ctx context.Context, request SetRetailPriceRequestObject) (SetRetailPriceResponseObject, error)
+	// ListVolumes Объёмы тары
+	// (GET /volumes)
+	ListVolumes(ctx context.Context, request ListVolumesRequestObject) (ListVolumesResponseObject, error)
+	// CreateVolume Добавить — объёмы тары
+	// (POST /volumes)
+	CreateVolume(ctx context.Context, request CreateVolumeRequestObject) (CreateVolumeResponseObject, error)
+	// UpdateVolume Изменить — объёмы тары
+	// (PUT /volumes/{ml})
+	UpdateVolume(ctx context.Context, request UpdateVolumeRequestObject) (UpdateVolumeResponseObject, error)
+	// ListWriteoffReasons Причины списания
+	// (GET /writeoff-reasons)
+	ListWriteoffReasons(ctx context.Context, request ListWriteoffReasonsRequestObject) (ListWriteoffReasonsResponseObject, error)
+	// CreateWriteoffReason Добавить — причины списания
+	// (POST /writeoff-reasons)
+	CreateWriteoffReason(ctx context.Context, request CreateWriteoffReasonRequestObject) (CreateWriteoffReasonResponseObject, error)
+	// UpdateWriteoffReason Изменить — причины списания
+	// (PUT /writeoff-reasons/{id})
+	UpdateWriteoffReason(ctx context.Context, request UpdateWriteoffReasonRequestObject) (UpdateWriteoffReasonResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *echo.Context, request any) (any, error)
@@ -1858,6 +7297,423 @@ func (sh *strictHandler) EndSession(ctx *echo.Context, id openapi_types.UUID) er
 	return nil
 }
 
+// DeleteBarcode operation middleware
+func (sh *strictHandler) DeleteBarcode(ctx *echo.Context, code string) error {
+	var request DeleteBarcodeRequestObject
+
+	request.Code = code
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteBarcode(ctx.Request().Context(), request.(DeleteBarcodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteBarcode")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteBarcodeResponseObject); ok {
+		return validResponse.VisitDeleteBarcodeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListBrands operation middleware
+func (sh *strictHandler) ListBrands(ctx *echo.Context) error {
+	var request ListBrandsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBrands(ctx.Request().Context(), request.(ListBrandsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBrands")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListBrandsResponseObject); ok {
+		return validResponse.VisitListBrandsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateBrand operation middleware
+func (sh *strictHandler) CreateBrand(ctx *echo.Context) error {
+	var request CreateBrandRequestObject
+
+	var body CreateBrandJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBrand(ctx.Request().Context(), request.(CreateBrandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBrand")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateBrandResponseObject); ok {
+		return validResponse.VisitCreateBrandResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateBrand operation middleware
+func (sh *strictHandler) UpdateBrand(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateBrandRequestObject
+
+	request.ID = id
+
+	var body UpdateBrandJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateBrand(ctx.Request().Context(), request.(UpdateBrandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateBrand")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateBrandResponseObject); ok {
+		return validResponse.VisitUpdateBrandResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RunImport operation middleware
+func (sh *strictHandler) RunImport(ctx *echo.Context) error {
+	var request RunImportRequestObject
+
+	if reader, err := ctx.Request().MultipartReader(); err != nil {
+		return err
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RunImport(ctx.Request().Context(), request.(RunImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RunImport")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RunImportResponseObject); ok {
+		return validResponse.VisitRunImportResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PreviewImport operation middleware
+func (sh *strictHandler) PreviewImport(ctx *echo.Context) error {
+	var request PreviewImportRequestObject
+
+	if reader, err := ctx.Request().MultipartReader(); err != nil {
+		return err
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewImport(ctx.Request().Context(), request.(PreviewImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewImport")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PreviewImportResponseObject); ok {
+		return validResponse.VisitPreviewImportResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetImportTemplate operation middleware
+func (sh *strictHandler) GetImportTemplate(ctx *echo.Context) error {
+	var request GetImportTemplateRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetImportTemplate(ctx.Request().Context(), request.(GetImportTemplateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetImportTemplate")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetImportTemplateResponseObject); ok {
+		return validResponse.VisitGetImportTemplateResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListCategories operation middleware
+func (sh *strictHandler) ListCategories(ctx *echo.Context) error {
+	var request ListCategoriesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCategories(ctx.Request().Context(), request.(ListCategoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCategories")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListCategoriesResponseObject); ok {
+		return validResponse.VisitListCategoriesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateCategory operation middleware
+func (sh *strictHandler) CreateCategory(ctx *echo.Context) error {
+	var request CreateCategoryRequestObject
+
+	var body CreateCategoryJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCategory(ctx.Request().Context(), request.(CreateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateCategoryResponseObject); ok {
+		return validResponse.VisitCreateCategoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateCategory operation middleware
+func (sh *strictHandler) UpdateCategory(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateCategoryRequestObject
+
+	request.ID = id
+
+	var body UpdateCategoryJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCategory(ctx.Request().Context(), request.(UpdateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateCategoryResponseObject); ok {
+		return validResponse.VisitUpdateCategoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateCategoryAttribute operation middleware
+func (sh *strictHandler) CreateCategoryAttribute(ctx *echo.Context, id openapi_types.UUID) error {
+	var request CreateCategoryAttributeRequestObject
+
+	request.ID = id
+
+	var body CreateCategoryAttributeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCategoryAttribute(ctx.Request().Context(), request.(CreateCategoryAttributeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCategoryAttribute")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateCategoryAttributeResponseObject); ok {
+		return validResponse.VisitCreateCategoryAttributeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateCategoryAttribute operation middleware
+func (sh *strictHandler) UpdateCategoryAttribute(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateCategoryAttributeRequestObject
+
+	request.ID = id
+
+	var body UpdateCategoryAttributeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCategoryAttribute(ctx.Request().Context(), request.(UpdateCategoryAttributeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCategoryAttribute")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateCategoryAttributeResponseObject); ok {
+		return validResponse.VisitUpdateCategoryAttributeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListCountries operation middleware
+func (sh *strictHandler) ListCountries(ctx *echo.Context) error {
+	var request ListCountriesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCountries(ctx.Request().Context(), request.(ListCountriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCountries")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListCountriesResponseObject); ok {
+		return validResponse.VisitListCountriesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListLocations operation middleware
 func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 	var request ListLocationsRequestObject
@@ -1875,6 +7731,1229 @@ func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(ListLocationsResponseObject); ok {
 		return validResponse.VisitListLocationsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateLocation operation middleware
+func (sh *strictHandler) CreateLocation(ctx *echo.Context) error {
+	var request CreateLocationRequestObject
+
+	var body CreateLocationJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateLocation(ctx.Request().Context(), request.(CreateLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateLocation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateLocationResponseObject); ok {
+		return validResponse.VisitCreateLocationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetLocation operation middleware
+func (sh *strictHandler) GetLocation(ctx *echo.Context, id openapi_types.UUID) error {
+	var request GetLocationRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLocation(ctx.Request().Context(), request.(GetLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLocation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetLocationResponseObject); ok {
+		return validResponse.VisitGetLocationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateLocation operation middleware
+func (sh *strictHandler) UpdateLocation(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateLocationRequestObject
+
+	request.ID = id
+
+	var body UpdateLocationJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateLocation(ctx.Request().Context(), request.(UpdateLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateLocation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateLocationResponseObject); ok {
+		return validResponse.VisitUpdateLocationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListAssortment operation middleware
+func (sh *strictHandler) ListAssortment(ctx *echo.Context, id openapi_types.UUID) error {
+	var request ListAssortmentRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAssortment(ctx.Request().Context(), request.(ListAssortmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAssortment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListAssortmentResponseObject); ok {
+		return validResponse.VisitListAssortmentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CopyAssortment operation middleware
+func (sh *strictHandler) CopyAssortment(ctx *echo.Context, id openapi_types.UUID) error {
+	var request CopyAssortmentRequestObject
+
+	request.ID = id
+
+	var body CopyAssortmentJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CopyAssortment(ctx.Request().Context(), request.(CopyAssortmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CopyAssortment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CopyAssortmentResponseObject); ok {
+		return validResponse.VisitCopyAssortmentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RemoveAssortmentItem operation middleware
+func (sh *strictHandler) RemoveAssortmentItem(ctx *echo.Context, id openapi_types.UUID, variantID openapi_types.UUID) error {
+	var request RemoveAssortmentItemRequestObject
+
+	request.ID = id
+	request.VariantID = variantID
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAssortmentItem(ctx.Request().Context(), request.(RemoveAssortmentItemRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAssortmentItem")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(RemoveAssortmentItemResponseObject); ok {
+		return validResponse.VisitRemoveAssortmentItemResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetAssortmentItem operation middleware
+func (sh *strictHandler) SetAssortmentItem(ctx *echo.Context, id openapi_types.UUID, variantID openapi_types.UUID) error {
+	var request SetAssortmentItemRequestObject
+
+	request.ID = id
+	request.VariantID = variantID
+
+	var body SetAssortmentItemJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetAssortmentItem(ctx.Request().Context(), request.(SetAssortmentItemRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetAssortmentItem")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SetAssortmentItemResponseObject); ok {
+		return validResponse.VisitSetAssortmentItemResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CheckSale operation middleware
+func (sh *strictHandler) CheckSale(ctx *echo.Context, id openapi_types.UUID, params CheckSaleParams) error {
+	var request CheckSaleRequestObject
+
+	request.ID = id
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckSale(ctx.Request().Context(), request.(CheckSaleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckSale")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CheckSaleResponseObject); ok {
+		return validResponse.VisitCheckSaleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListMinPrices operation middleware
+func (sh *strictHandler) ListMinPrices(ctx *echo.Context) error {
+	var request ListMinPricesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMinPrices(ctx.Request().Context(), request.(ListMinPricesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMinPrices")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListMinPricesResponseObject); ok {
+		return validResponse.VisitListMinPricesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateMinPrice operation middleware
+func (sh *strictHandler) CreateMinPrice(ctx *echo.Context) error {
+	var request CreateMinPriceRequestObject
+
+	var body CreateMinPriceJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMinPrice(ctx.Request().Context(), request.(CreateMinPriceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMinPrice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateMinPriceResponseObject); ok {
+		return validResponse.VisitCreateMinPriceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteMinPrice operation middleware
+func (sh *strictHandler) DeleteMinPrice(ctx *echo.Context, id openapi_types.UUID) error {
+	var request DeleteMinPriceRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMinPrice(ctx.Request().Context(), request.(DeleteMinPriceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMinPrice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteMinPriceResponseObject); ok {
+		return validResponse.VisitDeleteMinPriceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListOriginRegions operation middleware
+func (sh *strictHandler) ListOriginRegions(ctx *echo.Context) error {
+	var request ListOriginRegionsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOriginRegions(ctx.Request().Context(), request.(ListOriginRegionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOriginRegions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListOriginRegionsResponseObject); ok {
+		return validResponse.VisitListOriginRegionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateOriginRegion operation middleware
+func (sh *strictHandler) CreateOriginRegion(ctx *echo.Context) error {
+	var request CreateOriginRegionRequestObject
+
+	var body CreateOriginRegionJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateOriginRegion(ctx.Request().Context(), request.(CreateOriginRegionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateOriginRegion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateOriginRegionResponseObject); ok {
+		return validResponse.VisitCreateOriginRegionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateOriginRegion operation middleware
+func (sh *strictHandler) UpdateOriginRegion(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateOriginRegionRequestObject
+
+	request.ID = id
+
+	var body UpdateOriginRegionJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateOriginRegion(ctx.Request().Context(), request.(UpdateOriginRegionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateOriginRegion")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateOriginRegionResponseObject); ok {
+		return validResponse.VisitUpdateOriginRegionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePrice operation middleware
+func (sh *strictHandler) DeletePrice(ctx *echo.Context, id openapi_types.UUID) error {
+	var request DeletePriceRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePrice(ctx.Request().Context(), request.(DeletePriceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePrice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeletePriceResponseObject); ok {
+		return validResponse.VisitDeletePriceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProducers operation middleware
+func (sh *strictHandler) ListProducers(ctx *echo.Context) error {
+	var request ListProducersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProducers(ctx.Request().Context(), request.(ListProducersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProducers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProducersResponseObject); ok {
+		return validResponse.VisitListProducersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateProducer operation middleware
+func (sh *strictHandler) CreateProducer(ctx *echo.Context) error {
+	var request CreateProducerRequestObject
+
+	var body CreateProducerJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProducer(ctx.Request().Context(), request.(CreateProducerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProducer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateProducerResponseObject); ok {
+		return validResponse.VisitCreateProducerResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateProducer operation middleware
+func (sh *strictHandler) UpdateProducer(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateProducerRequestObject
+
+	request.ID = id
+
+	var body UpdateProducerJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProducer(ctx.Request().Context(), request.(UpdateProducerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProducer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateProducerResponseObject); ok {
+		return validResponse.VisitUpdateProducerResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProductKinds operation middleware
+func (sh *strictHandler) ListProductKinds(ctx *echo.Context) error {
+	var request ListProductKindsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProductKinds(ctx.Request().Context(), request.(ListProductKindsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProductKinds")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductKindsResponseObject); ok {
+		return validResponse.VisitListProductKindsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProductLines operation middleware
+func (sh *strictHandler) ListProductLines(ctx *echo.Context) error {
+	var request ListProductLinesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProductLines(ctx.Request().Context(), request.(ListProductLinesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProductLines")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductLinesResponseObject); ok {
+		return validResponse.VisitListProductLinesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateProductLine operation middleware
+func (sh *strictHandler) CreateProductLine(ctx *echo.Context) error {
+	var request CreateProductLineRequestObject
+
+	var body CreateProductLineJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProductLine(ctx.Request().Context(), request.(CreateProductLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProductLine")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateProductLineResponseObject); ok {
+		return validResponse.VisitCreateProductLineResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateProductLine operation middleware
+func (sh *strictHandler) UpdateProductLine(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateProductLineRequestObject
+
+	request.ID = id
+
+	var body UpdateProductLineJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProductLine(ctx.Request().Context(), request.(UpdateProductLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProductLine")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateProductLineResponseObject); ok {
+		return validResponse.VisitUpdateProductLineResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProducts operation middleware
+func (sh *strictHandler) ListProducts(ctx *echo.Context, params ListProductsParams) error {
+	var request ListProductsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProducts(ctx.Request().Context(), request.(ListProductsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProducts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductsResponseObject); ok {
+		return validResponse.VisitListProductsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateProduct operation middleware
+func (sh *strictHandler) CreateProduct(ctx *echo.Context) error {
+	var request CreateProductRequestObject
+
+	var body CreateProductJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateProduct(ctx.Request().Context(), request.(CreateProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateProduct")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateProductResponseObject); ok {
+		return validResponse.VisitCreateProductResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetProduct operation middleware
+func (sh *strictHandler) GetProduct(ctx *echo.Context, id openapi_types.UUID) error {
+	var request GetProductRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetProduct(ctx.Request().Context(), request.(GetProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetProduct")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetProductResponseObject); ok {
+		return validResponse.VisitGetProductResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateProduct operation middleware
+func (sh *strictHandler) UpdateProduct(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateProductRequestObject
+
+	request.ID = id
+
+	var body UpdateProductJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateProduct(ctx.Request().Context(), request.(UpdateProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateProduct")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateProductResponseObject); ok {
+		return validResponse.VisitUpdateProductResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListProductVariants operation middleware
+func (sh *strictHandler) ListProductVariants(ctx *echo.Context, id openapi_types.UUID) error {
+	var request ListProductVariantsRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProductVariants(ctx.Request().Context(), request.(ListProductVariantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProductVariants")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListProductVariantsResponseObject); ok {
+		return validResponse.VisitListProductVariantsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateVariant operation middleware
+func (sh *strictHandler) CreateVariant(ctx *echo.Context, id openapi_types.UUID) error {
+	var request CreateVariantRequestObject
+
+	request.ID = id
+
+	var body CreateVariantJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateVariant(ctx.Request().Context(), request.(CreateVariantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateVariant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateVariantResponseObject); ok {
+		return validResponse.VisitCreateVariantResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GenerateVariants operation middleware
+func (sh *strictHandler) GenerateVariants(ctx *echo.Context, id openapi_types.UUID) error {
+	var request GenerateVariantsRequestObject
+
+	request.ID = id
+
+	var body GenerateVariantsJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GenerateVariants(ctx.Request().Context(), request.(GenerateVariantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GenerateVariants")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GenerateVariantsResponseObject); ok {
+		return validResponse.VisitGenerateVariantsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRuSubjects operation middleware
+func (sh *strictHandler) ListRuSubjects(ctx *echo.Context) error {
+	var request ListRuSubjectsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRuSubjects(ctx.Request().Context(), request.(ListRuSubjectsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRuSubjects")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListRuSubjectsResponseObject); ok {
+		return validResponse.VisitListRuSubjectsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateSaleBan operation middleware
+func (sh *strictHandler) CreateSaleBan(ctx *echo.Context) error {
+	var request CreateSaleBanRequestObject
+
+	var body CreateSaleBanJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSaleBan(ctx.Request().Context(), request.(CreateSaleBanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSaleBan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateSaleBanResponseObject); ok {
+		return validResponse.VisitCreateSaleBanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteSaleBan operation middleware
+func (sh *strictHandler) DeleteSaleBan(ctx *echo.Context, id openapi_types.UUID) error {
+	var request DeleteSaleBanRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteSaleBan(ctx.Request().Context(), request.(DeleteSaleBanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteSaleBan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteSaleBanResponseObject); ok {
+		return validResponse.VisitDeleteSaleBanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListSaleRules operation middleware
+func (sh *strictHandler) ListSaleRules(ctx *echo.Context) error {
+	var request ListSaleRulesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSaleRules(ctx.Request().Context(), request.(ListSaleRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSaleRules")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListSaleRulesResponseObject); ok {
+		return validResponse.VisitListSaleRulesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateSaleRule operation middleware
+func (sh *strictHandler) CreateSaleRule(ctx *echo.Context) error {
+	var request CreateSaleRuleRequestObject
+
+	var body CreateSaleRuleJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSaleRule(ctx.Request().Context(), request.(CreateSaleRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSaleRule")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateSaleRuleResponseObject); ok {
+		return validResponse.VisitCreateSaleRuleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteSaleRule operation middleware
+func (sh *strictHandler) DeleteSaleRule(ctx *echo.Context, id openapi_types.UUID) error {
+	var request DeleteSaleRuleRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteSaleRule(ctx.Request().Context(), request.(DeleteSaleRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteSaleRule")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteSaleRuleResponseObject); ok {
+		return validResponse.VisitDeleteSaleRuleResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListSuppliers operation middleware
+func (sh *strictHandler) ListSuppliers(ctx *echo.Context) error {
+	var request ListSuppliersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSuppliers(ctx.Request().Context(), request.(ListSuppliersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSuppliers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListSuppliersResponseObject); ok {
+		return validResponse.VisitListSuppliersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateSupplier operation middleware
+func (sh *strictHandler) CreateSupplier(ctx *echo.Context) error {
+	var request CreateSupplierRequestObject
+
+	var body CreateSupplierJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSupplier(ctx.Request().Context(), request.(CreateSupplierRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSupplier")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateSupplierResponseObject); ok {
+		return validResponse.VisitCreateSupplierResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateSupplier operation middleware
+func (sh *strictHandler) UpdateSupplier(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateSupplierRequestObject
+
+	request.ID = id
+
+	var body UpdateSupplierJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateSupplier(ctx.Request().Context(), request.(UpdateSupplierRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateSupplier")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateSupplierResponseObject); ok {
+		return validResponse.VisitUpdateSupplierResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -2084,81 +9163,652 @@ func (sh *strictHandler) UnblockUser(ctx *echo.Context, id openapi_types.UUID) e
 	return nil
 }
 
+// UpdateVariant operation middleware
+func (sh *strictHandler) UpdateVariant(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateVariantRequestObject
+
+	request.ID = id
+
+	var body UpdateVariantJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateVariant(ctx.Request().Context(), request.(UpdateVariantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateVariant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateVariantResponseObject); ok {
+		return validResponse.VisitUpdateVariantResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AddBarcode operation middleware
+func (sh *strictHandler) AddBarcode(ctx *echo.Context, id openapi_types.UUID) error {
+	var request AddBarcodeRequestObject
+
+	request.ID = id
+
+	var body AddBarcodeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AddBarcode(ctx.Request().Context(), request.(AddBarcodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddBarcode")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AddBarcodeResponseObject); ok {
+		return validResponse.VisitAddBarcodeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPurchasePrices operation middleware
+func (sh *strictHandler) ListPurchasePrices(ctx *echo.Context, id openapi_types.UUID) error {
+	var request ListPurchasePricesRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPurchasePrices(ctx.Request().Context(), request.(ListPurchasePricesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPurchasePrices")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListPurchasePricesResponseObject); ok {
+		return validResponse.VisitListPurchasePricesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetPurchasePrice operation middleware
+func (sh *strictHandler) SetPurchasePrice(ctx *echo.Context, id openapi_types.UUID) error {
+	var request SetPurchasePriceRequestObject
+
+	request.ID = id
+
+	var body SetPurchasePriceJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetPurchasePrice(ctx.Request().Context(), request.(SetPurchasePriceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetPurchasePrice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SetPurchasePriceResponseObject); ok {
+		return validResponse.VisitSetPurchasePriceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRetailPrices operation middleware
+func (sh *strictHandler) ListRetailPrices(ctx *echo.Context, id openapi_types.UUID) error {
+	var request ListRetailPricesRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRetailPrices(ctx.Request().Context(), request.(ListRetailPricesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRetailPrices")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListRetailPricesResponseObject); ok {
+		return validResponse.VisitListRetailPricesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetRetailPrice operation middleware
+func (sh *strictHandler) SetRetailPrice(ctx *echo.Context, id openapi_types.UUID) error {
+	var request SetRetailPriceRequestObject
+
+	request.ID = id
+
+	var body SetRetailPriceJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetRetailPrice(ctx.Request().Context(), request.(SetRetailPriceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetRetailPrice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SetRetailPriceResponseObject); ok {
+		return validResponse.VisitSetRetailPriceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListVolumes operation middleware
+func (sh *strictHandler) ListVolumes(ctx *echo.Context) error {
+	var request ListVolumesRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListVolumes(ctx.Request().Context(), request.(ListVolumesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListVolumes")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListVolumesResponseObject); ok {
+		return validResponse.VisitListVolumesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateVolume operation middleware
+func (sh *strictHandler) CreateVolume(ctx *echo.Context) error {
+	var request CreateVolumeRequestObject
+
+	var body CreateVolumeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateVolume(ctx.Request().Context(), request.(CreateVolumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateVolume")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateVolumeResponseObject); ok {
+		return validResponse.VisitCreateVolumeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateVolume operation middleware
+func (sh *strictHandler) UpdateVolume(ctx *echo.Context, ml int32) error {
+	var request UpdateVolumeRequestObject
+
+	request.Ml = ml
+
+	var body UpdateVolumeJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateVolume(ctx.Request().Context(), request.(UpdateVolumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateVolume")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateVolumeResponseObject); ok {
+		return validResponse.VisitUpdateVolumeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListWriteoffReasons operation middleware
+func (sh *strictHandler) ListWriteoffReasons(ctx *echo.Context) error {
+	var request ListWriteoffReasonsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWriteoffReasons(ctx.Request().Context(), request.(ListWriteoffReasonsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWriteoffReasons")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListWriteoffReasonsResponseObject); ok {
+		return validResponse.VisitListWriteoffReasonsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateWriteoffReason operation middleware
+func (sh *strictHandler) CreateWriteoffReason(ctx *echo.Context) error {
+	var request CreateWriteoffReasonRequestObject
+
+	var body CreateWriteoffReasonJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWriteoffReason(ctx.Request().Context(), request.(CreateWriteoffReasonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWriteoffReason")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateWriteoffReasonResponseObject); ok {
+		return validResponse.VisitCreateWriteoffReasonResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateWriteoffReason operation middleware
+func (sh *strictHandler) UpdateWriteoffReason(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateWriteoffReasonRequestObject
+
+	request.ID = id
+
+	var body UpdateWriteoffReasonJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWriteoffReason(ctx.Request().Context(), request.(UpdateWriteoffReasonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWriteoffReason")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateWriteoffReasonResponseObject); ok {
+		return validResponse.VisitUpdateWriteoffReasonResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

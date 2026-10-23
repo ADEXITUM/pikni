@@ -3,3 +3,19 @@
 //   sqlc v1.31.1
 
 package store
+
+import (
+	"github.com/google/uuid"
+)
+
+type RuSubject struct {
+	Code string
+	Name string
+}
+
+type Zone struct {
+	ID         uuid.UUID
+	LocationID uuid.UUID
+	Kind       string
+	Name       string
+}

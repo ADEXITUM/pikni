@@ -224,8 +224,8 @@ func TestAdminManagesStaff(t *testing.T) {
 	createStaff(t, db, "boss", apispec.RoleManager)
 	var store uuid.UUID
 	err := db.App.QueryRow(t.Context(), `
-		insert into locations (code, name, kind, city, timezone)
-		values ('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk') returning id`).Scan(&store)
+		insert into locations (code, name, kind, city, timezone, subject_code)
+		values ('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk', '28') returning id`).Scan(&store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,6 +257,38 @@ func TestAdminManagesStaff(t *testing.T) {
 	}, http.StatusConflict)
 }
 
+func TestLocationPermissions(t *testing.T) {
+	t.Parallel()
+	boss, db := newBrowser(t)
+	createStaff(t, db, "boss", apispec.RoleManager)
+	kassir := &browser{t: t, e: boss.e, header: http.Header{}}
+	createStaff(t, db, "kassir", apispec.RoleCashier)
+
+	location := map[string]any{
+		"code": "МГ-05", "kind": "store", "name": "Магазин", "city": "Благовещенск",
+		"timezone": "Asia/Yakutsk", "subjectCode": "28", "openingHours": map[string]any{}, "isPublic": false,
+	}
+	boss.login("boss")
+	rec := boss.do(http.MethodPost, "/locations", location, http.StatusCreated)
+	var created apispec.Location
+	if err := json.NewDecoder(rec.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	if len(created.Zones) != 2 {
+		t.Errorf("zones = %+v", created.Zones)
+	}
+
+	kassir.login("kassir")
+	kassir.do(http.MethodGet, "/locations/"+created.ID.String(), nil, http.StatusOK)
+	kassir.do(http.MethodPost, "/locations", location, http.StatusForbidden)
+	kassir.do(http.MethodGet, "/locations/"+uuid.NewString(), nil, http.StatusNotFound)
+	kassir.do(http.MethodGet, "/locations/"+created.ID.String()+"/sale-check", nil, http.StatusOK)
+	kassir.do(http.MethodGet, "/sale-rules", nil, http.StatusOK)
+	kassir.do(http.MethodPost, "/sale-rules", map[string]any{
+		"scope": "all", "validFrom": "2030-01-01", "from": "10:00", "to": "20:00", "source": "x",
+	}, http.StatusForbidden)
+}
+
 func TestMeShowsWorkLocations(t *testing.T) {
 	t.Parallel()
 	b, db := newBrowser(t)
@@ -264,9 +296,9 @@ func TestMeShowsWorkLocations(t *testing.T) {
 
 	var store uuid.UUID
 	err := db.App.QueryRow(ctx, `
-		insert into locations (code, name, kind, city, timezone) values
-			('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk'),
-			('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok')
+		insert into locations (code, name, kind, city, timezone, subject_code) values
+			('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk', '28'),
+			('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok', '28')
 		returning id`).Scan(&store)
 	if err != nil {
 		t.Fatalf("create locations: %v", err)

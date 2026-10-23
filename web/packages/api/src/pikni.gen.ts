@@ -272,6 +272,856 @@ export interface paths {
         /** Точки сети */
         get: operations["listLocations"];
         put?: never;
+        /**
+         * Создать точку
+         * @description Зоны учёта создаются вместе с точкой — у склада одна, у магазина две.
+         */
+        post: operations["createLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка точки */
+        get: operations["getLocation"];
+        /**
+         * Изменить точку
+         * @description Код и тип точки не меняются. Оптимистическая блокировка по version.
+         */
+        put: operations["updateLocation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/sale-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Можно ли продавать алкоголь в точке
+         * @description Проверка по правилам региона точки и федеральным правилам на момент at (по умолчанию — сейчас), отдельно для продукции крепче 15 % и для остальной алкогольной продукции.
+         */
+        get: operations["checkSale"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Правила продажи алкоголя и дни полного запрета */
+        get: operations["listSaleRules"];
+        put?: never;
+        /**
+         * Добавить редакцию правила продажи
+         * @description Без subjectCode — федеральное правило. Старые редакции не меняются.
+         */
+        post: operations["createSaleRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить редакцию, которая ещё не вступила в силу */
+        delete: operations["deleteSaleRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-bans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Добавить день полного запрета */
+        post: operations["createSaleBan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-bans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить день запрета */
+        delete: operations["deleteSaleBan"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Страны (ОКСМ) */
+        get: operations["listCountries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/origin-regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Регионы происхождения */
+        get: operations["listOriginRegions"];
+        put?: never;
+        /** Добавить — регионы происхождения */
+        post: operations["createOriginRegion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/origin-regions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — регионы происхождения */
+        put: operations["updateOriginRegion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/producers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Производители */
+        get: operations["listProducers"];
+        put?: never;
+        /** Добавить — производители */
+        post: operations["createProducer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/producers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — производители */
+        put: operations["updateProducer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Бренды */
+        get: operations["listBrands"];
+        put?: never;
+        /** Добавить — бренды */
+        post: operations["createBrand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — бренды */
+        put: operations["updateBrand"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Виды продукции ЕГАИС */
+        get: operations["listProductKinds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/volumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Объёмы тары */
+        get: operations["listVolumes"];
+        put?: never;
+        /** Добавить — объёмы тары */
+        post: operations["createVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/volumes/{ml}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — объёмы тары */
+        put: operations["updateVolume"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/writeoff-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Причины списания */
+        get: operations["listWriteoffReasons"];
+        put?: never;
+        /** Добавить — причины списания */
+        post: operations["createWriteoffReason"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/writeoff-reasons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить — причины списания */
+        put: operations["updateWriteoffReason"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Дерево категорий с характеристиками */
+        get: operations["listCategories"];
+        put?: never;
+        /** Добавить категорию */
+        post: operations["createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить категорию */
+        put: operations["updateCategory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories/{id}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Добавить характеристику категории */
+        post: operations["createCategoryAttribute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/category-attributes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Изменить характеристику категории
+         * @description Код и тип не меняются. Значения списка можно добавлять и отправлять в архив, но не удалять.
+         */
+        put: operations["updateCategoryAttribute"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Линейки */
+        get: operations["listProductLines"];
+        put?: never;
+        /** Добавить — линейки */
+        post: operations["createProductLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-lines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Изменить — линейки
+         * @description Бренд линейки не меняется.
+         */
+        put: operations["updateProductLine"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Позиции
+         * @description По названию. Следующая страница — параметр after из nextAfter.
+         */
+        get: operations["listProducts"];
+        put?: never;
+        /**
+         * Добавить позицию
+         * @description Артикул присваивает сервер.
+         */
+        post: operations["createProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Карточка позиции */
+        get: operations["getProduct"];
+        /**
+         * Изменить позицию
+         * @description version — номер версии, с которой начата правка. Если позицию уже изменили, ответ 409.
+         */
+        put: operations["updateProduct"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Варианты позиции со штрихкодами */
+        get: operations["listProductVariants"];
+        put?: never;
+        /**
+         * Добавить вариант
+         * @description Объём, тара и подарочная упаковка задают вариант и после создания не меняются.
+         */
+        post: operations["createVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variants/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать варианты по списку объёмов и видов тары
+         * @description Создаёт недостающие сочетания объёма и тары; уже существующие пропускает.
+         */
+        post: operations["generateVariants"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить вариант */
+        put: operations["updateVariant"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}/barcodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Привязать штрихкод к варианту
+         * @description Без code сервер создаёт внутренний EAN-13 с префиксом 20.
+         */
+        post: operations["addBarcode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/barcodes/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отвязать штрихкод */
+        delete: operations["deleteBarcode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}/retail-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** История розничных цен */
+        get: operations["listRetailPrices"];
+        put?: never;
+        /**
+         * Назначить розничную цену
+         * @description Цена не ниже МРЦ на дату начала действия. Можно назначить заранее, но не задним числом.
+         */
+        post: operations["setRetailPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}/purchase-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** История закупочных цен */
+        get: operations["listPurchasePrices"];
+        put?: never;
+        /**
+         * Назначить закупочную цену
+         * @description Можно назначить заранее, но не задним числом.
+         */
+        post: operations["setPurchasePrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Отменить цену, назначенную на будущее
+         * @description Действующие и прошлые цены не удаляются — это история.
+         */
+        delete: operations["deletePrice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/min-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** МРЦ — минимальные розничные цены Минфина */
+        get: operations["listMinPrices"];
+        put?: never;
+        /** Добавить редакцию МРЦ */
+        post: operations["createMinPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/min-prices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить редакцию МРЦ, которая ещё не вступила в силу */
+        delete: operations["deleteMinPrice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Поставщики */
+        get: operations["listSuppliers"];
+        put?: never;
+        /** Добавить поставщика */
+        post: operations["createSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suppliers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить поставщика */
+        put: operations["updateSupplier"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/import/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Шаблон импорта номенклатуры */
+        get: operations["getImportTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Предпросмотр импорта номенклатуры
+         * @description Проверяет файл так же, как загрузку, но ничего не сохраняет.
+         */
+        post: operations["previewImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Импорт номенклатуры
+         * @description Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+         */
+        post: operations["runImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/assortment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Ассортиментная матрица точки */
+        get: operations["listAssortment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/assortment/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Добавить вариант в матрицу или изменить минимальный остаток */
+        put: operations["setAssortmentItem"];
+        post?: never;
+        /** Убрать вариант из матрицы */
+        delete: operations["removeAssortmentItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/assortment/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Добавить в матрицу точки варианты из матрицы другой точки
+         * @description Варианты, которые уже есть в матрице, не меняются.
+         */
+        post: operations["copyAssortment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ru-subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Субъекты РФ, где есть точки или правила продажи */
+        get: operations["listRuSubjects"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -294,7 +1144,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -418,14 +1268,9 @@ export interface components {
         };
         /** @enum {string} */
         LocationKind: "warehouse" | "store";
-        Location: {
-            /** Format: uuid */
-            id: string;
-            /** @example МГ-01 */
-            code: string;
+        LocationFields: {
             /** @example Магазин на ул. Ленина */
             name: string;
-            kind: components["schemas"]["LocationKind"];
             /** @example Благовещенск */
             city: string;
             /**
@@ -433,6 +1278,732 @@ export interface components {
              * @example Asia/Yakutsk
              */
             timezone: string;
+            /**
+             * @description Код субъекта РФ, по нему действуют правила продажи алкоголя
+             * @example 28
+             */
+            subjectCode: string;
+            address?: string;
+            /** Format: double */
+            lat?: number;
+            /** Format: double */
+            lon?: number;
+            /** @description Идентификатор организации в ЕГАИС, 12 цифр */
+            fsrarId?: string;
+            kpp?: string;
+            licenseNo?: string;
+            /** Format: date */
+            licenseValidTo?: string;
+            openingHours: components["schemas"]["OpeningHours"];
+            /** @description Показывать на публичной справочной странице */
+            isPublic: boolean;
+        };
+        NewLocation: components["schemas"]["LocationFields"] & {
+            /** @example МГ-05 */
+            code: string;
+            kind: components["schemas"]["LocationKind"];
+        };
+        LocationUpdate: components["schemas"]["LocationFields"] & {
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+        };
+        Location: components["schemas"]["LocationFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** @example МГ-01 */
+            code: string;
+            kind: components["schemas"]["LocationKind"];
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+            zones: components["schemas"]["Zone"][];
+        };
+        /**
+         * @description warehouse — склад, backroom — склад магазина, floor — торговый зал
+         * @enum {string}
+         */
+        ZoneKind: "warehouse" | "backroom" | "floor";
+        Zone: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ZoneKind"];
+            name: string;
+        };
+        DayHours: {
+            /** @example 10:00 */
+            open: string;
+            /**
+             * @description 24:00 — до полуночи
+             * @example 22:00
+             */
+            close: string;
+        };
+        /** @description Часы работы по дням недели, день без часов — выходной */
+        OpeningHours: {
+            mon?: components["schemas"]["DayHours"];
+            tue?: components["schemas"]["DayHours"];
+            wed?: components["schemas"]["DayHours"];
+            thu?: components["schemas"]["DayHours"];
+            fri?: components["schemas"]["DayHours"];
+            sat?: components["schemas"]["DayHours"];
+            sun?: components["schemas"]["DayHours"];
+        };
+        /**
+         * @description all — вся алкогольная продукция, strong — крепче 15 %
+         * @enum {string}
+         */
+        SaleScope: "all" | "strong";
+        NewSaleRule: {
+            /**
+             * @description Не задан — федеральное правило
+             * @example 28
+             */
+            subjectCode?: string;
+            scope: components["schemas"]["SaleScope"];
+            /** Format: date */
+            validFrom: string;
+            /** @example 11:00 */
+            from: string;
+            /** @example 21:00 */
+            to: string;
+            /** @description Закон-основание */
+            source: string;
+        };
+        SaleRule: components["schemas"]["NewSaleRule"] & {
+            /** Format: uuid */
+            id: string;
+        };
+        /** @description Ровно одно из date (разовый запрет) и monthDay (ежегодный, «ММ-ДД») */
+        NewSaleBan: {
+            subjectCode: string;
+            /** @example День знаний */
+            name: string;
+            scope: components["schemas"]["SaleScope"];
+            /** Format: date */
+            date?: string;
+            /** @example 09-01 */
+            monthDay?: string;
+            source: string;
+        };
+        SaleBan: components["schemas"]["NewSaleBan"] & {
+            /** Format: uuid */
+            id: string;
+        };
+        SaleRulebook: {
+            rules: components["schemas"]["SaleRule"][];
+            bans: components["schemas"]["SaleBan"][];
+        };
+        SaleVerdict: {
+            allowed: boolean;
+            /** @description Начало окна продажи на этот день, «ЧЧ:ММ» */
+            from?: string;
+            /** @description Конец окна, не включая */
+            to?: string;
+            /** @description Название дня полного запрета */
+            banDay?: string;
+        };
+        SaleCheck: {
+            /**
+             * @description Местное время точки, на которое проверено
+             * @example 2026-10-23T20:30:00+09:00
+             */
+            localTime: string;
+            strong: components["schemas"]["SaleVerdict"];
+            other: components["schemas"]["SaleVerdict"];
+        };
+        Country: {
+            /**
+             * @description Цифровой код ОКСМ
+             * @example 643
+             */
+            code: string;
+            /** @example RU */
+            alpha2: string;
+            /** @example Российская Федерация */
+            name: string;
+        };
+        CountryList: {
+            items: components["schemas"]["Country"][];
+        };
+        OriginRegionFields: {
+            /** @example 250 */
+            countryCode: string;
+            /** @example Шампань */
+            name: string;
+        };
+        OriginRegion: components["schemas"]["OriginRegionFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        OriginRegionUpdate: components["schemas"]["OriginRegionFields"] & {
+            isActive: boolean;
+        };
+        OriginRegionList: {
+            items: components["schemas"]["OriginRegion"][];
+        };
+        ProducerFields: {
+            /** @example ООО «Тайга» */
+            name: string;
+            /** @description ИНН российского производителя, 10 или 12 цифр */
+            inn?: string;
+            /** @example 643 */
+            countryCode: string;
+        };
+        Producer: components["schemas"]["ProducerFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        ProducerUpdate: components["schemas"]["ProducerFields"] & {
+            isActive: boolean;
+        };
+        ProducerList: {
+            items: components["schemas"]["Producer"][];
+        };
+        BrandFields: {
+            /** Format: uuid */
+            producerId: string;
+            /** @example Тайга */
+            name: string;
+        };
+        Brand: components["schemas"]["BrandFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        BrandUpdate: components["schemas"]["BrandFields"] & {
+            isActive: boolean;
+        };
+        BrandList: {
+            items: components["schemas"]["Brand"][];
+        };
+        /**
+         * @description marked — помарочный учёт, quantity — только количество
+         * @enum {string}
+         */
+        EgaisAccounting: "marked" | "quantity";
+        ProductKind: {
+            /**
+             * @description Код вида продукции, 3–5 цифр
+             * @example 200
+             */
+            code: string;
+            /** @example Водка */
+            name: string;
+            egaisAccounting: components["schemas"]["EgaisAccounting"];
+            /**
+             * @description Группа МРЦ, если для вида есть минимальная цена
+             * @example Водка
+             */
+            minPriceGroup?: string;
+        };
+        ProductKindList: {
+            items: components["schemas"]["ProductKind"][];
+        };
+        NewVolume: {
+            /**
+             * Format: int32
+             * @example 500
+             */
+            ml: number;
+        };
+        Volume: {
+            /**
+             * Format: int32
+             * @example 500
+             */
+            ml: number;
+            isActive: boolean;
+        };
+        VolumeUpdate: {
+            isActive: boolean;
+        };
+        VolumeList: {
+            items: components["schemas"]["Volume"][];
+        };
+        /**
+         * @description Тип списания в акте списания ЕГАИС
+         * @enum {string}
+         */
+        EgaisWriteoffType: "Пересортица" | "Недостача" | "Уценка" | "Порча" | "Потери" | "Проверки" | "Арест" | "Иные цели" | "Реализация" | "Производственные потери" | "Приготовление";
+        WriteoffReasonFields: {
+            /** @example Бой */
+            name: string;
+            egaisType: components["schemas"]["EgaisWriteoffType"];
+        };
+        WriteoffReason: components["schemas"]["WriteoffReasonFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        WriteoffReasonUpdate: components["schemas"]["WriteoffReasonFields"] & {
+            isActive: boolean;
+        };
+        WriteoffReasonList: {
+            items: components["schemas"]["WriteoffReason"][];
+        };
+        CategoryFields: {
+            /** @example Водка */
+            name: string;
+            /**
+             * Format: int32
+             * @description Порядок среди соседних категорий
+             */
+            sort: number;
+        };
+        NewCategory: components["schemas"]["CategoryFields"] & {
+            /**
+             * Format: uuid
+             * @description Родитель; без него — категория верхнего уровня. После создания не меняется.
+             */
+            parentId?: string;
+        };
+        CategoryUpdate: components["schemas"]["CategoryFields"] & {
+            isActive: boolean;
+        };
+        Category: components["schemas"]["CategoryFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            parentId?: string;
+            /** Format: int32 */
+            depth: number;
+            isActive: boolean;
+        };
+        /**
+         * @description enum — выбор из списка, number — число, text — строка, bool — да/нет
+         * @enum {string}
+         */
+        AttributeType: "enum" | "number" | "text" | "bool";
+        AttributeOption: {
+            /** @example пшеница */
+            value: string;
+            /** @description Архивное значение остаётся у заведённых позиций, но не предлагается для новых */
+            archived: boolean;
+        };
+        CategoryAttributeFields: {
+            /** @example Сырьё */
+            name: string;
+            /**
+             * @description Единица измерения, только для чисел
+             * @example лет
+             */
+            unit?: string;
+            /** @description Показывать в фильтрах поиска */
+            filterable: boolean;
+            /** @description Учитывать при подборе аналогов */
+            usedForAnalogs: boolean;
+            /** Format: int32 */
+            sort: number;
+        };
+        NewCategoryAttribute: components["schemas"]["CategoryAttributeFields"] & {
+            /**
+             * @description Латиница в нижнем регистре, цифры и _; уникален в ветке категорий
+             * @example raw_material
+             */
+            code: string;
+            type: components["schemas"]["AttributeType"];
+            /** @description Значения списка, только для типа enum */
+            options?: string[];
+        };
+        CategoryAttributeUpdate: components["schemas"]["CategoryAttributeFields"] & {
+            /** @description Все прежние значения плюс новые; прежние можно только архивировать */
+            options: components["schemas"]["AttributeOption"][];
+            isActive: boolean;
+        };
+        CategoryAttribute: components["schemas"]["CategoryAttributeFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            categoryId: string;
+            code: string;
+            type: components["schemas"]["AttributeType"];
+            options: components["schemas"]["AttributeOption"][];
+            isActive: boolean;
+        };
+        /** @description Плоские списки; подкатегория наследует характеристики всех предков */
+        CategoryTree: {
+            categories: components["schemas"]["Category"][];
+            attributes: components["schemas"]["CategoryAttribute"][];
+        };
+        ProductLineFields: {
+            /** Format: uuid */
+            brandId: string;
+            /** @example Тайга */
+            name: string;
+        };
+        ProductLine: components["schemas"]["ProductLineFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        ProductLineUpdate: {
+            name: string;
+            isActive: boolean;
+        };
+        ProductLineList: {
+            items: components["schemas"]["ProductLine"][];
+        };
+        ProductFields: {
+            /** @example Водка «Тайга» на пшенице */
+            name: string;
+            /** Format: uuid */
+            categoryId: string;
+            /**
+             * @description Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+             * @example 200
+             */
+            kindCode?: string;
+            /**
+             * Format: double
+             * @description Крепость, % об.; обязательна для алкоголя
+             * @example 40
+             */
+            abv?: number;
+            /** @description Маркируется «Честным знаком» */
+            crptMarked: boolean;
+            /** Format: uuid */
+            producerId: string;
+            /**
+             * Format: uuid
+             * @description Бренд этого производителя
+             */
+            brandId?: string;
+            /**
+             * Format: uuid
+             * @description Линейка этого бренда
+             */
+            productLineId?: string;
+            /**
+             * @description Разновидность в линейке
+             * @example на пшенице
+             */
+            variety?: string;
+            /** @example 643 */
+            countryCode: string;
+            /**
+             * Format: uuid
+             * @description Регион этой страны
+             */
+            originRegionId?: string;
+            /**
+             * @description Характеристики по схеме категории — код → значение; пустые не сохраняются
+             * @example {
+             *       "raw_material": "пшеница"
+             *     }
+             */
+            attributes: {
+                [key: string]: unknown;
+            };
+        };
+        ProductUpdate: components["schemas"]["ProductFields"] & {
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+        };
+        Product: components["schemas"]["ProductFields"] & {
+            /** Format: uuid */
+            id: string;
+            /** @example ЧК-000001 */
+            article: string;
+            categoryName: string;
+            producerName: string;
+            brandName?: string;
+            lineName?: string;
+            countryName: string;
+            regionName?: string;
+            egaisAccounting?: components["schemas"]["EgaisAccounting"];
+            isActive: boolean;
+            /** Format: int32 */
+            version: number;
+        };
+        ProductPage: {
+            items: components["schemas"]["Product"][];
+            /**
+             * Format: uuid
+             * @description Если есть — параметр after для следующей страницы
+             */
+            nextAfter?: string;
+            scan?: components["schemas"]["ScanResult"];
+        };
+        /**
+         * @description Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
+         * @enum {string}
+         */
+        ScanKind: "barcode" | "alcocode" | "egais_mark" | "egais_mark_new" | "crpt_code";
+        /** @description Есть, если поисковая строка похожа на код или скан */
+        ScanResult: {
+            kind: components["schemas"]["ScanKind"];
+            /** @description Что искали — штрихкод, алкокод или GTIN; для марки нового образца — её тип, серия и номер */
+            code: string;
+        };
+        /**
+         * @description glass — стекло, pet — ПЭТ, can — банка
+         * @enum {string}
+         */
+        Container: "glass" | "pet" | "can";
+        /**
+         * @description Определяется сервером; internal — EAN-13 с префиксом 2 для внутреннего применения
+         * @enum {string}
+         */
+        BarcodeKind: "ean13" | "ean8" | "upca" | "code128" | "internal";
+        Barcode: {
+            /** @example 4600000000011 */
+            code: string;
+            kind: components["schemas"]["BarcodeKind"];
+        };
+        NewBarcode: {
+            /** @description Без кода сервер создаст внутренний EAN-13 */
+            code?: string;
+        };
+        VariantCodes: {
+            /**
+             * @description Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+             * @example 0177207000002463655
+             */
+            alcocode?: string;
+            /**
+             * @description GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+             * @example 04600000000011
+             */
+            gtin?: string;
+        };
+        NewVariant: components["schemas"]["VariantCodes"] & {
+            /**
+             * Format: int32
+             * @description Объём из справочника; обязателен для продукции в ЕГАИС
+             * @example 500
+             */
+            volumeMl?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+        };
+        VariantUpdate: components["schemas"]["VariantCodes"] & {
+            isActive: boolean;
+        };
+        Variant: components["schemas"]["NewVariant"] & {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            productId: string;
+            isActive: boolean;
+            barcodes: components["schemas"]["Barcode"][];
+            /**
+             * Format: double
+             * @description Действующая розничная цена
+             */
+            retailPrice?: number;
+            /**
+             * Format: double
+             * @description Действующая МРЦ для этого объёма и крепости
+             */
+            minPrice?: number;
+            /**
+             * Format: double
+             * @description Действующая закупочная цена; только при праве cost.view
+             */
+            purchasePrice?: number;
+        };
+        VariantList: {
+            items: components["schemas"]["Variant"][];
+        };
+        VariantGeneration: {
+            /**
+             * @example [
+             *       500,
+             *       700
+             *     ]
+             */
+            volumes: number[];
+            /** @description Пустой список — варианты без тары */
+            containers: components["schemas"]["Container"][];
+            giftPack: boolean;
+        };
+        MinPriceGroup: {
+            /** @example vodka */
+            code: string;
+            /** @example Водка */
+            name: string;
+        };
+        /** @description Полоса крепости одной редакции МРЦ — строка приложения к приказу Минфина */
+        NewMinPrice: {
+            /** @example vodka */
+            groupCode: string;
+            /** Format: date */
+            validFrom: string;
+            /**
+             * Format: double
+             * @description Крепость «свыше», %; 0 — цена не зависит от крепости
+             * @example 39
+             */
+            abvFrom: number;
+            /**
+             * Format: double
+             * @description Крепость «до … включительно», %; пусто — без верхней границы
+             * @example 40
+             */
+            abvTo?: number;
+            /**
+             * Format: double
+             * @description Цена эталонного объёма, рубли
+             * @example 409
+             */
+            price: number;
+            /**
+             * Format: int32
+             * @description Эталонный объём; для другого объёма цена пересчитывается пропорционально
+             * @example 500
+             */
+            volumeMl: number;
+            /**
+             * Format: int32
+             * @description Тара свыше этого объёма и до эталонного стоит как эталонная (у водки — 375)
+             * @example 375
+             */
+            samePriceOverMl?: number;
+            /** @description Приказ Минфина — основание */
+            source: string;
+        };
+        MinPrice: components["schemas"]["NewMinPrice"] & {
+            /** Format: uuid */
+            id: string;
+            groupName: string;
+        };
+        MinPriceList: {
+            items: components["schemas"]["MinPrice"][];
+            groups: components["schemas"]["MinPriceGroup"][];
+        };
+        /**
+         * @description retail — розничная, purchase — закупочная по умолчанию
+         * @enum {string}
+         */
+        PriceKind: "retail" | "purchase";
+        NewPrice: {
+            /**
+             * Format: double
+             * @description Рубли с копейками
+             * @example 449.9
+             */
+            price: number;
+            /**
+             * Format: date-time
+             * @description С какого момента действует; без него — сразу
+             */
+            validFrom?: string;
+        };
+        Price: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["PriceKind"];
+            /** Format: double */
+            price: number;
+            /** Format: date-time */
+            validFrom: string;
+            /** @description Кто назначил */
+            setBy?: string;
+        };
+        PriceList: {
+            items: components["schemas"]["Price"][];
+        };
+        /**
+         * @description Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+         * @enum {string}
+         */
+        ReceivingMode: "document" | "boxes" | "sample" | "piece";
+        SupplierContacts: {
+            /** @example Иванова Мария, менеджер */
+            person?: string;
+            /** @example +7 4162 00-00-00 */
+            phone?: string;
+            /** @example sales@example.ru */
+            email?: string;
+        };
+        SupplierFields: {
+            /** @example ООО «Амур-Дистрибуция» */
+            name: string;
+            /** @description 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются */
+            inn: string;
+            /** @description 9 цифр; у предпринимателя КПП нет */
+            kpp?: string;
+            /** @description 12 цифр */
+            fsrarId?: string;
+            licenseNo?: string;
+            /** Format: date */
+            licenseValidTo?: string;
+            defaultReceivingMode: components["schemas"]["ReceivingMode"];
+            contacts: components["schemas"]["SupplierContacts"];
+        };
+        Supplier: components["schemas"]["SupplierFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        SupplierUpdate: components["schemas"]["SupplierFields"] & {
+            isActive: boolean;
+        };
+        SupplierList: {
+            items: components["schemas"]["Supplier"][];
+        };
+        ImportError: {
+            /** @description Номер строки в файле; 0 — ошибка файла целиком */
+            row: number;
+            message: string;
+        };
+        ImportReport: {
+            /** @description true — данные сохранены; при предпросмотре всегда false */
+            committed: boolean;
+            rows: number;
+            /** @description Позиций создано (или будет создано) */
+            products: number;
+            variants: number;
+            newProducers: string[];
+            newBrands: string[];
+            newLines: string[];
+            errors: components["schemas"]["ImportError"][];
+        };
+        AssortmentItem: {
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            productId: string;
+            article: string;
+            name: string;
+            /** Format: int32 */
+            volumeMl?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+            /** @description false — позиция или вариант в архиве */
+            isActive: boolean;
+            /** Format: int32 */
+            minQty: number;
+        };
+        AssortmentList: {
+            items: components["schemas"]["AssortmentItem"][];
+        };
+        AssortmentItemUpdate: {
+            /**
+             * Format: int32
+             * @description Минимальный остаток, штук
+             */
+            minQty: number;
+        };
+        AssortmentCopy: {
+            /** Format: uuid */
+            fromLocationId: string;
+        };
+        AssortmentCopyResult: {
+            added: number;
+        };
+        RuSubject: {
+            /** @example 28 */
+            code: string;
+            /** @example Амурская область */
+            name: string;
+        };
+        RuSubjectList: {
+            items: components["schemas"]["RuSubject"][];
         };
         LocationList: {
             items: components["schemas"]["Location"][];
@@ -876,6 +2447,1547 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLocation"];
+            };
+        };
+        responses: {
+            /** @description Точка создана */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Точка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Точка изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    checkSale: {
+        parameters: {
+            query?: {
+                at?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат проверки */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleCheck"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listSaleRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Все редакции правил и дни запрета */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleRulebook"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSaleRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSaleRule"];
+            };
+        };
+        responses: {
+            /** @description Редакция добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleRule"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteSaleRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Редакция удалена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSaleBan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSaleBan"];
+            };
+        };
+        responses: {
+            /** @description День запрета добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleBan"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteSaleBan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description День запрета удалён */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listCountries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страны (ОКСМ) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountryList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listOriginRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Регионы происхождения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OriginRegionList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createOriginRegion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OriginRegionFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OriginRegion"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateOriginRegion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OriginRegionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OriginRegion"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProducers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Производители */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProducerList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProducer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProducerFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Producer"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateProducer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProducerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Producer"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listBrands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Бренды */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProductKinds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Виды продукции ЕГАИС */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductKindList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listVolumes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Объёмы тары */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createVolume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVolume"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Volume"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateVolume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ml: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Volume"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listWriteoffReasons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Причины списания */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteoffReasonList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createWriteoffReason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteoffReasonFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteoffReason"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateWriteoffReason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteoffReasonUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteoffReason"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Категории и их собственные характеристики, включая архивные */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryTree"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCategory"];
+            };
+        };
+        responses: {
+            /** @description Категория добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Категория изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createCategoryAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewCategoryAttribute"];
+            };
+        };
+        responses: {
+            /** @description Характеристика добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryAttribute"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateCategoryAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryAttributeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Характеристика изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryAttribute"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProductLines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Линейки по названию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductLineList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProductLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductLineFields"];
+            };
+        };
+        responses: {
+            /** @description Запись добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductLine"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateProductLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductLineUpdate"];
+            };
+        };
+        responses: {
+            /** @description Запись изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductLine"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProducts: {
+        parameters: {
+            query?: {
+                /** @description Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки */
+                q?: string;
+                /** @description Категория вместе с подкатегориями */
+                categoryId?: string;
+                brandId?: string;
+                /** @description Позиция, после которой начинается страница */
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница позиций */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPage"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductFields"];
+            };
+        };
+        responses: {
+            /** @description Позиция добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Карточка позиции */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductUpdate"];
+            };
+        };
+        responses: {
+            /** @description Позиция изменена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProductVariants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Варианты по объёму */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVariant"];
+            };
+        };
+        responses: {
+            /** @description Вариант добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variant"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    generateVariants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantGeneration"];
+            };
+        };
+        responses: {
+            /** @description Созданные варианты */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Вариант изменён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variant"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    addBarcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBarcode"];
+            };
+        };
+        responses: {
+            /** @description Штрихкод привязан */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Barcode"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteBarcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Штрихкод отвязан */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRetailPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Цены от новых к старым, включая назначенные на будущее */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setRetailPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPrice"];
+            };
+        };
+        responses: {
+            /** @description Цена назначена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Price"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPurchasePrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Цены от новых к старым, включая назначенные на будущее */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setPurchasePrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPrice"];
+            };
+        };
+        responses: {
+            /** @description Цена назначена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Price"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deletePrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Цена отменена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMinPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Редакции по видам продукции, от новых к старым */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinPriceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createMinPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMinPrice"];
+            };
+        };
+        responses: {
+            /** @description Редакция добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinPrice"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteMinPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Редакция удалена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listSuppliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Поставщики по названию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierFields"];
+            };
+        };
+        responses: {
+            /** @description Поставщик добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierUpdate"];
+            };
+        };
+        responses: {
+            /** @description Поставщик изменён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getImportTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл XLSX с колонками, примером и справкой */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Отчёт об импорте */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    runImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Отчёт об импорте */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAssortment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Варианты матрицы по наименованию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssortmentList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setAssortmentItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssortmentItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Сохранено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    removeAssortmentItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Убрано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    copyAssortment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssortmentCopy"];
+            };
+        };
+        responses: {
+            /** @description Сколько вариантов добавлено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssortmentCopyResult"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRuSubjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Субъекты по названию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuSubjectList"];
                 };
             };
             default: components["responses"]["Problem"];

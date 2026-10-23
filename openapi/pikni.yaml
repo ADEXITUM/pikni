@@ -373,6 +373,1434 @@ paths:
                 $ref: "#/components/schemas/LocationList"
         default:
           $ref: "#/components/responses/Problem"
+    post:
+      operationId: createLocation
+      summary: Создать точку
+      description: Зоны учёта создаются вместе с точкой — у склада одна, у магазина две.
+      tags: [locations]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewLocation"
+      responses:
+        "201":
+          description: Точка создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}:
+    get:
+      operationId: getLocation
+      summary: Карточка точки
+      tags: [locations]
+      x-permission: refs.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Точка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateLocation
+      summary: Изменить точку
+      description: Код и тип точки не меняются. Оптимистическая блокировка по version.
+      tags: [locations]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationUpdate"
+      responses:
+        "200":
+          description: Точка изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}/sale-check:
+    get:
+      operationId: checkSale
+      summary: Можно ли продавать алкоголь в точке
+      description: >
+        Проверка по правилам региона точки и федеральным правилам на момент at (по умолчанию — сейчас),
+        отдельно для продукции крепче 15 % и для остальной алкогольной продукции.
+      tags: [locations]
+      x-permission: refs.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: at
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Результат проверки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleCheck"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-rules:
+    get:
+      operationId: listSaleRules
+      summary: Правила продажи алкоголя и дни полного запрета
+      tags: [locations]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Все редакции правил и дни запрета
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleRulebook"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSaleRule
+      summary: Добавить редакцию правила продажи
+      description: Без subjectCode — федеральное правило. Старые редакции не меняются.
+      tags: [locations]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSaleRule"
+      responses:
+        "201":
+          description: Редакция добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleRule"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-rules/{id}:
+    delete:
+      operationId: deleteSaleRule
+      summary: Удалить редакцию, которая ещё не вступила в силу
+      tags: [locations]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Редакция удалена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-bans:
+    post:
+      operationId: createSaleBan
+      summary: Добавить день полного запрета
+      tags: [locations]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSaleBan"
+      responses:
+        "201":
+          description: День запрета добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaleBan"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /sale-bans/{id}:
+    delete:
+      operationId: deleteSaleBan
+      summary: Удалить день запрета
+      tags: [locations]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: День запрета удалён
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /countries:
+    get:
+      operationId: listCountries
+      summary: Страны (ОКСМ)
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Страны (ОКСМ)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountryList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /origin-regions:
+    get:
+      operationId: listOriginRegions
+      summary: Регионы происхождения
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Регионы происхождения
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginRegionList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createOriginRegion
+      summary: Добавить — регионы происхождения
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OriginRegionFields"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginRegion"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /origin-regions/{id}:
+    put:
+      operationId: updateOriginRegion
+      summary: Изменить — регионы происхождения
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OriginRegionUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OriginRegion"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /producers:
+    get:
+      operationId: listProducers
+      summary: Производители
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Производители
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProducerList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProducer
+      summary: Добавить — производители
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProducerFields"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Producer"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /producers/{id}:
+    put:
+      operationId: updateProducer
+      summary: Изменить — производители
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProducerUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Producer"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /brands:
+    get:
+      operationId: listBrands
+      summary: Бренды
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Бренды
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createBrand
+      summary: Добавить — бренды
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandFields"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /brands/{id}:
+    put:
+      operationId: updateBrand
+      summary: Изменить — бренды
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /product-kinds:
+    get:
+      operationId: listProductKinds
+      summary: Виды продукции ЕГАИС
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Виды продукции ЕГАИС
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductKindList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /volumes:
+    get:
+      operationId: listVolumes
+      summary: Объёмы тары
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Объёмы тары
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VolumeList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createVolume
+      summary: Добавить — объёмы тары
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewVolume"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Volume"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /volumes/{ml}:
+    put:
+      operationId: updateVolume
+      summary: Изменить — объёмы тары
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: ml
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VolumeUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Volume"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /writeoff-reasons:
+    get:
+      operationId: listWriteoffReasons
+      summary: Причины списания
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Причины списания
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteoffReasonList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createWriteoffReason
+      summary: Добавить — причины списания
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteoffReasonFields"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteoffReason"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /writeoff-reasons/{id}:
+    put:
+      operationId: updateWriteoffReason
+      summary: Изменить — причины списания
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteoffReasonUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteoffReason"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /categories:
+    get:
+      operationId: listCategories
+      summary: Дерево категорий с характеристиками
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Категории и их собственные характеристики, включая архивные
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryTree"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createCategory
+      summary: Добавить категорию
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCategory"
+      responses:
+        "201":
+          description: Категория добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /categories/{id}:
+    put:
+      operationId: updateCategory
+      summary: Изменить категорию
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Категория изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /categories/{id}/attributes:
+    post:
+      operationId: createCategoryAttribute
+      summary: Добавить характеристику категории
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCategoryAttribute"
+      responses:
+        "201":
+          description: Характеристика добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryAttribute"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /category-attributes/{id}:
+    put:
+      operationId: updateCategoryAttribute
+      summary: Изменить характеристику категории
+      description: Код и тип не меняются. Значения списка можно добавлять и отправлять в архив, но не удалять.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryAttributeUpdate"
+      responses:
+        "200":
+          description: Характеристика изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryAttribute"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /product-lines:
+    get:
+      operationId: listProductLines
+      summary: Линейки
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Линейки по названию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLineList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProductLine
+      summary: Добавить — линейки
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductLineFields"
+      responses:
+        "201":
+          description: Запись добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLine"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /product-lines/{id}:
+    put:
+      operationId: updateProductLine
+      summary: Изменить — линейки
+      description: Бренд линейки не меняется.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductLineUpdate"
+      responses:
+        "200":
+          description: Запись изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductLine"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products:
+    get:
+      operationId: listProducts
+      summary: Позиции
+      description: По названию. Следующая страница — параметр after из nextAfter.
+      tags: [catalog]
+      x-permission: refs.view
+      parameters:
+        - name: q
+          in: query
+          description: Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          description: Категория вместе с подкатегориями
+          schema:
+            type: string
+            format: uuid
+        - name: brandId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: after
+          in: query
+          description: Позиция, после которой начинается страница
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Страница позиций
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductPage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProduct
+      summary: Добавить позицию
+      description: Артикул присваивает сервер.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductFields"
+      responses:
+        "201":
+          description: Позиция добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getProduct
+      summary: Карточка позиции
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Карточка позиции
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateProduct
+      summary: Изменить позицию
+      description: version — номер версии, с которой начата правка. Если позицию уже изменили, ответ 409.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Позиция изменена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products/{id}/variants:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listProductVariants
+      summary: Варианты позиции со штрихкодами
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Варианты по объёму
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VariantList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createVariant
+      summary: Добавить вариант
+      description: Объём, тара и подарочная упаковка задают вариант и после создания не меняются.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewVariant"
+      responses:
+        "201":
+          description: Вариант добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variant"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /products/{id}/variants/generate:
+    post:
+      operationId: generateVariants
+      summary: Создать варианты по списку объёмов и видов тары
+      description: Создаёт недостающие сочетания объёма и тары; уже существующие пропускает.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VariantGeneration"
+      responses:
+        "201":
+          description: Созданные варианты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VariantList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}:
+    put:
+      operationId: updateVariant
+      summary: Изменить вариант
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VariantUpdate"
+      responses:
+        "200":
+          description: Вариант изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Variant"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}/barcodes:
+    post:
+      operationId: addBarcode
+      summary: Привязать штрихкод к варианту
+      description: Без code сервер создаёт внутренний EAN-13 с префиксом 20.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBarcode"
+      responses:
+        "201":
+          description: Штрихкод привязан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Barcode"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /barcodes/{code}:
+    delete:
+      operationId: deleteBarcode
+      summary: Отвязать штрихкод
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Штрихкод отвязан
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}/retail-prices:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listRetailPrices
+      summary: История розничных цен
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Цены от новых к старым, включая назначенные на будущее
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: setRetailPrice
+      summary: Назначить розничную цену
+      description: Цена не ниже МРЦ на дату начала действия. Можно назначить заранее, но не задним числом.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPrice"
+      responses:
+        "201":
+          description: Цена назначена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /variants/{id}/purchase-prices:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listPurchasePrices
+      summary: История закупочных цен
+      tags: [catalog]
+      x-permission: cost.view
+      responses:
+        "200":
+          description: Цены от новых к старым, включая назначенные на будущее
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: setPurchasePrice
+      summary: Назначить закупочную цену
+      description: Можно назначить заранее, но не задним числом.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPrice"
+      responses:
+        "201":
+          description: Цена назначена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /prices/{id}:
+    delete:
+      operationId: deletePrice
+      summary: Отменить цену, назначенную на будущее
+      description: Действующие и прошлые цены не удаляются — это история.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Цена отменена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /min-prices:
+    get:
+      operationId: listMinPrices
+      summary: МРЦ — минимальные розничные цены Минфина
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Редакции по видам продукции, от новых к старым
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinPriceList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createMinPrice
+      summary: Добавить редакцию МРЦ
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMinPrice"
+      responses:
+        "201":
+          description: Редакция добавлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinPrice"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /min-prices/{id}:
+    delete:
+      operationId: deleteMinPrice
+      summary: Удалить редакцию МРЦ, которая ещё не вступила в силу
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Редакция удалена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /suppliers:
+    get:
+      operationId: listSuppliers
+      summary: Поставщики
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Поставщики по названию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSupplier
+      summary: Добавить поставщика
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierFields"
+      responses:
+        "201":
+          description: Поставщик добавлен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /suppliers/{id}:
+    put:
+      operationId: updateSupplier
+      summary: Изменить поставщика
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierUpdate"
+      responses:
+        "200":
+          description: Поставщик изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /catalog/import/template:
+    get:
+      operationId: getImportTemplate
+      summary: Шаблон импорта номенклатуры
+      tags: [catalog]
+      x-permission: refs.edit
+      responses:
+        "200":
+          description: Файл XLSX с колонками, примером и справкой
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /catalog/import/preview:
+    post:
+      operationId: previewImport
+      summary: Предпросмотр импорта номенклатуры
+      description: Проверяет файл так же, как загрузку, но ничего не сохраняет.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+      responses:
+        "200":
+          description: Отчёт об импорте
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /catalog/import:
+    post:
+      operationId: runImport
+      summary: Импорт номенклатуры
+      description: Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+      responses:
+        "200":
+          description: Отчёт об импорте
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}/assortment:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listAssortment
+      summary: Ассортиментная матрица точки
+      tags: [catalog]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Варианты матрицы по наименованию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssortmentList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}/assortment/{variantId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: variantId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setAssortmentItem
+      summary: Добавить вариант в матрицу или изменить минимальный остаток
+      tags: [catalog]
+      x-permission: refs.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssortmentItemUpdate"
+      responses:
+        "204":
+          description: Сохранено
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: removeAssortmentItem
+      summary: Убрать вариант из матрицы
+      tags: [catalog]
+      x-permission: refs.edit
+      responses:
+        "204":
+          description: Убрано
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /locations/{id}/assortment/copy:
+    post:
+      operationId: copyAssortment
+      summary: Добавить в матрицу точки варианты из матрицы другой точки
+      description: Варианты, которые уже есть в матрице, не меняются.
+      tags: [catalog]
+      x-permission: refs.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssortmentCopy"
+      responses:
+        "200":
+          description: Сколько вариантов добавлено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssortmentCopyResult"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /ru-subjects:
+    get:
+      operationId: listRuSubjects
+      summary: Субъекты РФ, где есть точки или правила продажи
+      tags: [locations]
+      x-permission: refs.view
+      responses:
+        "200":
+          description: Субъекты по названию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuSubjectList"
+        default:
+          $ref: "#/components/responses/Problem"
+
 
 components:
   securitySchemes:
@@ -487,6 +1915,27 @@ components:
         - user.blocked
         - user.unblocked
         - user.password_reset
+        - location.created
+        - location.updated
+        - sale_rule.created
+        - sale_rule.deleted
+        - sale_ban.created
+        - sale_ban.deleted
+        - ref.created
+        - ref.updated
+        - product.created
+        - product.updated
+        - variant.created
+        - variant.updated
+        - barcode.created
+        - barcode.deleted
+        - price.created
+        - price.deleted
+        - min_price.created
+        - min_price.deleted
+        - assortment.set
+        - assortment.removed
+        - assortment.copied
 
     AuditEntry:
       type: object
@@ -730,21 +2179,13 @@ components:
       type: string
       enum: [warehouse, store]
 
-    Location:
+    LocationFields:
       type: object
-      required: [id, code, name, kind, city, timezone]
+      required: [name, city, timezone, subjectCode, openingHours, isPublic]
       properties:
-        id:
-          type: string
-          format: uuid
-        code:
-          type: string
-          example: МГ-01
         name:
           type: string
           example: Магазин на ул. Ленина
-        kind:
-          $ref: "#/components/schemas/LocationKind"
         city:
           type: string
           example: Благовещенск
@@ -752,6 +2193,1299 @@ components:
           type: string
           description: Часовой пояс IANA
           example: Asia/Yakutsk
+        subjectCode:
+          type: string
+          description: Код субъекта РФ, по нему действуют правила продажи алкоголя
+          example: "28"
+        address:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        fsrarId:
+          type: string
+          description: Идентификатор организации в ЕГАИС, 12 цифр
+          x-go-name: FSRARID
+        kpp:
+          type: string
+          x-go-name: KPP
+        licenseNo:
+          type: string
+        licenseValidTo:
+          type: string
+          format: date
+        openingHours:
+          $ref: "#/components/schemas/OpeningHours"
+        isPublic:
+          type: boolean
+          description: Показывать на публичной справочной странице
+
+    NewLocation:
+      allOf:
+        - $ref: "#/components/schemas/LocationFields"
+        - type: object
+          required: [code, kind]
+          properties:
+            code:
+              type: string
+              example: МГ-05
+            kind:
+              $ref: "#/components/schemas/LocationKind"
+
+    LocationUpdate:
+      allOf:
+        - $ref: "#/components/schemas/LocationFields"
+        - type: object
+          required: [isActive, version]
+          properties:
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+
+    Location:
+      allOf:
+        - $ref: "#/components/schemas/LocationFields"
+        - type: object
+          required: [id, code, kind, isActive, version, zones]
+          properties:
+            id:
+              type: string
+              format: uuid
+            code:
+              type: string
+              example: МГ-01
+            kind:
+              $ref: "#/components/schemas/LocationKind"
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+            zones:
+              type: array
+              items:
+                $ref: "#/components/schemas/Zone"
+
+    ZoneKind:
+      type: string
+      enum: [warehouse, backroom, floor]
+      description: warehouse — склад, backroom — склад магазина, floor — торговый зал
+
+    Zone:
+      type: object
+      required: [id, kind, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/ZoneKind"
+        name:
+          type: string
+
+    DayHours:
+      type: object
+      required: [open, close]
+      properties:
+        open:
+          type: string
+          example: "10:00"
+        close:
+          type: string
+          description: "24:00 — до полуночи"
+          example: "22:00"
+
+    OpeningHours:
+      type: object
+      description: Часы работы по дням недели, день без часов — выходной
+      properties:
+        mon:
+          $ref: "#/components/schemas/DayHours"
+        tue:
+          $ref: "#/components/schemas/DayHours"
+        wed:
+          $ref: "#/components/schemas/DayHours"
+        thu:
+          $ref: "#/components/schemas/DayHours"
+        fri:
+          $ref: "#/components/schemas/DayHours"
+        sat:
+          $ref: "#/components/schemas/DayHours"
+        sun:
+          $ref: "#/components/schemas/DayHours"
+
+    SaleScope:
+      type: string
+      enum: [all, strong]
+      description: all — вся алкогольная продукция, strong — крепче 15 %
+
+    NewSaleRule:
+      type: object
+      required: [scope, validFrom, from, to, source]
+      properties:
+        subjectCode:
+          type: string
+          description: Не задан — федеральное правило
+          example: "28"
+        scope:
+          $ref: "#/components/schemas/SaleScope"
+        validFrom:
+          type: string
+          format: date
+        from:
+          type: string
+          example: "11:00"
+        to:
+          type: string
+          example: "21:00"
+        source:
+          type: string
+          description: Закон-основание
+
+    SaleRule:
+      allOf:
+        - $ref: "#/components/schemas/NewSaleRule"
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+
+    NewSaleBan:
+      type: object
+      required: [subjectCode, name, scope, source]
+      description: Ровно одно из date (разовый запрет) и monthDay (ежегодный, «ММ-ДД»)
+      properties:
+        subjectCode:
+          type: string
+        name:
+          type: string
+          example: День знаний
+        scope:
+          $ref: "#/components/schemas/SaleScope"
+        date:
+          type: string
+          format: date
+        monthDay:
+          type: string
+          example: 09-01
+        source:
+          type: string
+
+    SaleBan:
+      allOf:
+        - $ref: "#/components/schemas/NewSaleBan"
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
+
+    SaleRulebook:
+      type: object
+      required: [rules, bans]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleRule"
+        bans:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleBan"
+
+    SaleVerdict:
+      type: object
+      required: [allowed]
+      properties:
+        allowed:
+          type: boolean
+        from:
+          type: string
+          description: Начало окна продажи на этот день, «ЧЧ:ММ»
+        to:
+          type: string
+          description: Конец окна, не включая
+        banDay:
+          type: string
+          description: Название дня полного запрета
+
+    SaleCheck:
+      type: object
+      required: [localTime, strong, other]
+      properties:
+        localTime:
+          type: string
+          description: Местное время точки, на которое проверено
+          example: 2026-10-23T20:30:00+09:00
+        strong:
+          $ref: "#/components/schemas/SaleVerdict"
+        other:
+          $ref: "#/components/schemas/SaleVerdict"
+
+    Country:
+      type: object
+      required: [code, alpha2, name]
+      properties:
+        code:
+          type: string
+          description: Цифровой код ОКСМ
+          example: "643"
+        alpha2:
+          type: string
+          example: RU
+        name:
+          type: string
+          example: Российская Федерация
+
+    CountryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Country"
+
+    OriginRegionFields:
+      type: object
+      required: [countryCode, name]
+      properties:
+        countryCode:
+          type: string
+          example: "250"
+        name:
+          type: string
+          example: Шампань
+
+    OriginRegion:
+      allOf:
+        - $ref: "#/components/schemas/OriginRegionFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    OriginRegionUpdate:
+      allOf:
+        - $ref: "#/components/schemas/OriginRegionFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    OriginRegionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OriginRegion"
+
+    ProducerFields:
+      type: object
+      required: [name, countryCode]
+      properties:
+        name:
+          type: string
+          example: ООО «Тайга»
+        inn:
+          type: string
+          description: ИНН российского производителя, 10 или 12 цифр
+          x-go-name: INN
+        countryCode:
+          type: string
+          example: "643"
+
+    Producer:
+      allOf:
+        - $ref: "#/components/schemas/ProducerFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    ProducerUpdate:
+      allOf:
+        - $ref: "#/components/schemas/ProducerFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    ProducerList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Producer"
+
+    BrandFields:
+      type: object
+      required: [producerId, name]
+      properties:
+        producerId:
+          type: string
+          format: uuid
+          x-go-name: ProducerID
+        name:
+          type: string
+          example: Тайга
+
+    Brand:
+      allOf:
+        - $ref: "#/components/schemas/BrandFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    BrandUpdate:
+      allOf:
+        - $ref: "#/components/schemas/BrandFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    BrandList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Brand"
+
+    EgaisAccounting:
+      type: string
+      enum: [marked, quantity]
+      description: marked — помарочный учёт, quantity — только количество
+
+    ProductKind:
+      type: object
+      required: [code, name, egaisAccounting]
+      properties:
+        code:
+          type: string
+          description: Код вида продукции, 3–5 цифр
+          example: "200"
+        name:
+          type: string
+          example: Водка
+        egaisAccounting:
+          $ref: "#/components/schemas/EgaisAccounting"
+        minPriceGroup:
+          type: string
+          description: Группа МРЦ, если для вида есть минимальная цена
+          example: Водка
+
+    ProductKindList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductKind"
+
+    NewVolume:
+      type: object
+      required: [ml]
+      properties:
+        ml:
+          type: integer
+          format: int32
+          example: 500
+
+    Volume:
+      type: object
+      required: [ml, isActive]
+      properties:
+        ml:
+          type: integer
+          format: int32
+          example: 500
+        isActive:
+          type: boolean
+
+    VolumeUpdate:
+      type: object
+      required: [isActive]
+      properties:
+        isActive:
+          type: boolean
+
+    VolumeList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Volume"
+
+    EgaisWriteoffType:
+      type: string
+      description: Тип списания в акте списания ЕГАИС
+      enum:
+        - Пересортица
+        - Недостача
+        - Уценка
+        - Порча
+        - Потери
+        - Проверки
+        - Арест
+        - Иные цели
+        - Реализация
+        - Производственные потери
+        - Приготовление
+      x-enum-varnames: [Resorting, Shortage, Markdown, Spoilage, Losses, Inspections, Arrest, OtherPurposes, Sale, ProductionLosses, Cooking]
+
+    WriteoffReasonFields:
+      type: object
+      required: [name, egaisType]
+      properties:
+        name:
+          type: string
+          example: Бой
+        egaisType:
+          $ref: "#/components/schemas/EgaisWriteoffType"
+
+    WriteoffReason:
+      allOf:
+        - $ref: "#/components/schemas/WriteoffReasonFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    WriteoffReasonUpdate:
+      allOf:
+        - $ref: "#/components/schemas/WriteoffReasonFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    WriteoffReasonList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WriteoffReason"
+
+    CategoryFields:
+      type: object
+      required: [name, sort]
+      properties:
+        name:
+          type: string
+          example: Водка
+        sort:
+          type: integer
+          format: int32
+          description: Порядок среди соседних категорий
+
+    NewCategory:
+      allOf:
+        - $ref: "#/components/schemas/CategoryFields"
+        - type: object
+          properties:
+            parentId:
+              type: string
+              format: uuid
+              x-go-name: ParentID
+              description: Родитель; без него — категория верхнего уровня. После создания не меняется.
+
+    CategoryUpdate:
+      allOf:
+        - $ref: "#/components/schemas/CategoryFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    Category:
+      allOf:
+        - $ref: "#/components/schemas/CategoryFields"
+        - type: object
+          required: [id, depth, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            parentId:
+              type: string
+              format: uuid
+              x-go-name: ParentID
+            depth:
+              type: integer
+              format: int32
+              minimum: 1
+              maximum: 3
+            isActive:
+              type: boolean
+
+    AttributeType:
+      type: string
+      enum: [enum, number, text, bool]
+      description: enum — выбор из списка, number — число, text — строка, bool — да/нет
+
+    AttributeOption:
+      type: object
+      required: [value, archived]
+      properties:
+        value:
+          type: string
+          example: пшеница
+        archived:
+          type: boolean
+          description: Архивное значение остаётся у заведённых позиций, но не предлагается для новых
+
+    CategoryAttributeFields:
+      type: object
+      required: [name, filterable, usedForAnalogs, sort]
+      properties:
+        name:
+          type: string
+          example: Сырьё
+        unit:
+          type: string
+          description: Единица измерения, только для чисел
+          example: лет
+        filterable:
+          type: boolean
+          description: Показывать в фильтрах поиска
+        usedForAnalogs:
+          type: boolean
+          description: Учитывать при подборе аналогов
+        sort:
+          type: integer
+          format: int32
+
+    NewCategoryAttribute:
+      allOf:
+        - $ref: "#/components/schemas/CategoryAttributeFields"
+        - type: object
+          required: [code, type]
+          properties:
+            code:
+              type: string
+              description: Латиница в нижнем регистре, цифры и _; уникален в ветке категорий
+              example: raw_material
+            type:
+              $ref: "#/components/schemas/AttributeType"
+            options:
+              type: array
+              description: Значения списка, только для типа enum
+              items:
+                type: string
+
+    CategoryAttributeUpdate:
+      allOf:
+        - $ref: "#/components/schemas/CategoryAttributeFields"
+        - type: object
+          required: [options, isActive]
+          properties:
+            options:
+              type: array
+              description: Все прежние значения плюс новые; прежние можно только архивировать
+              items:
+                $ref: "#/components/schemas/AttributeOption"
+            isActive:
+              type: boolean
+
+    CategoryAttribute:
+      allOf:
+        - $ref: "#/components/schemas/CategoryAttributeFields"
+        - type: object
+          required: [id, categoryId, code, type, options, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            categoryId:
+              type: string
+              format: uuid
+              x-go-name: CategoryID
+            code:
+              type: string
+            type:
+              $ref: "#/components/schemas/AttributeType"
+            options:
+              type: array
+              items:
+                $ref: "#/components/schemas/AttributeOption"
+            isActive:
+              type: boolean
+
+    CategoryTree:
+      type: object
+      required: [categories, attributes]
+      description: Плоские списки; подкатегория наследует характеристики всех предков
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryAttribute"
+
+    ProductLineFields:
+      type: object
+      required: [brandId, name]
+      properties:
+        brandId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Тайга
+
+    ProductLine:
+      allOf:
+        - $ref: "#/components/schemas/ProductLineFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    ProductLineUpdate:
+      type: object
+      required: [name, isActive]
+      properties:
+        name:
+          type: string
+        isActive:
+          type: boolean
+
+    ProductLineList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductLine"
+
+    ProductFields:
+      type: object
+      required: [name, categoryId, crptMarked, producerId, countryCode, attributes]
+      properties:
+        name:
+          type: string
+          example: Водка «Тайга» на пшенице
+        categoryId:
+          type: string
+          format: uuid
+        kindCode:
+          type: string
+          description: Вид продукции ЕГАИС; без него позиция не учитывается в ЕГАИС
+          example: "200"
+        abv:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Крепость, % об.; обязательна для алкоголя
+          example: 40
+        crptMarked:
+          type: boolean
+          description: Маркируется «Честным знаком»
+        producerId:
+          type: string
+          format: uuid
+        brandId:
+          type: string
+          format: uuid
+          description: Бренд этого производителя
+        productLineId:
+          type: string
+          format: uuid
+          description: Линейка этого бренда
+        variety:
+          type: string
+          description: Разновидность в линейке
+          example: на пшенице
+        countryCode:
+          type: string
+          example: "643"
+        originRegionId:
+          type: string
+          format: uuid
+          description: Регион этой страны
+        attributes:
+          type: object
+          additionalProperties: true
+          description: Характеристики по схеме категории — код → значение; пустые не сохраняются
+          example: { raw_material: пшеница }
+
+    ProductUpdate:
+      allOf:
+        - $ref: "#/components/schemas/ProductFields"
+        - type: object
+          required: [isActive, version]
+          properties:
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+
+    Product:
+      allOf:
+        - $ref: "#/components/schemas/ProductFields"
+        - type: object
+          required: [id, article, categoryName, producerName, countryName, isActive, version]
+          properties:
+            id:
+              type: string
+              format: uuid
+            article:
+              type: string
+              example: ЧК-000001
+            categoryName:
+              type: string
+            producerName:
+              type: string
+            brandName:
+              type: string
+            lineName:
+              type: string
+            countryName:
+              type: string
+            regionName:
+              type: string
+            egaisAccounting:
+              $ref: "#/components/schemas/EgaisAccounting"
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int32
+
+    ProductPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        nextAfter:
+          type: string
+          format: uuid
+          description: Если есть — параметр after для следующей страницы
+        scan:
+          $ref: "#/components/schemas/ScanResult"
+
+    ScanKind:
+      type: string
+      enum: [barcode, alcocode, egais_mark, egais_mark_new, crpt_code]
+      description: >
+        Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод,
+        egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод),
+        egais_mark_new — марка нового образца (150 символов, алкокода в ней нет),
+        crpt_code — код «Честного знака» (из него взят GTIN)
+
+    ScanResult:
+      type: object
+      required: [kind, code]
+      description: Есть, если поисковая строка похожа на код или скан
+      properties:
+        kind:
+          $ref: "#/components/schemas/ScanKind"
+        code:
+          type: string
+          description: Что искали — штрихкод, алкокод или GTIN; для марки нового образца — её тип, серия и номер
+
+    Container:
+      type: string
+      enum: [glass, pet, can]
+      description: glass — стекло, pet — ПЭТ, can — банка
+
+    BarcodeKind:
+      type: string
+      enum: [ean13, ean8, upca, code128, internal]
+      description: Определяется сервером; internal — EAN-13 с префиксом 2 для внутреннего применения
+
+    Barcode:
+      type: object
+      required: [code, kind]
+      properties:
+        code:
+          type: string
+          example: "4600000000011"
+        kind:
+          $ref: "#/components/schemas/BarcodeKind"
+
+    NewBarcode:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Без кода сервер создаст внутренний EAN-13
+
+    VariantCodes:
+      type: object
+      properties:
+        alcocode:
+          type: string
+          description: Код продукции ЕГАИС, 19 цифр; только для продукции в ЕГАИС
+          example: "0177207000002463655"
+        gtin:
+          type: string
+          description: GTIN для кодов «Честного знака»; можно ввести EAN-8, UPC или EAN-13 — сохранится 14 цифр
+          example: "04600000000011"
+
+    NewVariant:
+      allOf:
+        - $ref: "#/components/schemas/VariantCodes"
+        - type: object
+          required: [giftPack]
+          properties:
+            volumeMl:
+              type: integer
+              format: int32
+              description: Объём из справочника; обязателен для продукции в ЕГАИС
+              example: 500
+            container:
+              $ref: "#/components/schemas/Container"
+            giftPack:
+              type: boolean
+
+    VariantUpdate:
+      allOf:
+        - $ref: "#/components/schemas/VariantCodes"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    Variant:
+      allOf:
+        - $ref: "#/components/schemas/NewVariant"
+        - type: object
+          required: [id, productId, isActive, barcodes]
+          properties:
+            id:
+              type: string
+              format: uuid
+            productId:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+            barcodes:
+              type: array
+              items:
+                $ref: "#/components/schemas/Barcode"
+            retailPrice:
+              type: number
+              format: double
+              description: Действующая розничная цена
+            minPrice:
+              type: number
+              format: double
+              description: Действующая МРЦ для этого объёма и крепости
+            purchasePrice:
+              type: number
+              format: double
+              description: Действующая закупочная цена; только при праве cost.view
+
+    VariantList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variant"
+
+    VariantGeneration:
+      type: object
+      required: [volumes, containers, giftPack]
+      properties:
+        volumes:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int32
+          example: [500, 700]
+        containers:
+          type: array
+          description: Пустой список — варианты без тары
+          items:
+            $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
+
+    MinPriceGroup:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          example: vodka
+        name:
+          type: string
+          example: Водка
+
+    NewMinPrice:
+      type: object
+      required: [groupCode, validFrom, abvFrom, price, volumeMl, source]
+      description: Полоса крепости одной редакции МРЦ — строка приложения к приказу Минфина
+      properties:
+        groupCode:
+          type: string
+          example: vodka
+        validFrom:
+          type: string
+          format: date
+        abvFrom:
+          type: number
+          format: double
+          description: Крепость «свыше», %; 0 — цена не зависит от крепости
+          example: 39
+        abvTo:
+          type: number
+          format: double
+          description: Крепость «до … включительно», %; пусто — без верхней границы
+          example: 40
+        price:
+          type: number
+          format: double
+          description: Цена эталонного объёма, рубли
+          example: 409
+        volumeMl:
+          type: integer
+          format: int32
+          description: Эталонный объём; для другого объёма цена пересчитывается пропорционально
+          example: 500
+        samePriceOverMl:
+          type: integer
+          format: int32
+          description: Тара свыше этого объёма и до эталонного стоит как эталонная (у водки — 375)
+          example: 375
+        source:
+          type: string
+          description: Приказ Минфина — основание
+
+    MinPrice:
+      allOf:
+        - $ref: "#/components/schemas/NewMinPrice"
+        - type: object
+          required: [id, groupName]
+          properties:
+            id:
+              type: string
+              format: uuid
+            groupName:
+              type: string
+
+    MinPriceList:
+      type: object
+      required: [items, groups]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinPrice"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinPriceGroup"
+
+    PriceKind:
+      type: string
+      enum: [retail, purchase]
+      description: retail — розничная, purchase — закупочная по умолчанию
+
+    NewPrice:
+      type: object
+      required: [price]
+      properties:
+        price:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Рубли с копейками
+          example: 449.9
+        validFrom:
+          type: string
+          format: date-time
+          description: С какого момента действует; без него — сразу
+
+    Price:
+      type: object
+      required: [id, kind, price, validFrom]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/PriceKind"
+        price:
+          type: number
+          format: double
+        validFrom:
+          type: string
+          format: date-time
+        setBy:
+          type: string
+          description: Кто назначил
+
+    PriceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Price"
+
+    ReceivingMode:
+      type: string
+      enum: [document, boxes, sample, piece]
+      description: Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+
+    SupplierContacts:
+      type: object
+      properties:
+        person:
+          type: string
+          example: Иванова Мария, менеджер
+        phone:
+          type: string
+          example: +7 4162 00-00-00
+        email:
+          type: string
+          example: sales@example.ru
+
+    SupplierFields:
+      type: object
+      required: [name, inn, defaultReceivingMode, contacts]
+      properties:
+        name:
+          type: string
+          example: ООО «Амур-Дистрибуция»
+        inn:
+          type: string
+          x-go-name: INN
+          description: 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются
+        kpp:
+          type: string
+          x-go-name: KPP
+          description: 9 цифр; у предпринимателя КПП нет
+        fsrarId:
+          type: string
+          x-go-name: FSRARID
+          description: 12 цифр
+        licenseNo:
+          type: string
+        licenseValidTo:
+          type: string
+          format: date
+        defaultReceivingMode:
+          $ref: "#/components/schemas/ReceivingMode"
+        contacts:
+          $ref: "#/components/schemas/SupplierContacts"
+
+    Supplier:
+      allOf:
+        - $ref: "#/components/schemas/SupplierFields"
+        - type: object
+          required: [id, isActive]
+          properties:
+            id:
+              type: string
+              format: uuid
+            isActive:
+              type: boolean
+
+    SupplierUpdate:
+      allOf:
+        - $ref: "#/components/schemas/SupplierFields"
+        - type: object
+          required: [isActive]
+          properties:
+            isActive:
+              type: boolean
+
+    SupplierList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Supplier"
+
+    ImportError:
+      type: object
+      required: [row, message]
+      properties:
+        row:
+          type: integer
+          description: Номер строки в файле; 0 — ошибка файла целиком
+        message:
+          type: string
+
+    ImportReport:
+      type: object
+      required: [committed, rows, products, variants, newProducers, newBrands, newLines, errors]
+      properties:
+        committed:
+          type: boolean
+          description: true — данные сохранены; при предпросмотре всегда false
+        rows:
+          type: integer
+        products:
+          type: integer
+          description: Позиций создано (или будет создано)
+        variants:
+          type: integer
+        newProducers:
+          type: array
+          items:
+            type: string
+        newBrands:
+          type: array
+          items:
+            type: string
+        newLines:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportError"
+
+    AssortmentItem:
+      type: object
+      required: [variantId, productId, article, name, giftPack, isActive, minQty]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        volumeMl:
+          type: integer
+          format: int32
+        container:
+          $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
+        isActive:
+          type: boolean
+          description: false — позиция или вариант в архиве
+        minQty:
+          type: integer
+          format: int32
+
+    AssortmentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssortmentItem"
+
+    AssortmentItemUpdate:
+      type: object
+      required: [minQty]
+      properties:
+        minQty:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 9999
+          description: Минимальный остаток, штук
+
+    AssortmentCopy:
+      type: object
+      required: [fromLocationId]
+      properties:
+        fromLocationId:
+          type: string
+          format: uuid
+
+    AssortmentCopyResult:
+      type: object
+      required: [added]
+      properties:
+        added:
+          type: integer
+
+    RuSubject:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          example: "28"
+        name:
+          type: string
+          example: Амурская область
+
+    RuSubjectList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuSubject"
 
     LocationList:
       type: object

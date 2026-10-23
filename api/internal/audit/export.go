@@ -29,6 +29,27 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionUserBlocked:         "Блокировка сотрудника",
 	apispec.AuditActionUserUnblocked:       "Разблокировка сотрудника",
 	apispec.AuditActionUserPasswordReset:   "Сброс пароля",
+	apispec.AuditActionLocationCreated:     "Создание точки",
+	apispec.AuditActionLocationUpdated:     "Изменение точки",
+	apispec.AuditActionSaleRuleCreated:     "Новая редакция правила продажи",
+	apispec.AuditActionSaleRuleDeleted:     "Удаление редакции правила продажи",
+	apispec.AuditActionSaleBanCreated:      "Новый день запрета продажи",
+	apispec.AuditActionSaleBanDeleted:      "Удаление дня запрета продажи",
+	apispec.AuditActionRefCreated:          "Новая запись справочника",
+	apispec.AuditActionRefUpdated:          "Изменение записи справочника",
+	apispec.AuditActionProductCreated:      "Создание позиции",
+	apispec.AuditActionProductUpdated:      "Изменение позиции",
+	apispec.AuditActionVariantCreated:      "Новый вариант позиции",
+	apispec.AuditActionVariantUpdated:      "Изменение варианта",
+	apispec.AuditActionBarcodeCreated:      "Привязка штрихкода",
+	apispec.AuditActionBarcodeDeleted:      "Отвязка штрихкода",
+	apispec.AuditActionPriceCreated:        "Назначение цены",
+	apispec.AuditActionPriceDeleted:        "Отмена назначенной цены",
+	apispec.AuditActionMinPriceCreated:     "Новая редакция МРЦ",
+	apispec.AuditActionMinPriceDeleted:     "Удаление редакции МРЦ",
+	apispec.AuditActionAssortmentSet:       "Изменение ассортиментной матрицы",
+	apispec.AuditActionAssortmentRemoved:   "Удаление из ассортиментной матрицы",
+	apispec.AuditActionAssortmentCopied:    "Копирование ассортиментной матрицы",
 }
 
 var errTooManyRows = echo.NewHTTPError(http.StatusUnprocessableEntity,
@@ -149,7 +170,9 @@ func object(r store.ListEntriesRow) string {
 		return ""
 	}
 	var d struct {
-		Login string `json:"login"`
+		Login    string `json:"login"`
+		Article  string `json:"article"`
+		Location string `json:"location"`
 	}
 	_ = json.Unmarshal(r.Data, &d)
 
@@ -161,6 +184,16 @@ func object(r store.ListEntriesRow) string {
 		return "сотрудник " + deref(r.EntityID)
 	case EntitySession:
 		return "сеанс"
+	case EntityProduct, EntityVariant:
+		return "позиция " + d.Article
+	case EntityAssortment:
+		return "матрица точки " + d.Location
+	case EntityLocation:
+		var l struct {
+			Code string `json:"code"`
+		}
+		_ = json.Unmarshal(r.Data, &l)
+		return "точка " + l.Code
 	}
 	return *r.EntityType + " " + deref(r.EntityID)
 }

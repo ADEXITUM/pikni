@@ -158,19 +158,23 @@ openapi/
 | `alcohol_sale_rules` | `subject_code`, `valid_from`, `sale_from`, `sale_to` (местное время), `scope` (all — вся алкогольная продукция, strong — крепче 15 %), `source` (закон-основание). Несколько правил на регион — разные `scope` или новые редакции закона; действует правило с наибольшей `valid_from` не позже текущей даты |
 | `alcohol_sale_bans` | `subject_code`, `date` или `month_day` (ежегодно), `name` («День знаний»), `scope` — дни полного запрета |
 | `zones` | `location_id`, `kind` (warehouse, backroom, floor), `name`. У склада одна зона, у магазина две: склад магазина и торговый зал |
-| `suppliers` | `name`, `inn`, `kpp`, `fsrar_id`, `license_no`, `default_receiving_mode` (document, boxes, sample, piece), `contacts` jsonb |
-| `categories` | `parent_id`, `name`, `sort` (глубина не больше трёх уровней) |
-| `category_attributes` | `category_id`, `code`, `name`, `type` (enum, number, text, bool), `options` jsonb (допустимые значения), `unit`, `filterable`, `used_for_analogs`, `sort` — схема характеристик категории; наследуется подкатегориями |
-| `producers`, `brands`, `countries`, `regions`, `writeoff_reasons` | простые справочники; у причин списания есть соответствие причине акта ЕГАИС |
-| `product_kinds` | `code` (код вида продукции), `name`, `egais_accounting` (marked, quantity, none) |
-| `product_lines` | `name`, `brand_id` — линейка: позиции одного бренда, различающиеся разновидностью |
-| `products` (позиции) | `article` (уник.), `name`, `producer_id`, `brand_id`, `kind_code`, `category_id`, `country_id`, `region_id`, `abv` (крепость), `product_line_id`, `variety` (подпись разновидности в линейке: «на пшенице», «5 лет», «нефильтрованное»), `attributes` jsonb (характеристики категории), `crpt_marked` (маркировка «Честным знаком»), `retail_price`, `purchase_price`, `search` (tsvector, generated) |
+| `suppliers` | `name`, `inn` (контрольные цифры проверяются), `kpp` (у предпринимателя нет), `fsrar_id` (уник.), `license_no`, `license_valid_to`, `default_receiving_mode` (document, boxes, sample, piece; по умолчанию piece), `contacts` jsonb (контактное лицо, телефон, почта); уникальна пара (`inn`, `kpp`) — филиалы различаются КПП |
+| `categories` | `parent_id` (не меняется после создания), `name`, `depth` (1–3, считает триггер от родителя), `sort`. В архив — только после подкатегорий |
+| `category_attributes` | `category_id`, `code`, `name`, `type` (enum, number, text, bool), `options` jsonb (значения списка `{value, archived}`: добавляются и архивируются, не удаляются), `unit` (только у чисел), `filterable`, `used_for_analogs`, `sort` — схема характеристик категории; наследуется подкатегориями. `code` и `type` не меняются, `code` уникален в ветке: у предков и потомков его нет |
+| `countries` | `code` (цифровой код ОКСМ), `alpha2`, `name` — только чтение |
+| `origin_regions` | `country_code`, `name` — регионы происхождения: Шампань, Коньяк, Кахетия |
+| `producers`, `brands` | производитель: `name`, `inn` (для российских), `country_code`; бренд: `producer_id`, `name` |
+| `volumes` | `ml` — объёмы тары в миллилитрах для создания вариантов |
+| `writeoff_reasons` | `name`, `egais_type` — тип списания в акте ЕГАИС (перечисление TypeWriteOff) |
+| `product_kinds` | `code` (код вида продукции НСИ ЕГАИС, 3–5 цифр), `name`, `egais_accounting` (marked — помарочный, quantity — без марок: пиво, сидр, пуаре, медовуха) |
+| `product_lines` | `name`, `brand_id` (не меняется) — линейка: позиции одного бренда, различающиеся разновидностью |
+| `products` (позиции) | `article` (уник., присваивает база: `ЧК-000001`), `name`, `category_id`, `kind_code` (вид продукции; пусто — без ЕГАИС, способ учёта берётся из вида), `abv` (крепость, обязательна для алкоголя), `crpt_marked` (маркировка «Честным знаком»), `producer_id`, `brand_id`, `product_line_id`, `variety` (подпись разновидности в линейке: «на пшенице», «5 лет»), `country_code`, `origin_region_id`, `attributes` jsonb (характеристики категории, индекс GIN), `search` (tsvector, вычисляемый: наименование и разновидность с русской морфологией, индекс GIN), `version`. Составные внешние ключи проверяют, что бренд — этого производителя, линейка — этого бренда, регион — этой страны. Цены — в `prices` (п. 2.8 плана). Представление `product_cards` добавляет названия связанных записей |
 | `product_photos` | `product_id`, `file_key`, `sort` |
-| `variants` | `product_id`, `volume_l`, `container` (glass, pet, can), `gift_pack`, `sku_code` (уник.), `alcocode` (код продукции ЕГАИС), `gtin`, `retail_price_override`; уникальность (`product_id`, `volume_l`, `container`, `gift_pack`) |
-| `barcodes` | `code` (PK), `variant_id`, `kind` (ean13, ean8, upca, code128, internal) |
-| `price_history` | `product_id`, `variant_id`, `price`, `valid_from`, `set_by` |
-| `min_retail_prices` | `kind_code`, `abv_from`, `abv_to`, `price_per_litre`, `valid_from` — МРЦ, установленные Минфином России. Упрощение: минимальная цена бутылки = цена за литр × объём тары |
-| `assortment_matrix` | `location_id`, `variant_id`, `min_qty` (НСИ-9) |
+| `variants` | `product_id`, `volume_ml` (из справочника объёмов; обязателен для продукции в ЕГАИС), `container` (glass, pet, can), `gift_pack`, `alcocode` (код продукции ЕГАИС, 19 цифр, уник.), `gtin` (14 цифр, уник.); уникальность (`product_id`, `volume_ml`, `container`, `gift_pack`). Объём, тара и упаковка после создания не меняются. Цена варианта — в `prices` (п. 2.8 плана) |
+| `barcodes` | `code` (PK), `variant_id`, `kind` (ean13, ean8, upca, code128, internal) — вид определяет сервер, у EAN/UPC проверяется контрольная цифра GS1. Внутренние EAN-13 (ЭТ-1) — префикс 20 и номер из последовательности `internal_barcode_seq` |
+| `prices` | `variant_id`, `kind` (retail, purchase), `price` numeric(12,2), `valid_from`, `set_by` — цены варианта с историей: новая цена — новая строка, действует последняя наступившая; будущую можно отменить, действующую и прошлые — нет. В приложении деньги — целые копейки. Закупочную цену в ответе видят только роли с `cost.view` |
+| `min_price_groups`, `min_retail_prices` | МРЦ Минфина России (приказы № 181н, № 180н): группы продукции (водка; другая продукция крепче 28 %; бренди, ром, кальвадос, виски менее 3 лет; коньяк и виски от 3 лет; игристое), у вида продукции — `min_price_group`. Правило — полоса крепости одной редакции: `group_code`, `valid_from`, `abv_from` («свыше»), `abv_to` («до … включительно»), `price` за эталонный объём `volume_ml`, `same_price_over_ml` (водка свыше 0,375 до 0,5 л стоит как 0,5 л), `source`. МРЦ варианта: последняя наступившая редакция → полоса по крепости → цена × объём / эталонный объём, в копейках с округлением вверх; дата — по Москве. Розничную цену ниже МРЦ сервер не принимает, касса проверяет её при продаже (КС-2) |
+| `assortment_matrix` | `location_id`, `variant_id` (PK пары), `min_qty` (1–9999) — варианты, которые должны быть в наличии в точке, и минимальный остаток (НСИ-9). Ведётся в карточке точки; матрицу можно скопировать из другой точки (только добавление) |
 
 **Учёт**
 
@@ -527,7 +531,7 @@ sequenceDiagram
 |---|---|
 | auth | `POST /auth/login`, `/auth/mfa`, `/auth/logout`, `GET /auth/me`, `POST /auth/qr`, `/auth/qr/consume`, `GET/DELETE /auth/sessions` |
 | users, locations, pos-devices | CRUD, сброс пароля и PIN, блокировка, зоны точки, регистрация и отзыв касс |
-| catalog | позиции, варианты, штрихкоды, справочники, МРЦ, матрица; `POST /catalog/import` и `/catalog/import/{id}/commit`; `GET /codes/resolve?code=` |
+| catalog | позиции, варианты, штрихкоды, справочники, МРЦ, матрица; поиск `GET /products?q=` (НСИ-8): слова наименования, часть артикула, штрихкод, алкокод, GTIN, скан марки ЕГАИС старого образца (алкокод из символов 8–19 по основанию 36) и кода «Честного знака» (GTIN после AI 01); импорт номенклатуры (НСИ-7): `GET /catalog/import/template`, `POST /catalog/import/preview` и `POST /catalog/import` — XLSX или CSV; предпросмотр выполняет весь импорт в транзакции и откатывает её, загрузка фиксирует, только если ошибок нет; каждая позиция — в своей точке сохранения, поэтому ошибки собираются по всем строкам сразу; `GET /codes/resolve?code=` |
 | documents | `GET /documents?kind=&status=&location=`, `POST /documents`, `GET/PATCH /documents/{id}`; действия `/post`, `/approve`, `/reject`, `/reverse`; приёмка: `/start?mode=`, `/packages/{code}/open`; перемещение: `/approve-request`, `/ship`, `/receive`; ревизия: `/start`, `/zones`, `/reconcile`; `GET /documents/{id}/egais` — журнал обмена |
 | marks | `GET /marks/{code}` — статус, место и история марки |
 | scans, pairings | `POST /documents/{id}/scans`, `POST /scans/{id}/undo`, `POST /pairings`, `/pairings/join`, `PATCH /pairings/{id}` |

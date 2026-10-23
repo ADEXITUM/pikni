@@ -7,8 +7,8 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
+	"github.com/ADEXITUM/pikni/api/internal/catalog"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
-	locstore "github.com/ADEXITUM/pikni/api/internal/locations/store"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
@@ -17,6 +17,7 @@ import (
 type (
 	auditHandler     = audit.Handler
 	authHandler      = auth.Handler
+	catalogHandler   = catalog.Handler
 	locationsHandler = locations.Handler
 	usersHandler     = users.Handler
 )
@@ -25,6 +26,7 @@ type (
 type API struct {
 	*auditHandler
 	*authHandler
+	*catalogHandler
 	*locationsHandler
 	*usersHandler
 }
@@ -40,7 +42,8 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 	api := &API{
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
-		locationsHandler: locations.NewHandler(locations.NewService(locstore.New(pool))),
+		catalogHandler:   catalog.NewHandler(catalog.NewService(pool)),
+		locationsHandler: locations.NewHandler(locations.NewService(pool)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}
 
