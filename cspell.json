@@ -1,0 +1,33 @@
+{
+  "version": "0.2",
+  "language": "en,ru",
+  "ignorePaths": ["go.sum", "go.work.sum", "**/node_modules/**", "**/*.svg"],
+  "words": [
+    "pikni",
+    "govsim",
+    "chekushka",
+    "sslmode",
+    "pgxpool",
+    "pgdata",
+    "healthz",
+    "readyz",
+    "uuidv7",
+    "ldflags",
+    "sqlc",
+    "otel",
+    "otelecho",
+    "otelpgx",
+    "otelhttp",
+    "gotenberg",
+    "excelize",
+    "Чекушка",
+    "Чекушки",
+    "Пикни",
+    "ЕГАИС",
+    "УТМ",
+    "ФСРАР",
+    "алкокод",
+    "алкомаркет",
+    "алкомаркетов"
+  ]
+}

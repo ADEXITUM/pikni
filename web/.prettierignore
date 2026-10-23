@@ -1,0 +1,3 @@
+**/dist/
+**/coverage/
+packages/api/src/*.gen.ts

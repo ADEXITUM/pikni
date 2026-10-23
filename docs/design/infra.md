@@ -33,9 +33,9 @@ flowchart TB
   NET((Интернет)) -->|80, 443| CADDY
   subgraph VPS [VPS: Docker Compose]
     CADDY[caddy: HTTPS, статика трёх приложений, прокси]
-    API[api: pikni serve]
-    WRK[worker: pikni worker]
-    MIG[migrate: pikni migrate]
+    API[api: pikni-api]
+    WRK[worker: pikni-worker]
+    MIG[migrate: pikni-migrate]
     GS[govsim: govsim serve]
     GMIG[govsim-migrate]
     PG[(postgres: базы pikni и govsim)]
@@ -65,8 +65,8 @@ flowchart TB
 |---|---|---|
 | `caddy` | собственный, на основе `caddy:2`, со встроенными сборками трёх приложений | Единственный, кто открывает порты (80, 443). Автоматические сертификаты Let's Encrypt для каждого поддомена. Сжатие zstd/gzip, заголовки безопасности. Долгий кеш (`immutable`) для файлов с хешем в имени, `no-cache` для `index.html` и сервис-воркера. Для веб-интерфейса имитатора — вход по паролю (`basic_auth`) |
 | `api` | собственный: многостадийная сборка Go, финальный слой distroless, запуск не от root | Проверка готовности по `/readyz`, `restart: unless-stopped`, корректная остановка по SIGTERM |
-| `worker` | тот же образ, команда `worker` | Без открытых портов |
-| `migrate` | тот же образ, команда `migrate` | Одноразовый. `api` и `worker` стартуют после его успешного завершения (`depends_on: service_completed_successfully`) |
+| `worker` | тот же образ, бинарник `pikni-worker` | Без открытых портов |
+| `migrate` | тот же образ, бинарник `pikni-migrate` | Одноразовый. `api` и `worker` стартуют после его успешного завершения (`depends_on: service_completed_successfully`) |
 | `govsim` | собственный, отдельная сборка из `govsim/`, distroless | API — только во внутренней сети. Веб-интерфейс — через Caddy с паролем |
 | `govsim-migrate` | тот же образ, команда `migrate` | Одноразовый, перед `govsim` |
 | `postgres` | `postgres` (актуальная основная версия, не ниже 17) | Две базы и два пользователя создаются init-скриптом: `pikni` и `govsim`. У пользователя `pikni` нет доступа к базе `govsim`, и наоборот. Данные на именованном томе, порт наружу не открыт |

@@ -1,0 +1,80 @@
+/* Без @layer: в Vuetify 4 стили вне слоёв сильнее слоёв vuetify-*, поэтому правила здесь точечные. */
+
+:root {
+  --v-font-body:
+    'Manrope Variable', 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --v-font-heading: var(--v-font-body);
+  --pk-font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --pk-touch-glove: 56px;
+}
+
+body {
+  font-family: var(--v-font-body);
+}
+
+.v-table,
+.pk-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.v-table {
+  font-size: 0.9375rem;
+}
+
+.v-table th {
+  font-weight: 700;
+}
+
+.pk-code {
+  font-family: var(--pk-font-mono);
+  font-size: 0.9375em;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.pk-btn {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Стандартная рамка поля (.38) даёт контраст около 2:1 — меньше 3:1 по WCAG 1.4.11. */
+.v-field__outline {
+  --v-field-border-opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .v-field:hover .v-field__outline {
+    --v-field-border-opacity: var(--v-high-emphasis-opacity);
+  }
+}
+
+.v-field.v-field--focused .v-field__outline,
+.v-input.v-input--error .v-field__outline {
+  --v-field-border-opacity: 1;
+}
+
+:where(.v-btn, .v-chip, .v-list-item, .v-tab, .v-field, a, [tabindex]):focus-visible {
+  outline: 3px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .v-btn.v-btn--size-default,
+  .v-btn.v-btn--size-small {
+    --v-btn-height: 44px;
+  }
+}
+
+.pk-glove .v-btn {
+  --v-btn-height: var(--pk-touch-glove);
+  min-width: var(--pk-touch-glove);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
