@@ -37,7 +37,7 @@ web/                          npm workspaces
 | Фреймворк | Vue 3 (Composition API, `<script setup>`), TypeScript, Vite |
 | Компоненты | Vuetify 4 (MIT), иконки MDI; `vite-plugin-vuetify` подключает только используемые компоненты |
 | Состояние сервера | TanStack Query: кеш запросов, повторы, инвалидация по событиям WebSocket |
-| Состояние приложения | Pinia: сессия, текущая точка, связь, сопряжение, смена (в кассе) |
+| Состояние приложения | Pinia: текущая точка, связь, сопряжение, смена (в кассе). Сессия (`GET /auth/me`) — данные сервера, поэтому живёт в кеше TanStack Query |
 | Маршрутизация | Vue Router, разделы загружаются по требованию |
 | Клиент API | Типы генерируются из OpenAPI (openapi-typescript), запросы — openapi-fetch |
 | Сканирование | `barcode-detector`: интерфейс BarcodeDetector, внутри ZXing на WebAssembly (EAN, Code 128, QR, DataMatrix, PDF417) |
