@@ -1052,6 +1052,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/locations/{id}/assortment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Ассортиментная матрица точки */
+        get: operations["listAssortment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/assortment/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Добавить вариант в матрицу или изменить минимальный остаток */
+        put: operations["setAssortmentItem"];
+        post?: never;
+        /** Убрать вариант из матрицы */
+        delete: operations["removeAssortmentItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/assortment/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Добавить в матрицу точки варианты из матрицы другой точки
+         * @description Варианты, которые уже есть в матрице, не меняются.
+         */
+        post: operations["copyAssortment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -1084,7 +1144,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -1902,6 +1962,39 @@ export interface components {
             newBrands: string[];
             newLines: string[];
             errors: components["schemas"]["ImportError"][];
+        };
+        AssortmentItem: {
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            productId: string;
+            article: string;
+            name: string;
+            /** Format: int32 */
+            volumeMl?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+            /** @description false — позиция или вариант в архиве */
+            isActive: boolean;
+            /** Format: int32 */
+            minQty: number;
+        };
+        AssortmentList: {
+            items: components["schemas"]["AssortmentItem"][];
+        };
+        AssortmentItemUpdate: {
+            /**
+             * Format: int32
+             * @description Минимальный остаток, штук
+             */
+            minQty: number;
+        };
+        AssortmentCopy: {
+            /** Format: uuid */
+            fromLocationId: string;
+        };
+        AssortmentCopyResult: {
+            added: number;
         };
         RuSubject: {
             /** @example 28 */
@@ -3776,6 +3869,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAssortment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Варианты матрицы по наименованию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssortmentList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setAssortmentItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssortmentItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Сохранено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    removeAssortmentItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Убрано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    copyAssortment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssortmentCopy"];
+            };
+        };
+        responses: {
+            /** @description Сколько вариантов добавлено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssortmentCopyResult"];
                 };
             };
             default: components["responses"]["Problem"];

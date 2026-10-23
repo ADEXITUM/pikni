@@ -4,6 +4,7 @@ import type { components, paths } from './pikni.gen'
 
 export type { Middleware } from 'openapi-fetch'
 
+export type AssortmentItem = components['schemas']['AssortmentItem']
 export type AttributeOption = components['schemas']['AttributeOption']
 export type AttributeType = components['schemas']['AttributeType']
 export type AuditAction = components['schemas']['AuditAction']

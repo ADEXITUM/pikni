@@ -57,13 +57,15 @@ describe('LocationPage', () => {
         data:
           path === '/ru-subjects'
             ? { items: [{ code: '28', name: 'Амурская область' }] }
-            : path === '/locations/{id}/sale-check'
-              ? {
-                  localTime: '2026-10-23T20:30:00+09:00',
-                  strong: { allowed: true, from: '11:00', to: '21:00' },
-                  other: { allowed: false, banDay: 'День знаний' },
-                }
-              : store,
+            : path === '/locations/{id}/assortment' || path === '/locations'
+              ? { items: [] }
+              : path === '/locations/{id}/sale-check'
+                ? {
+                    localTime: '2026-10-23T20:30:00+09:00',
+                    strong: { allowed: true, from: '11:00', to: '21:00' },
+                    other: { allowed: false, banDay: 'День знаний' },
+                  }
+                : store,
         response: new Response(),
       })) as never)
     vi.mocked(api.POST).mockReset()

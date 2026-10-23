@@ -6,6 +6,7 @@ import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { SubmitEventPromise } from 'vuetify'
 
+import AssortmentCard from '@/components/AssortmentCard.vue'
 import OpeningHoursEditor from '@/components/OpeningHoursEditor.vue'
 import { locationKindLabels, russianTimezones, zoneRegisters } from '@/labels'
 import { describeVerdict } from '@/sale'
@@ -332,6 +333,8 @@ async function submit(event: SubmitEventPromise) {
         </v-btn>
       </div>
     </v-form>
+
+    <AssortmentCard v-if="location" :location-id="location.id" :can-edit="canEdit" class="mt-4" />
   </v-container>
 </template>
 

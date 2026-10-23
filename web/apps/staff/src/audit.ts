@@ -34,6 +34,9 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'price.deleted': 'Отмена назначенной цены',
   'min_price.created': 'Новая редакция МРЦ',
   'min_price.deleted': 'Удаление редакции МРЦ',
+  'assortment.set': 'Изменение ассортиментной матрицы',
+  'assortment.removed': 'Удаление из ассортиментной матрицы',
+  'assortment.copied': 'Копирование ассортиментной матрицы',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
@@ -94,6 +97,7 @@ const fieldLabels: Record<string, string> = {
   contactPerson: 'Контактное лицо',
   phone: 'Телефон',
   email: 'Эл. почта',
+  minQty: 'Мин. остаток',
 }
 
 const refEntities: Record<string, string> = {
@@ -125,6 +129,7 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   if (e.entityType === 'product') return `${e.data.article} «${e.data.name}»`
   if (e.entityType === 'variant') return `${e.data.article} «${e.data.name}», ${e.data.variant}`
+  if (e.entityType === 'assortment') return 'матрица ' + String(e.data.location)
   if (e.entityType === 'min_price') return 'МРЦ: ' + String(e.data.group)
   if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
   if (e.entityType && refEntities[e.entityType] && typeof e.data.name === 'string') {
@@ -179,6 +184,22 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
     case 'user.created':
       details.push({ label: 'Роль', value: role(take('role')) })
       details.push({ label: 'Точки', value: places(take('locationIds')) })
+      break
+    case 'assortment.set':
+    case 'assortment.removed':
+      take('location')
+      take('name')
+      details.push({
+        label: 'Позиция',
+        value: `${String(e.data.article)} ${String(e.data.name)}, ${String(e.data.variant)}`,
+      })
+      if (data.minQty !== undefined)
+        details.push({ label: 'Мин. остаток', value: String(take('minQty')) })
+      break
+    case 'assortment.copied':
+      take('location')
+      details.push({ label: 'Из точки', value: String(take('from')) })
+      details.push({ label: 'Добавлено вариантов', value: String(take('added')) })
       break
     case 'price.created':
     case 'price.deleted':
