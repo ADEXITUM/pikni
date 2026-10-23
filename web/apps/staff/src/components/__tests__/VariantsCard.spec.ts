@@ -35,11 +35,14 @@ const half: Variant = {
   alcocode: '0177207000002463655',
   isActive: true,
   barcodes: [{ code: '4006381333931', kind: 'ean13' }],
+  retailPrice: 299,
+  minPrice: 349,
+  purchasePrice: 210,
 }
 
-async function mountCard(canEdit = true) {
+async function mountCard(canEdit = true, showCost = false) {
   const wrapper = mount(VariantsCard, {
-    props: { productId: 'p1', isEgais: true, canEdit },
+    props: { productId: 'p1', isEgais: true, canEdit, showCost },
     global: {
       plugins: [createPikniVuetify(), [VueQueryPlugin, { queryClient: new QueryClient() }]],
       stubs: { VDialog: DialogStub },
@@ -61,7 +64,9 @@ describe('VariantsCard', () => {
                   { ml: 700, isActive: true },
                 ],
               }
-            : { items: [half] },
+            : path.endsWith('-prices')
+              ? { items: [] }
+              : { items: [half] },
         response: new Response(),
       })) as never)
     vi.mocked(api.POST).mockResolvedValue({
@@ -114,6 +119,32 @@ describe('VariantsCard', () => {
     await flushPromises()
     expect(api.DELETE).toHaveBeenCalledWith('/barcodes/{code}', {
       params: { path: { code: '4006381333931' } },
+    })
+  })
+
+  it('цена ниже МРЦ подсвечена, закупка — только с правом cost.view', async () => {
+    const seller = await mountCard(false)
+    const row = seller.find('[data-test="variant-v1"]')
+    expect(row.find('[data-test="below-min"]').text()).toContain('ниже МРЦ')
+    expect(row.text()).not.toContain('210')
+
+    const manager = await mountCard(true, true)
+    expect(manager.find('[data-test="variant-v1"]').text()).toContain('210')
+  })
+
+  it('назначает розничную цену из окна цен', async () => {
+    const wrapper = await mountCard()
+
+    await wrapper.find('[data-test="variant-price"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="min-price"]').text()).toContain('МРЦ сейчас')
+    await wrapper.find('[data-test="price-value"] input').setValue('449,90')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(api.POST).toHaveBeenCalledWith('/variants/{id}/retail-prices', {
+      params: { path: { id: 'v1' } },
+      body: { price: 449.9, validFrom: undefined },
     })
   })
 })

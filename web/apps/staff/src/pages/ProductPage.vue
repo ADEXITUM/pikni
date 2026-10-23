@@ -31,6 +31,7 @@ const router = useRouter()
 const queryClient = useQueryClient()
 const { data: me } = useMe()
 const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? false)
+const showCost = computed(() => me.value?.permissions.includes('cost.view') ?? false)
 
 const isNew = computed(() => route.name === 'product-new')
 const id = computed(() => String(route.params.id ?? ''))
@@ -464,6 +465,7 @@ async function submit(event: SubmitEventPromise) {
       :product-id="product.id"
       :is-egais="Boolean(product.kindCode)"
       :can-edit="canEdit"
+      :show-cost="showCost"
       class="mt-4"
     />
     <p v-else-if="isNew" class="text-body-2 text-medium-emphasis mt-4">

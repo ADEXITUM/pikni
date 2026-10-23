@@ -4,6 +4,7 @@ import {
   type Brand,
   type Country,
   type EgaisWriteoffType,
+  type MinPrice,
   type OriginRegion,
   type Problem,
   type Producer,
@@ -23,6 +24,7 @@ export interface RefField {
   optional?: boolean
   createOnly?: boolean
   hint?: string
+  inputType?: 'date' | 'number'
 }
 
 // Колбэки объявлены методами: так конфиг конкретного справочника, например RefConfig<Producer>,
@@ -39,6 +41,9 @@ export interface RefConfig<Row> {
   toForm?(row: Row): RefValues
   create?(values: RefValues): Promise<unknown>
   update?(row: Row, values: RefValues): Promise<unknown>
+  // Удалить можно только то, что ещё не использовалось: например, будущую редакцию МРЦ.
+  remove?(row: Row): Promise<unknown>
+  canRemove?(row: Row): boolean
 }
 
 async function call<T>(request: Promise<{ data?: T; error?: Problem }>): Promise<T> {
@@ -76,6 +81,7 @@ export function buildRefs(lookup: {
   countries: () => Country[]
   producers: () => Producer[]
   brands: () => Brand[]
+  kinds: () => ProductKind[]
 }): RefConfig<object>[] {
   const countryName = (code: string) =>
     lookup.countries().find((c) => c.code === code)?.name ?? code
@@ -312,6 +318,77 @@ export function buildRefs(lookup: {
       ),
   }
 
+  const number = (v: unknown) => (text(v) === '' ? undefined : Number(text(v).replace(',', '.')))
+  const today = new Date().toLocaleDateString('sv')
+  const minPrices: RefConfig<MinPrice> = {
+    key: 'min-prices',
+    title: 'МРЦ',
+    rowKey: (r) => r.id,
+    load: async () => (await call(api.GET('/min-prices'))).items,
+    columns: [
+      {
+        key: 'kindCode',
+        title: 'Вид продукции',
+        value: (r) =>
+          `${r.kindCode} — ${lookup.kinds().find((k) => k.code === r.kindCode)?.name ?? ''}`,
+      },
+      {
+        key: 'validFrom',
+        title: 'Действует с',
+        value: (r) => new Date(`${r.validFrom}T00:00`).toLocaleDateString('ru'),
+      },
+      {
+        key: 'price',
+        title: 'Цена',
+        value: (r) =>
+          `${r.price.toLocaleString('ru', { style: 'currency', currency: 'RUB' })} за ${formatVolume(r.volumeMl)}` +
+          (r.abv ? ` при ${r.abv} %` : ''),
+      },
+      { key: 'abvOver', title: 'Крепче', value: (r) => (r.abvOver ? `${r.abvOver} %` : '') },
+      { key: 'source', title: 'Основание' },
+    ],
+    fields: [
+      {
+        key: 'kindCode',
+        label: 'Вид продукции',
+        type: 'select',
+        items: () => lookup.kinds().map((k) => ({ value: k.code, title: `${k.code} — ${k.name}` })),
+      },
+      { key: 'validFrom', label: 'Действует с', inputType: 'date' },
+      { key: 'price', label: 'Цена, ₽', hint: 'За эталонный объём' },
+      { key: 'volumeMl', label: 'Эталонный объём, мл', hint: 'Обычно 500' },
+      {
+        key: 'abv',
+        label: 'Эталонная крепость, %',
+        optional: true,
+        hint: 'Если указана, цена пересчитывается и по крепости',
+      },
+      {
+        key: 'abvOver',
+        label: 'Только крепче, %',
+        optional: true,
+        hint: 'Например, 28 — для продукции крепче 28 %',
+      },
+      { key: 'source', label: 'Основание', hint: 'Приказ Минфина России' },
+    ],
+    create: (v) =>
+      call(
+        api.POST('/min-prices', {
+          body: {
+            kindCode: text(v.kindCode),
+            validFrom: text(v.validFrom),
+            price: number(v.price) ?? 0,
+            volumeMl: number(v.volumeMl) ?? 0,
+            abv: number(v.abv),
+            abvOver: number(v.abvOver),
+            source: text(v.source),
+          },
+        }),
+      ),
+    remove: (r) => call(api.DELETE('/min-prices/{id}', { params: { path: { id: r.id } } })),
+    canRemove: (r) => r.validFrom > today,
+  }
+
   const countries: RefConfig<Country> = {
     key: 'countries',
     title: 'Страны',
@@ -332,6 +409,7 @@ export function buildRefs(lookup: {
     productKinds,
     volumes,
     writeoffReasons,
+    minPrices,
     countries,
   ]
 }

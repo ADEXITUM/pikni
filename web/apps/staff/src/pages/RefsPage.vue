@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
 import RefTable from '@/components/RefTable.vue'
-import { brandsQuery, countriesQuery, producersQuery } from '@/queries'
+import { brandsQuery, countriesQuery, producersQuery, productKindsQuery } from '@/queries'
 import { buildRefs } from '@/refs'
 import { useMe } from '@/session'
 
@@ -14,11 +14,13 @@ const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? fa
 const { data: countries } = useQuery(countriesQuery)
 const { data: producers } = useQuery(producersQuery)
 const { data: brands } = useQuery(brandsQuery)
+const { data: kinds } = useQuery(productKindsQuery)
 
 const refs = buildRefs({
   countries: () => countries.value ?? [],
   producers: () => producers.value ?? [],
   brands: () => brands.value ?? [],
+  kinds: () => kinds.value ?? [],
 })
 const tab = ref(refs[0]!.key)
 </script>

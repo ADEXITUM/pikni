@@ -5,11 +5,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
 import BarcodeDialog from '@/components/BarcodeDialog.vue'
+import PricesDialog from '@/components/PricesDialog.vue'
 import VariantDialog from '@/components/VariantDialog.vue'
 import VariantGenerateDialog from '@/components/VariantGenerateDialog.vue'
-import { variantLabel } from '@/products'
+import { formatPrice, variantLabel } from '@/products'
 
-const props = defineProps<{ productId: string; isEgais: boolean; canEdit: boolean }>()
+const props = defineProps<{
+  productId: string
+  isEgais: boolean
+  canEdit: boolean
+  showCost: boolean
+}>()
 
 const queryClient = useQueryClient()
 const key = computed(() => ['variants', props.productId])
@@ -33,6 +39,7 @@ const refresh = () => queryClient.invalidateQueries({ queryKey: key.value })
 const variantOpen = ref(false)
 const generateOpen = ref(false)
 const barcodeOpen = ref(false)
+const pricesOpen = ref(false)
 const target = ref<Variant>()
 const generated = ref<number>()
 
@@ -44,6 +51,13 @@ function addBarcode(v: Variant) {
   target.value = v
   barcodeOpen.value = true
 }
+function openPrices(v: Variant) {
+  target.value = v
+  pricesOpen.value = true
+}
+// Цена ниже МРЦ бывает, если МРЦ подняли после назначения цены: касса такую продажу не пропустит.
+const belowMin = (v: Variant) =>
+  v.retailPrice !== undefined && v.minPrice !== undefined && v.retailPrice < v.minPrice
 function onGenerated(n: number) {
   generated.value = n
   refresh()
@@ -107,6 +121,8 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
             <th v-if="isEgais">Алкокод</th>
             <th>GTIN</th>
             <th>Штрихкоды</th>
+            <th class="text-end">Цена</th>
+            <th v-if="showCost" class="text-end">Закупка</th>
             <th v-if="canEdit"></th>
           </tr>
         </thead>
@@ -117,7 +133,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
             :class="{ 'text-disabled': !v.isActive }"
             :data-test="`variant-${v.id}`"
           >
-            <td>
+            <td class="pk-variant">
               {{ variantLabel(v) }}
               <v-chip v-if="!v.isActive" size="x-small" class="ml-1">в архиве</v-chip>
             </td>
@@ -138,6 +154,30 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
                 </v-chip>
                 <span v-if="!v.barcodes.length" class="text-medium-emphasis">—</span>
               </div>
+            </td>
+            <td class="text-end text-no-wrap">
+              <v-btn
+                variant="text"
+                size="small"
+                :color="belowMin(v) ? 'error' : undefined"
+                title="История цен"
+                data-test="variant-price"
+                @click="openPrices(v)"
+              >
+                {{
+                  v.retailPrice !== undefined
+                    ? formatPrice(v.retailPrice)
+                    : canEdit
+                      ? 'назначить'
+                      : '—'
+                }}
+              </v-btn>
+              <div v-if="belowMin(v)" class="text-caption text-error" data-test="below-min">
+                ниже МРЦ {{ formatPrice(v.minPrice!) }}
+              </div>
+            </td>
+            <td v-if="showCost" class="text-end text-no-wrap">
+              {{ v.purchasePrice !== undefined ? formatPrice(v.purchasePrice) : '—' }}
             </td>
             <td v-if="canEdit" class="text-end text-no-wrap">
               <v-btn
@@ -170,5 +210,18 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
     />
     <VariantGenerateDialog v-model="generateOpen" :product-id="productId" @saved="onGenerated" />
     <BarcodeDialog v-model="barcodeOpen" :variant="target" @saved="refresh" />
+    <PricesDialog
+      v-model="pricesOpen"
+      :variant="target"
+      :can-edit="canEdit"
+      :show-purchase="showCost"
+      @saved="refresh"
+    />
   </v-card>
 </template>
+
+<style scoped>
+.pk-variant {
+  min-width: 150px;
+}
+</style>

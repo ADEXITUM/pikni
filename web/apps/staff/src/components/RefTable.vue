@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="Row extends object">
-import { mdiMagnify, mdiPlus } from '@mdi/js'
+import { mdiDeleteOutline, mdiMagnify, mdiPlus } from '@mdi/js'
 import { ApiError } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref } from 'vue'
@@ -22,12 +22,19 @@ const {
 })
 
 const search = ref('')
+const editable = computed(() => props.canEdit && props.config.fields !== undefined)
+const removable = computed(() => props.canEdit && props.config.remove !== undefined)
+
 const headers = computed(() => [
   ...props.config.columns.map((c) => ({ title: c.title, key: c.key, value: c.value })),
   ...(props.config.hasActive ? [{ title: 'Статус', key: 'isActive', sortable: false }] : []),
+  ...(removable.value ? [{ title: '', key: 'actions', sortable: false }] : []),
 ])
 
-const editable = computed(() => props.canEdit && props.config.fields !== undefined)
+const { mutate: remove, error: removeError } = useMutation({
+  mutationFn: (row: Row) => props.config.remove!(row),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: key.value }),
+})
 const dialog = ref(false)
 const editing = ref<Row | null>(null)
 const form = reactive<RefValues>({})
@@ -95,6 +102,7 @@ async function submit(event: SubmitEventPromise) {
     </div>
 
     <v-alert v-if="isError" type="error" class="mb-3">{{ error?.message }}</v-alert>
+    <v-alert v-if="removeError" type="error" class="mb-3">{{ removeError.message }}</v-alert>
 
     <v-card>
       <v-data-table
@@ -113,6 +121,17 @@ async function submit(event: SubmitEventPromise) {
           <v-chip size="small" :color="value ? 'success' : undefined">
             {{ value ? 'используется' : 'в архиве' }}
           </v-chip>
+        </template>
+        <template #[`item.actions`]="{ item }">
+          <v-btn
+            v-if="config.canRemove?.(item) ?? true"
+            :icon="mdiDeleteOutline"
+            variant="text"
+            size="small"
+            title="Удалить"
+            data-test="ref-remove"
+            @click.stop="remove(item)"
+          />
         </template>
       </v-data-table>
     </v-card>
@@ -136,6 +155,7 @@ async function submit(event: SubmitEventPromise) {
                 :label="f.label"
                 :hint="f.hint"
                 persistent-hint
+                :type="f.inputType ?? 'text'"
                 :rules="f.optional ? [] : [required]"
                 :data-test="`field-${f.key}`"
                 class="mb-3"

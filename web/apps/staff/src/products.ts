@@ -12,6 +12,9 @@ export const accountingLabels: Record<EgaisAccounting | 'none', string> = {
 
 export const formatAbv = (abv: number) => `${abv.toLocaleString('ru')} %`
 
+export const formatPrice = (rubles: number) =>
+  rubles.toLocaleString('ru', { style: 'currency', currency: 'RUB' })
+
 // Как сервер понял поисковую строку.
 export const scanLabels: Record<ScanKind, string> = {
   barcode: 'штрихкод',

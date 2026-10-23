@@ -859,6 +859,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/variants/{id}/retail-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** История розничных цен */
+        get: operations["listRetailPrices"];
+        put?: never;
+        /**
+         * Назначить розничную цену
+         * @description Цена не ниже МРЦ на дату начала действия. Можно назначить заранее, но не задним числом.
+         */
+        post: operations["setRetailPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}/purchase-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** История закупочных цен */
+        get: operations["listPurchasePrices"];
+        put?: never;
+        /**
+         * Назначить закупочную цену
+         * @description Можно назначить заранее, но не задним числом.
+         */
+        post: operations["setPurchasePrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Отменить цену, назначенную на будущее
+         * @description Действующие и прошлые цены не удаляются — это история.
+         */
+        delete: operations["deletePrice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/min-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** МРЦ — минимальные розничные цены Минфина */
+        get: operations["listMinPrices"];
+        put?: never;
+        /** Добавить редакцию МРЦ */
+        post: operations["createMinPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/min-prices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить редакцию МРЦ, которая ещё не вступила в силу */
+        delete: operations["deleteMinPrice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -891,7 +992,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -1532,6 +1633,21 @@ export interface components {
             productId: string;
             isActive: boolean;
             barcodes: components["schemas"]["Barcode"][];
+            /**
+             * Format: double
+             * @description Действующая розничная цена
+             */
+            retailPrice?: number;
+            /**
+             * Format: double
+             * @description Действующая МРЦ для этого объёма и крепости
+             */
+            minPrice?: number;
+            /**
+             * Format: double
+             * @description Действующая закупочная цена; только при праве cost.view
+             */
+            purchasePrice?: number;
         };
         VariantList: {
             items: components["schemas"]["Variant"][];
@@ -1547,6 +1663,77 @@ export interface components {
             /** @description Пустой список — варианты без тары */
             containers: components["schemas"]["Container"][];
             giftPack: boolean;
+        };
+        NewMinPrice: {
+            /** @example 200 */
+            kindCode: string;
+            /** Format: date */
+            validFrom: string;
+            /**
+             * Format: double
+             * @description Цена эталонного объёма, рубли
+             * @example 349
+             */
+            price: number;
+            /**
+             * Format: int32
+             * @description Эталонный объём; для другого объёма цена пересчитывается пропорционально
+             * @example 500
+             */
+            volumeMl: number;
+            /**
+             * Format: double
+             * @description Эталонная крепость; если задана, цена пересчитывается и по крепости
+             * @example 40
+             */
+            abv?: number;
+            /**
+             * Format: double
+             * @description Правило действует только для продукции крепче этого значения
+             * @example 28
+             */
+            abvOver?: number;
+            /** @description Приказ Минфина — основание */
+            source: string;
+        };
+        MinPrice: components["schemas"]["NewMinPrice"] & {
+            /** Format: uuid */
+            id: string;
+        };
+        MinPriceList: {
+            items: components["schemas"]["MinPrice"][];
+        };
+        /**
+         * @description retail — розничная, purchase — закупочная по умолчанию
+         * @enum {string}
+         */
+        PriceKind: "retail" | "purchase";
+        NewPrice: {
+            /**
+             * Format: double
+             * @description Рубли с копейками
+             * @example 449.9
+             */
+            price: number;
+            /**
+             * Format: date-time
+             * @description С какого момента действует; без него — сразу
+             */
+            validFrom?: string;
+        };
+        Price: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["PriceKind"];
+            /** Format: double */
+            price: number;
+            /** Format: date-time */
+            validFrom: string;
+            /** @description Кто назначил */
+            setBy?: string;
+        };
+        PriceList: {
+            items: components["schemas"]["Price"][];
         };
         RuSubject: {
             /** @example 28 */
@@ -3072,6 +3259,194 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Штрихкод отвязан */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRetailPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Цены от новых к старым, включая назначенные на будущее */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setRetailPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPrice"];
+            };
+        };
+        responses: {
+            /** @description Цена назначена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Price"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPurchasePrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Цены от новых к старым, включая назначенные на будущее */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setPurchasePrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPrice"];
+            };
+        };
+        responses: {
+            /** @description Цена назначена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Price"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deletePrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Цена отменена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMinPrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Редакции по видам продукции, от новых к старым */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinPriceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createMinPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMinPrice"];
+            };
+        };
+        responses: {
+            /** @description Редакция добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinPrice"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteMinPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Редакция удалена */
             204: {
                 headers: {
                     [name: string]: unknown;
