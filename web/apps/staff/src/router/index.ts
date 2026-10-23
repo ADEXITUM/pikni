@@ -26,6 +26,12 @@ const router = createRouter({
       meta: { title: 'Точки сети', permission: 'refs.view' },
     },
     {
+      path: '/users',
+      name: 'users',
+      component: () => import('@/pages/UsersPage.vue'),
+      meta: { title: 'Сотрудники', permission: 'users.manage' },
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/pages/ProfilePage.vue'),
