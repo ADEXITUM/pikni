@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -15,14 +17,16 @@ import (
 const (
 	CookieName = "pikni_sid"
 	CSRFHeader = "X-CSRF-Token"
+
+	// Значение x-permission для операций, которым достаточно входа. Только они
+	// доступны, пока не сменён временный пароль.
+	anyUser = "authenticated"
 )
 
-// Имена операций в том виде, в каком их передаёт сгенерированный strict-сервер.
-// Операция, которой нет в publicOperations, требует сессию.
-var (
-	publicOperations            = map[string]bool{"Login": true}
-	temporaryPasswordOperations = map[string]bool{"GetMe": true, "Logout": true, "ChangePassword": true}
-)
+type operation struct {
+	public     bool
+	permission apispec.Permission
+}
 
 type ctxKey int
 
@@ -41,25 +45,71 @@ func ClientFrom(ctx context.Context) Client {
 	return c
 }
 
-func (s *Service) Middleware(next apispec.StrictHandlerFunc, operationID string) apispec.StrictHandlerFunc {
-	return func(c *echo.Context, request any) (any, error) {
-		req := c.Request()
-		ctx := context.WithValue(req.Context(), clientKey, Client{IP: c.RealIP(), UserAgent: req.UserAgent()})
-
-		if !publicOperations[operationID] {
-			sess, err := s.sessionFor(ctx, c, operationID)
-			if err != nil {
-				return nil, err
-			}
-			ctx = context.WithValue(ctx, sessionKey, sess)
-		}
-
-		c.SetRequest(req.WithContext(ctx))
-		return next(c, request)
+// Middleware проверяет каждый запрос по контракту: security: [] — операция открыта,
+// иначе нужны сессия и право из x-permission.
+func (s *Service) Middleware() (apispec.StrictMiddlewareFunc, error) {
+	ops, err := loadOperations()
+	if err != nil {
+		return nil, fmt.Errorf("load operations from spec: %w", err)
 	}
+
+	return func(next apispec.StrictHandlerFunc, operationID string) apispec.StrictHandlerFunc {
+		// Strict-сервер передаёт имя в Go-стиле (GetMe), в контракте оно getMe.
+		op, known := ops[strings.ToLower(operationID)]
+
+		return func(c *echo.Context, request any) (any, error) {
+			if !known {
+				return nil, fmt.Errorf("operation %s is not in the spec", operationID)
+			}
+			req := c.Request()
+			ctx := context.WithValue(req.Context(), clientKey, Client{IP: c.RealIP(), UserAgent: req.UserAgent()})
+
+			if !op.public {
+				sess, err := s.sessionFor(ctx, c)
+				if err != nil {
+					return nil, err
+				}
+				if err := authorize(sess, op); err != nil {
+					return nil, err
+				}
+				ctx = context.WithValue(ctx, sessionKey, sess)
+			}
+
+			c.SetRequest(req.WithContext(ctx))
+			return next(c, request)
+		}
+	}, nil
 }
 
-func (s *Service) sessionFor(ctx context.Context, c *echo.Context, operationID string) (Session, error) {
+func loadOperations() (map[string]operation, error) {
+	spec, err := apispec.GetSpec()
+	if err != nil {
+		return nil, err
+	}
+
+	ops := map[string]operation{}
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			var o operation
+			if op.Security != nil && len(*op.Security) == 0 {
+				o.public = true
+			} else {
+				p, _ := op.Extensions["x-permission"].(string)
+				switch {
+				case p == anyUser:
+				case apispec.Permission(p).Valid():
+					o.permission = apispec.Permission(p)
+				default:
+					return nil, fmt.Errorf("%s %s: x-permission %q is missing or unknown", method, path, p)
+				}
+			}
+			ops[strings.ToLower(op.OperationID)] = o
+		}
+	}
+	return ops, nil
+}
+
+func (s *Service) sessionFor(ctx context.Context, c *echo.Context) (Session, error) {
 	cookie, err := c.Cookie(CookieName)
 	if err != nil {
 		return Session{}, echo.ErrUnauthorized
@@ -80,11 +130,20 @@ func (s *Service) sessionFor(ctx context.Context, c *echo.Context, operationID s
 			return Session{}, echo.NewHTTPError(http.StatusForbidden, "Обновите страницу и повторите действие")
 		}
 	}
-
-	if sess.MustChangePassword && !temporaryPasswordOperations[operationID] {
-		return Session{}, echo.NewHTTPError(http.StatusForbidden, "Сначала смените временный пароль")
-	}
 	return sess, nil
+}
+
+func authorize(sess Session, op operation) error {
+	if op.permission == "" {
+		return nil
+	}
+	if sess.MustChangePassword {
+		return echo.NewHTTPError(http.StatusForbidden, "Сначала смените временный пароль")
+	}
+	if scopeOf(sess.Role, op.permission) == scopeNone {
+		return echo.ErrForbidden
+	}
+	return nil
 }
 
 // RateLimit — 10 запросов в минуту с одного IP. Счётчики живут в памяти экземпляра,

@@ -25,8 +25,12 @@ type API struct {
 
 var _ apispec.StrictServerInterface = (*API)(nil)
 
-func Register(e *echo.Echo, pool *pgxpool.Pool) {
+func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 	sessions := auth.NewService(pool)
+	authorize, err := sessions.Middleware()
+	if err != nil {
+		return err
+	}
 	api := &API{
 		authHandler:      auth.NewHandler(sessions),
 		locationsHandler: locations.NewHandler(locations.NewService(locstore.New(pool))),
@@ -34,7 +38,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) {
 
 	limit := auth.RateLimit()
 	apispec.RegisterHandlersWithOptions(e,
-		apispec.NewStrictHandler(api, []apispec.StrictMiddlewareFunc{sessions.Middleware}),
+		apispec.NewStrictHandler(api, []apispec.StrictMiddlewareFunc{authorize}),
 		apispec.RegisterHandlersOptions{
 			BaseURL: "/api/v1",
 			OperationMiddlewares: map[string][]echo.MiddlewareFunc{
@@ -42,4 +46,5 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) {
 				"changePassword": {limit},
 			},
 		})
+	return nil
 }

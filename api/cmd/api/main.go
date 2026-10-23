@@ -77,7 +77,9 @@ func run() error {
 	httpx.RegisterHealth(e, version)
 	httpx.RegisterReady(e, log, map[string]httpx.Check{"database": pool.Ping})
 
-	app.Register(e, pool)
+	if err := app.Register(e, pool); err != nil {
+		return err
+	}
 
 	sc := echo.StartConfig{
 		Address:         cfg.HTTPAddr,

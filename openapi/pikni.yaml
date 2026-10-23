@@ -40,6 +40,7 @@ paths:
       operationId: logout
       summary: Выход
       tags: [auth]
+      x-permission: authenticated
       responses:
         "204":
           description: Сессия завершена
@@ -54,6 +55,7 @@ paths:
       operationId: getMe
       summary: Текущий пользователь и CSRF-токен сессии
       tags: [auth]
+      x-permission: authenticated
       responses:
         "200":
           description: Сессия действительна
@@ -68,6 +70,7 @@ paths:
     post:
       operationId: changePassword
       summary: Смена своего пароля
+      x-permission: authenticated
       description: Остальные сессии пользователя завершаются.
       tags: [auth]
       requestBody:
@@ -87,6 +90,7 @@ paths:
       operationId: listLocations
       summary: Точки сети
       tags: [locations]
+      x-permission: refs.view
       responses:
         "200":
           description: Склады и магазины, упорядоченные по коду
@@ -106,6 +110,7 @@ components:
       description: >
         Cookie сессии, выдаётся при входе. Изменяющие запросы (POST, PUT, PATCH, DELETE)
         дополнительно передают заголовок X-CSRF-Token со значением csrfToken из ответа входа или /auth/me.
+        Право, нужное операции, указано в расширении x-permission (authenticated — любой вошедший пользователь).
 
   headers:
     SessionCookie:
@@ -125,6 +130,35 @@ components:
     Role:
       type: string
       enum: [admin, manager, accountant, store_manager, storekeeper, cashier]
+
+    Permission:
+      type: string
+      description: Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
+      enum:
+        - users.manage
+        - refs.view
+        - refs.edit
+        - cost.view
+        - receipt.view
+        - receipt.edit
+        - floor.view
+        - floor.edit
+        - transfer.request
+        - transfer.view
+        - transfer.edit
+        - pos.view
+        - pos.sell
+        - writeoff.create
+        - docs.approve
+        - stocktake.manage
+        - stocktake.count
+        - reservations.manage
+        - availability.view
+        - egais.reconcile
+        - assets.view
+        - assets.edit
+        - reports.view
+        - audit.view
 
     LoginRequest:
       type: object
@@ -152,7 +186,7 @@ components:
 
     Me:
       type: object
-      required: [id, login, fullName, role, mustChangePassword, csrfToken]
+      required: [id, login, fullName, role, mustChangePassword, csrfToken, permissions, locationIds]
       properties:
         id:
           type: string
@@ -169,6 +203,17 @@ components:
           description: Вход по временному паролю; до смены доступны только /auth/*
         csrfToken:
           type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          description: Точки, с которыми работает пользователь. Для ролей уровня сети – все точки
+          items:
+            type: string
+            format: uuid
 
     LocationKind:
       type: string

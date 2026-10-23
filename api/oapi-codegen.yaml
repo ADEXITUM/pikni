@@ -8,3 +8,5 @@ generate:
   embedded-spec: true
 output-options:
   name-normalizer: ToCamelCaseWithInitialisms
+compatibility:
+  always-prefix-enum-values: true

@@ -1,7 +1,8 @@
 -- name: GetUserByLogin :one
-select id, login, full_name, role, password_hash, must_change_password, is_blocked, locked_until
-from users
-where lower(login) = lower(@login);
+select u.id, u.login, u.full_name, u.role, u.password_hash, u.must_change_password, u.is_blocked, u.locked_until,
+       array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
+from users u
+where lower(u.login) = lower(@login);
 
 -- name: RecordFailedLogin :exec
 -- Счётчик обнуляется в момент блокировки: после неё снова доступно max_attempts попыток.
@@ -25,7 +26,8 @@ returning id;
 
 -- name: GetSession :one
 select s.id, s.user_id, s.csrf_token, s.last_seen_at, s.expires_at,
-       u.login, u.full_name, u.role, u.must_change_password, u.is_blocked
+       u.login, u.full_name, u.role, u.must_change_password, u.is_blocked,
+       array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
 from sessions s
 join users u on u.id = s.user_id
 where s.token_hash = @token_hash;
@@ -56,3 +58,8 @@ set password_hash        = @password_hash,
     version              = version + 1,
     updated_at           = now()
 where id = @id;
+
+-- name: ListLocationIDs :many
+select id
+from locations
+order by code;

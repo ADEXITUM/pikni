@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/auth/store"
 )
@@ -51,6 +52,7 @@ type Session struct {
 	Role               string
 	MustChangePassword bool
 	CSRFToken          string
+	LocationIDs        []uuid.UUID
 }
 
 type Client struct {
@@ -119,6 +121,7 @@ func (s *Service) Login(ctx context.Context, login, plain string, client Client)
 		Role:               u.Role,
 		MustChangePassword: u.MustChangePassword,
 		CSRFToken:          rand.Text(),
+		LocationIDs:        u.LocationIDs,
 	}
 	sess.ID, err = s.q.CreateSession(ctx, store.CreateSessionParams{
 		UserID:     u.ID,
@@ -166,7 +169,16 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		Role:               row.Role,
 		MustChangePassword: row.MustChangePassword,
 		CSRFToken:          row.CSRFToken,
+		LocationIDs:        row.LocationIDs,
 	}, nil
+}
+
+// WorkLocations — точки, между которыми пользователь выбирает в интерфейсе.
+func (s *Service) WorkLocations(ctx context.Context, sess Session) ([]uuid.UUID, error) {
+	if networkRoles[apispec.Role(sess.Role)] {
+		return s.q.ListLocationIDs(ctx)
+	}
+	return sess.LocationIDs, nil
 }
 
 func (s *Service) Logout(ctx context.Context, sess Session) error {

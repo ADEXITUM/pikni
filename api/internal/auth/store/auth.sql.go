@@ -85,7 +85,8 @@ func (q *Queries) GetPasswordHash(ctx context.Context, id uuid.UUID) (string, er
 
 const getSession = `-- name: GetSession :one
 select s.id, s.user_id, s.csrf_token, s.last_seen_at, s.expires_at,
-       u.login, u.full_name, u.role, u.must_change_password, u.is_blocked
+       u.login, u.full_name, u.role, u.must_change_password, u.is_blocked,
+       array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
 from sessions s
 join users u on u.id = s.user_id
 where s.token_hash = $1
@@ -102,6 +103,7 @@ type GetSessionRow struct {
 	Role               string
 	MustChangePassword bool
 	IsBlocked          bool
+	LocationIDs        []uuid.UUID
 }
 
 func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionRow, error) {
@@ -118,14 +120,16 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 		&i.Role,
 		&i.MustChangePassword,
 		&i.IsBlocked,
+		&i.LocationIDs,
 	)
 	return i, err
 }
 
 const getUserByLogin = `-- name: GetUserByLogin :one
-select id, login, full_name, role, password_hash, must_change_password, is_blocked, locked_until
-from users
-where lower(login) = lower($1)
+select u.id, u.login, u.full_name, u.role, u.password_hash, u.must_change_password, u.is_blocked, u.locked_until,
+       array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
+from users u
+where lower(u.login) = lower($1)
 `
 
 type GetUserByLoginRow struct {
@@ -137,6 +141,7 @@ type GetUserByLoginRow struct {
 	MustChangePassword bool
 	IsBlocked          bool
 	LockedUntil        *time.Time
+	LocationIDs        []uuid.UUID
 }
 
 func (q *Queries) GetUserByLogin(ctx context.Context, login string) (GetUserByLoginRow, error) {
@@ -151,8 +156,35 @@ func (q *Queries) GetUserByLogin(ctx context.Context, login string) (GetUserByLo
 		&i.MustChangePassword,
 		&i.IsBlocked,
 		&i.LockedUntil,
+		&i.LocationIDs,
 	)
 	return i, err
+}
+
+const listLocationIDs = `-- name: ListLocationIDs :many
+select id
+from locations
+order by code
+`
+
+func (q *Queries) ListLocationIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listLocationIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const recordFailedLogin = `-- name: RecordFailedLogin :exec

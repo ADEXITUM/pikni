@@ -7,14 +7,17 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/app"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
+	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/platform/dbtest"
 	"github.com/ADEXITUM/pikni/api/internal/platform/httpx"
 	"github.com/ADEXITUM/pikni/api/internal/users"
@@ -33,7 +36,9 @@ func newBrowser(t *testing.T) (*browser, *dbtest.DB) {
 	t.Helper()
 	db := dbtest.New(t)
 	e := httpx.NewServer(slog.New(slog.DiscardHandler), "pikni-test")
-	app.Register(e, db.App)
+	if err := app.Register(e, db.App); err != nil {
+		t.Fatal(err)
+	}
 	return &browser{t: t, e: e, header: http.Header{}}, db
 }
 
@@ -102,7 +107,8 @@ func TestAuthFlow(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&me); err != nil {
 		t.Fatal(err)
 	}
-	if !me.MustChangePassword || me.CsrfToken == "" || me.Role != "admin" {
+	if !me.MustChangePassword || me.CsrfToken == "" || me.Role != apispec.RoleAdmin ||
+		!slices.Contains(me.Permissions, apispec.PermissionUsersManage) {
 		t.Errorf("me = %+v", me)
 	}
 
@@ -120,6 +126,61 @@ func TestAuthFlow(t *testing.T) {
 		t.Errorf("logout cookie MaxAge = %d, want deletion", c.MaxAge)
 	}
 	b.do(http.MethodGet, "/auth/me", nil, http.StatusUnauthorized)
+}
+
+func TestMeShowsWorkLocations(t *testing.T) {
+	t.Parallel()
+	b, db := newBrowser(t)
+	ctx := t.Context()
+
+	hash, err := password.Hash("пароль-сотрудника")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var store uuid.UUID
+	err = db.App.QueryRow(ctx, `
+		with locs as (
+			insert into locations (code, name, kind, city, timezone) values
+				('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk'),
+				('МГ-02', 'Магазин 2', 'store', 'Хабаровск', 'Asia/Vladivostok')
+			returning id, code
+		), staff as (
+			insert into users (login, full_name, role, password_hash, must_change_password)
+			values ('kassir', 'Кассир', 'cashier', $1, false), ('boss', 'Руководитель', 'manager', $1, false)
+			returning id, role
+		), bind as (
+			insert into user_locations (user_id, location_id)
+			select staff.id, locs.id from staff, locs where staff.role = 'cashier' and locs.code = 'МГ-01'
+		)
+		select id from locs where code = 'МГ-01'`, hash).Scan(&store)
+	if err != nil {
+		t.Fatalf("prepare data: %v", err)
+	}
+
+	tests := []struct {
+		login     string
+		locations int
+		sells     bool
+	}{
+		{"kassir", 1, true},
+		{"boss", 2, false},
+	}
+	for _, tt := range tests {
+		rec := b.do(http.MethodPost, "/auth/login", map[string]string{"login": tt.login, "password": "пароль-сотрудника"}, http.StatusOK)
+		var me apispec.Me
+		if err := json.NewDecoder(rec.Body).Decode(&me); err != nil {
+			t.Fatal(err)
+		}
+		if len(me.LocationIDs) != tt.locations || slices.Contains(me.Permissions, apispec.PermissionPosSell) != tt.sells {
+			t.Errorf("%s: locationIds=%v permissions=%v", tt.login, me.LocationIDs, me.Permissions)
+		}
+		if tt.login == "kassir" && me.LocationIDs[0] != store {
+			t.Errorf("cashier location = %s, want %s", me.LocationIDs[0], store)
+		}
+
+		b.cookie = sessionCookie(t, rec)
+		b.do(http.MethodGet, "/locations", nil, http.StatusOK)
+	}
 }
 
 func TestLoginRateLimit(t *testing.T) {

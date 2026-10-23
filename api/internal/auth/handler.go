@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
@@ -38,9 +39,13 @@ func (h *Handler) Login(ctx context.Context, req apispec.LoginRequestObject) (ap
 		return nil, err
 	}
 
+	me, err := h.me(ctx, sess)
+	if err != nil {
+		return nil, err
+	}
 	cookie := sessionCookie(token, int(sessionLifetime.Seconds()))
 	return apispec.Login200JSONResponse{
-		Body:    toMe(sess),
+		Body:    me,
 		Headers: apispec.Login200ResponseHeaders{SetCookie: &cookie},
 	}, nil
 }
@@ -56,7 +61,11 @@ func (h *Handler) Logout(ctx context.Context, _ apispec.LogoutRequestObject) (ap
 
 func (h *Handler) GetMe(ctx context.Context, _ apispec.GetMeRequestObject) (apispec.GetMeResponseObject, error) {
 	sess, _ := FromContext(ctx)
-	return apispec.GetMe200JSONResponse(toMe(sess)), nil
+	me, err := h.me(ctx, sess)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.GetMe200JSONResponse(me), nil
 }
 
 var changePasswordErrors = map[error]string{
@@ -81,7 +90,11 @@ func (h *Handler) ChangePassword(ctx context.Context, req apispec.ChangePassword
 	return apispec.ChangePassword204Response{}, nil
 }
 
-func toMe(s Session) apispec.Me {
+func (h *Handler) me(ctx context.Context, s Session) (apispec.Me, error) {
+	locations, err := h.svc.WorkLocations(ctx, s)
+	if err != nil {
+		return apispec.Me{}, err
+	}
 	return apispec.Me{
 		ID:                 s.UserID,
 		Login:              s.Login,
@@ -89,5 +102,8 @@ func toMe(s Session) apispec.Me {
 		Role:               apispec.Role(s.Role),
 		MustChangePassword: s.MustChangePassword,
 		CsrfToken:          s.CSRFToken,
-	}
+		Permissions:        permissionsOf(s.Role),
+		// В JSON — [], а не null.
+		LocationIDs: append([]uuid.UUID{}, locations...),
+	}, nil
 }

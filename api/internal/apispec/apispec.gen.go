@@ -22,16 +22,100 @@ import (
 
 // Defines values for LocationKind.
 const (
-	Store     LocationKind = "store"
-	Warehouse LocationKind = "warehouse"
+	LocationKindStore     LocationKind = "store"
+	LocationKindWarehouse LocationKind = "warehouse"
 )
 
 // Valid indicates whether the value is a known member of the LocationKind enum.
 func (e LocationKind) Valid() bool {
 	switch e {
-	case Store:
+	case LocationKindStore:
 		return true
-	case Warehouse:
+	case LocationKindWarehouse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Permission.
+const (
+	PermissionAssetsEdit         Permission = "assets.edit"
+	PermissionAssetsView         Permission = "assets.view"
+	PermissionAuditView          Permission = "audit.view"
+	PermissionAvailabilityView   Permission = "availability.view"
+	PermissionCostView           Permission = "cost.view"
+	PermissionDocsApprove        Permission = "docs.approve"
+	PermissionEgaisReconcile     Permission = "egais.reconcile"
+	PermissionFloorEdit          Permission = "floor.edit"
+	PermissionFloorView          Permission = "floor.view"
+	PermissionPosSell            Permission = "pos.sell"
+	PermissionPosView            Permission = "pos.view"
+	PermissionReceiptEdit        Permission = "receipt.edit"
+	PermissionReceiptView        Permission = "receipt.view"
+	PermissionRefsEdit           Permission = "refs.edit"
+	PermissionRefsView           Permission = "refs.view"
+	PermissionReportsView        Permission = "reports.view"
+	PermissionReservationsManage Permission = "reservations.manage"
+	PermissionStocktakeCount     Permission = "stocktake.count"
+	PermissionStocktakeManage    Permission = "stocktake.manage"
+	PermissionTransferEdit       Permission = "transfer.edit"
+	PermissionTransferRequest    Permission = "transfer.request"
+	PermissionTransferView       Permission = "transfer.view"
+	PermissionUsersManage        Permission = "users.manage"
+	PermissionWriteoffCreate     Permission = "writeoff.create"
+)
+
+// Valid indicates whether the value is a known member of the Permission enum.
+func (e Permission) Valid() bool {
+	switch e {
+	case PermissionAssetsEdit:
+		return true
+	case PermissionAssetsView:
+		return true
+	case PermissionAuditView:
+		return true
+	case PermissionAvailabilityView:
+		return true
+	case PermissionCostView:
+		return true
+	case PermissionDocsApprove:
+		return true
+	case PermissionEgaisReconcile:
+		return true
+	case PermissionFloorEdit:
+		return true
+	case PermissionFloorView:
+		return true
+	case PermissionPosSell:
+		return true
+	case PermissionPosView:
+		return true
+	case PermissionReceiptEdit:
+		return true
+	case PermissionReceiptView:
+		return true
+	case PermissionRefsEdit:
+		return true
+	case PermissionRefsView:
+		return true
+	case PermissionReportsView:
+		return true
+	case PermissionReservationsManage:
+		return true
+	case PermissionStocktakeCount:
+		return true
+	case PermissionStocktakeManage:
+		return true
+	case PermissionTransferEdit:
+		return true
+	case PermissionTransferRequest:
+		return true
+	case PermissionTransferView:
+		return true
+	case PermissionUsersManage:
+		return true
+	case PermissionWriteoffCreate:
 		return true
 	default:
 		return false
@@ -40,28 +124,28 @@ func (e LocationKind) Valid() bool {
 
 // Defines values for Role.
 const (
-	Accountant   Role = "accountant"
-	Admin        Role = "admin"
-	Cashier      Role = "cashier"
-	Manager      Role = "manager"
-	StoreManager Role = "store_manager"
-	Storekeeper  Role = "storekeeper"
+	RoleAccountant   Role = "accountant"
+	RoleAdmin        Role = "admin"
+	RoleCashier      Role = "cashier"
+	RoleManager      Role = "manager"
+	RoleStoreManager Role = "store_manager"
+	RoleStorekeeper  Role = "storekeeper"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
 func (e Role) Valid() bool {
 	switch e {
-	case Accountant:
+	case RoleAccountant:
 		return true
-	case Admin:
+	case RoleAdmin:
 		return true
-	case Cashier:
+	case RoleCashier:
 		return true
-	case Manager:
+	case RoleManager:
 		return true
-	case StoreManager:
+	case RoleStoreManager:
 		return true
-	case Storekeeper:
+	case RoleStorekeeper:
 		return true
 	default:
 		return false
@@ -115,12 +199,19 @@ type Me struct {
 	// FullName Example: Петрова А. В.
 	FullName string             `json:"fullName"`
 	ID       openapi_types.UUID `json:"id"`
-	Login    string             `json:"login"`
+
+	// LocationIDs Точки, с которыми работает пользователь. Для ролей уровня сети – все точки
+	LocationIDs []openapi_types.UUID `json:"locationIds"`
+	Login       string               `json:"login"`
 
 	// MustChangePassword Вход по временному паролю; до смены доступны только /auth/*
-	MustChangePassword bool `json:"mustChangePassword"`
-	Role               Role `json:"role"`
+	MustChangePassword bool         `json:"mustChangePassword"`
+	Permissions        []Permission `json:"permissions"`
+	Role               Role         `json:"role"`
 }
+
+// Permission Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
+type Permission string
 
 // Problem defines model for Problem.
 type Problem struct {
@@ -652,33 +743,41 @@ func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"DYrv6PX1c3Tj5sZ/BwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

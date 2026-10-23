@@ -98,6 +98,11 @@ export interface components {
     schemas: {
         /** @enum {string} */
         Role: "admin" | "manager" | "accountant" | "store_manager" | "storekeeper" | "cashier";
+        /**
+         * @description Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
+         * @enum {string}
+         */
+        Permission: "users.manage" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
         LoginRequest: {
             /** @example petrova */
             login: string;
@@ -120,6 +125,9 @@ export interface components {
             /** @description Вход по временному паролю; до смены доступны только /auth/* */
             mustChangePassword: boolean;
             csrfToken: string;
+            permissions: components["schemas"]["Permission"][];
+            /** @description Точки, с которыми работает пользователь. Для ролей уровня сети – все точки */
+            locationIds: string[];
         };
         /** @enum {string} */
         LocationKind: "warehouse" | "store";

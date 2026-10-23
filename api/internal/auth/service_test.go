@@ -3,11 +3,9 @@ package auth
 import (
 	"bytes"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/platform/dbtest"
 )
@@ -226,42 +224,4 @@ func TestChangePassword(t *testing.T) {
 	if _, _, err := svc.Login(ctx, "petrova", "новый-пароль", Client{}); err != nil {
 		t.Errorf("login with new password: %v", err)
 	}
-}
-
-// Списки операций в middleware должны совпадать с контрактом, иначе метод
-// окажется открытым без входа или недоступным после него.
-func TestOperationListsMatchSpec(t *testing.T) {
-	spec, err := apispec.GetSpec()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	inSpec := map[string]bool{}
-	for path, item := range spec.Paths.Map() {
-		for method, op := range item.Operations() {
-			name := strings.ToLower(op.OperationID)
-			inSpec[name] = true
-			publicInSpec := op.Security != nil && len(*op.Security) == 0
-			if publicInSpec != hasFold(publicOperations, name) {
-				t.Errorf("%s %s: public in spec = %v, in publicOperations = %v", method, path, publicInSpec, !publicInSpec)
-			}
-		}
-	}
-
-	for _, list := range []map[string]bool{publicOperations, temporaryPasswordOperations} {
-		for name := range list {
-			if !inSpec[strings.ToLower(name)] {
-				t.Errorf("operation %s is not in the spec", name)
-			}
-		}
-	}
-}
-
-func hasFold(set map[string]bool, name string) bool {
-	for k := range set {
-		if strings.EqualFold(k, name) {
-			return true
-		}
-	}
-	return false
 }
