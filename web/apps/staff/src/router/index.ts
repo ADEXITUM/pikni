@@ -32,6 +32,12 @@ const router = createRouter({
       meta: { title: 'Сотрудники', permission: 'users.manage' },
     },
     {
+      path: '/audit',
+      name: 'audit',
+      component: () => import('@/pages/AuditPage.vue'),
+      meta: { title: 'Журнал действий', permission: 'audit.view' },
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/pages/ProfilePage.vue'),
