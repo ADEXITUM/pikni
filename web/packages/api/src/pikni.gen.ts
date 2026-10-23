@@ -960,6 +960,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Поставщики */
+        get: operations["listSuppliers"];
+        put?: never;
+        /** Добавить поставщика */
+        post: operations["createSupplier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suppliers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить поставщика */
+        put: operations["updateSupplier"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -1341,6 +1376,11 @@ export interface components {
             /** @example Водка */
             name: string;
             egaisAccounting: components["schemas"]["EgaisAccounting"];
+            /**
+             * @description Группа МРЦ, если для вида есть минимальная цена
+             * @example Водка
+             */
+            minPriceGroup?: string;
         };
         ProductKindList: {
             items: components["schemas"]["ProductKind"][];
@@ -1664,15 +1704,34 @@ export interface components {
             containers: components["schemas"]["Container"][];
             giftPack: boolean;
         };
+        MinPriceGroup: {
+            /** @example vodka */
+            code: string;
+            /** @example Водка */
+            name: string;
+        };
+        /** @description Полоса крепости одной редакции МРЦ — строка приложения к приказу Минфина */
         NewMinPrice: {
-            /** @example 200 */
-            kindCode: string;
+            /** @example vodka */
+            groupCode: string;
             /** Format: date */
             validFrom: string;
             /**
              * Format: double
+             * @description Крепость «свыше», %; 0 — цена не зависит от крепости
+             * @example 39
+             */
+            abvFrom: number;
+            /**
+             * Format: double
+             * @description Крепость «до … включительно», %; пусто — без верхней границы
+             * @example 40
+             */
+            abvTo?: number;
+            /**
+             * Format: double
              * @description Цена эталонного объёма, рубли
-             * @example 349
+             * @example 409
              */
             price: number;
             /**
@@ -1682,26 +1741,22 @@ export interface components {
              */
             volumeMl: number;
             /**
-             * Format: double
-             * @description Эталонная крепость; если задана, цена пересчитывается и по крепости
-             * @example 40
+             * Format: int32
+             * @description Тара свыше этого объёма и до эталонного стоит как эталонная (у водки — 375)
+             * @example 375
              */
-            abv?: number;
-            /**
-             * Format: double
-             * @description Правило действует только для продукции крепче этого значения
-             * @example 28
-             */
-            abvOver?: number;
+            samePriceOverMl?: number;
             /** @description Приказ Минфина — основание */
             source: string;
         };
         MinPrice: components["schemas"]["NewMinPrice"] & {
             /** Format: uuid */
             id: string;
+            groupName: string;
         };
         MinPriceList: {
             items: components["schemas"]["MinPrice"][];
+            groups: components["schemas"]["MinPriceGroup"][];
         };
         /**
          * @description retail — розничная, purchase — закупочная по умолчанию
@@ -1734,6 +1789,45 @@ export interface components {
         };
         PriceList: {
             items: components["schemas"]["Price"][];
+        };
+        /**
+         * @description Режим приёмки (СО-2) — по документу, по коробам, выборочно, поштучно
+         * @enum {string}
+         */
+        ReceivingMode: "document" | "boxes" | "sample" | "piece";
+        SupplierContacts: {
+            /** @example Иванова Мария, менеджер */
+            person?: string;
+            /** @example +7 4162 00-00-00 */
+            phone?: string;
+            /** @example sales@example.ru */
+            email?: string;
+        };
+        SupplierFields: {
+            /** @example ООО «Амур-Дистрибуция» */
+            name: string;
+            /** @description 10 цифр у организации, 12 — у предпринимателя; контрольные цифры проверяются */
+            inn: string;
+            /** @description 9 цифр; у предпринимателя КПП нет */
+            kpp?: string;
+            /** @description 12 цифр */
+            fsrarId?: string;
+            licenseNo?: string;
+            /** Format: date */
+            licenseValidTo?: string;
+            defaultReceivingMode: components["schemas"]["ReceivingMode"];
+            contacts: components["schemas"]["SupplierContacts"];
+        };
+        Supplier: components["schemas"]["SupplierFields"] & {
+            /** Format: uuid */
+            id: string;
+            isActive: boolean;
+        };
+        SupplierUpdate: components["schemas"]["SupplierFields"] & {
+            isActive: boolean;
+        };
+        SupplierList: {
+            items: components["schemas"]["Supplier"][];
         };
         RuSubject: {
             /** @example 28 */
@@ -3452,6 +3546,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listSuppliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Поставщики по названию */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierFields"];
+            };
+        };
+        responses: {
+            /** @description Поставщик добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateSupplier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierUpdate"];
+            };
+        };
+        responses: {
+            /** @description Поставщик изменён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
             };
             default: components["responses"]["Problem"];
         };

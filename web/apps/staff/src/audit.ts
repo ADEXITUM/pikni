@@ -89,6 +89,11 @@ const fieldLabels: Record<string, string> = {
   attributes: 'Характеристики',
   alcocode: 'Алкокод',
   gtin: 'GTIN',
+  inn: 'ИНН',
+  receivingMode: 'Режим приёмки',
+  contactPerson: 'Контактное лицо',
+  phone: 'Телефон',
+  email: 'Эл. почта',
 }
 
 const refEntities: Record<string, string> = {
@@ -98,6 +103,7 @@ const refEntities: Record<string, string> = {
   volume: 'объём',
   writeoff_reason: 'причина списания',
   product_line: 'линейка',
+  supplier: 'поставщик',
   category: 'категория',
   category_attribute: 'характеристика',
 }
@@ -119,7 +125,7 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   if (e.entityType === 'product') return `${e.data.article} «${e.data.name}»`
   if (e.entityType === 'variant') return `${e.data.article} «${e.data.name}», ${e.data.variant}`
-  if (e.entityType === 'min_price') return 'МРЦ, вид ' + String(e.data.kindCode)
+  if (e.entityType === 'min_price') return 'МРЦ: ' + String(e.data.group)
   if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
   if (e.entityType && refEntities[e.entityType] && typeof e.data.name === 'string') {
     return `${refEntities[e.entityType]} «${e.data.name}»`
@@ -184,8 +190,13 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
       break
     case 'min_price.created':
     case 'min_price.deleted':
-      take('kindCode')
-      details.push({ label: 'Цена за эталонный объём', value: String(take('price')) })
+      take('group')
+      details.push({ label: 'Крепость свыше, %', value: String(take('abvFrom')) })
+      details.push({ label: 'До, %', value: String(take('abvTo') ?? 'без границы') })
+      details.push({
+        label: 'Цена',
+        value: String(take('price')) + ' за ' + String(take('volumeMl')) + ' мл',
+      })
       details.push({ label: 'Действует с', value: String(take('validFrom')) })
       if (data.source) details.push({ label: 'Основание', value: String(take('source')) })
       break

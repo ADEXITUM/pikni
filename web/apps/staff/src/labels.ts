@@ -1,4 +1,4 @@
-import type { LocationKind, Role, SaleScope, ZoneKind } from '@pikni/api'
+import type { LocationKind, ReceivingMode, Role, SaleScope, ZoneKind } from '@pikni/api'
 
 export const roleLabels: Record<Role, string> = {
   admin: 'Администратор',
@@ -42,4 +42,12 @@ export const russianTimezones = [
 export const saleScopeLabels: Record<SaleScope, string> = {
   all: 'Вся алкогольная продукция',
   strong: 'Крепче 15 %',
+}
+
+// Режимы приёмки (СО-2).
+export const receivingModeLabels: Record<ReceivingMode, string> = {
+  document: 'по документу',
+  boxes: 'по коробам',
+  sample: 'выборочно',
+  piece: 'поштучно',
 }

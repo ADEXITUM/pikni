@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { api, ApiError } from '@pikni/api'
 import { useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
@@ -15,12 +16,23 @@ const { data: countries } = useQuery(countriesQuery)
 const { data: producers } = useQuery(producersQuery)
 const { data: brands } = useQuery(brandsQuery)
 const { data: kinds } = useQuery(productKindsQuery)
+// Группы МРЦ приходят вместе с редакциями; список нужен для выбора группы в новой редакции.
+const { data: minPriceGroups } = useQuery({
+  queryKey: ['min-price-groups'],
+  queryFn: async () => {
+    const { data, error } = await api.GET('/min-prices')
+    if (error) throw new ApiError(error)
+    return data.groups
+  },
+  staleTime: Infinity,
+})
 
 const refs = buildRefs({
   countries: () => countries.value ?? [],
   producers: () => producers.value ?? [],
   brands: () => brands.value ?? [],
   kinds: () => kinds.value ?? [],
+  minPriceGroups: () => minPriceGroups.value ?? [],
 })
 const tab = ref(refs[0]!.key)
 </script>

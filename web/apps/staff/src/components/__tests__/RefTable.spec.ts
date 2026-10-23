@@ -91,6 +91,32 @@ describe('RefTable', () => {
   })
 })
 
+describe('RefTable: значения по умолчанию и удаление', () => {
+  it('новая запись получает initial, удалить можно только разрешённое', async () => {
+    const remove = vi.fn<NonNullable<RefConfig<Row>['remove']>>().mockResolvedValue(undefined)
+    const c = config({
+      load: async () => [
+        { id: '1', name: 'Действует', isActive: true },
+        { id: '2', name: 'Будущая', isActive: true },
+      ],
+      fields: [{ key: 'name', label: 'Название', initial: 'по умолчанию' }],
+      remove,
+      canRemove: (r) => r.id === '2',
+    })
+    const wrapper = await mountTable(c)
+
+    const buttons = wrapper.findAll('[data-test="ref-remove"]')
+    expect(buttons).toHaveLength(1)
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+    expect(remove).toHaveBeenCalledWith(expect.objectContaining({ id: '2' }))
+
+    await wrapper.find('[data-test="ref-add"]').trigger('click')
+    const input = wrapper.find('[data-test="field-name"] input')
+    expect((input.element as HTMLInputElement).value).toBe('по умолчанию')
+  })
+})
+
 describe('formatVolume', () => {
   it.each([
     [250, '0,25 л'],

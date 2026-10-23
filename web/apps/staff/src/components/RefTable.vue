@@ -42,7 +42,7 @@ const form = reactive<RefValues>({})
 function open(row: Row | null) {
   editing.value = row
   for (const f of props.config.fields ?? [])
-    form[f.key] = row ? (props.config.toForm?.(row)[f.key] ?? '') : ''
+    form[f.key] = row ? (props.config.toForm?.(row)[f.key] ?? '') : (f.initial ?? '')
   form.isActive = row ? ((row as { isActive?: boolean }).isActive ?? true) : true
   reset()
   dialog.value = true

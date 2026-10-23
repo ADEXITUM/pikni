@@ -5,14 +5,19 @@ import {
   type Country,
   type EgaisWriteoffType,
   type MinPrice,
+  type MinPriceGroup,
   type OriginRegion,
   type Problem,
   type Producer,
   type ProductKind,
   type ProductLine,
+  type ReceivingMode,
+  type Supplier,
   type Volume,
   type WriteoffReason,
 } from '@pikni/api'
+
+import { receivingModeLabels } from '@/labels'
 
 export type RefValues = Record<string, unknown>
 
@@ -25,6 +30,8 @@ export interface RefField {
   createOnly?: boolean
   hint?: string
   inputType?: 'date' | 'number'
+  // Значение в форме новой записи.
+  initial?: string
 }
 
 // Колбэки объявлены методами: так конфиг конкретного справочника, например RefConfig<Producer>,
@@ -55,6 +62,19 @@ async function call<T>(request: Promise<{ data?: T; error?: Problem }>): Promise
 const text = (v: unknown) => String(v ?? '').trim()
 const optional = (v: unknown) => text(v) || undefined
 
+function supplierBody(v: RefValues) {
+  return {
+    name: text(v.name),
+    inn: text(v.inn),
+    kpp: optional(v.kpp),
+    fsrarId: optional(v.fsrarId),
+    licenseNo: optional(v.licenseNo),
+    licenseValidTo: optional(v.licenseValidTo),
+    defaultReceivingMode: text(v.defaultReceivingMode) as ReceivingMode,
+    contacts: { person: optional(v.person), phone: optional(v.phone), email: optional(v.email) },
+  }
+}
+
 export function formatVolume(ml: number): string {
   return `${(ml / 1000).toLocaleString('ru')} л`
 }
@@ -82,6 +102,7 @@ export function buildRefs(lookup: {
   producers: () => Producer[]
   brands: () => Brand[]
   kinds: () => ProductKind[]
+  minPriceGroups: () => MinPriceGroup[]
 }): RefConfig<object>[] {
   const countryName = (code: string) =>
     lookup.countries().find((c) => c.code === code)?.name ?? code
@@ -249,6 +270,7 @@ export function buildRefs(lookup: {
         title: 'Учёт в ЕГАИС',
         value: (k) => (k.egaisAccounting === 'marked' ? 'помарочный' : 'по количеству'),
       },
+      { key: 'minPriceGroup', title: 'Группа МРЦ', value: (k) => k.minPriceGroup ?? '' },
     ],
   }
 
@@ -320,54 +342,64 @@ export function buildRefs(lookup: {
 
   const number = (v: unknown) => (text(v) === '' ? undefined : Number(text(v).replace(',', '.')))
   const today = new Date().toLocaleDateString('sv')
+  // Полоса крепости как в приказе Минфина: «свыше 39 до 40 %».
+  const abvBand = (r: MinPrice) =>
+    !r.abvFrom && r.abvTo === undefined
+      ? 'любая'
+      : `свыше ${r.abvFrom}` + (r.abvTo === undefined ? ' %' : ` до ${r.abvTo} %`)
   const minPrices: RefConfig<MinPrice> = {
     key: 'min-prices',
     title: 'МРЦ',
     rowKey: (r) => r.id,
     load: async () => (await call(api.GET('/min-prices'))).items,
     columns: [
-      {
-        key: 'kindCode',
-        title: 'Вид продукции',
-        value: (r) =>
-          `${r.kindCode} — ${lookup.kinds().find((k) => k.code === r.kindCode)?.name ?? ''}`,
-      },
+      { key: 'groupName', title: 'Группа' },
       {
         key: 'validFrom',
         title: 'Действует с',
         value: (r) => new Date(`${r.validFrom}T00:00`).toLocaleDateString('ru'),
       },
+      { key: 'abvFrom', title: 'Крепость', value: abvBand },
       {
         key: 'price',
         title: 'Цена',
         value: (r) =>
-          `${r.price.toLocaleString('ru', { style: 'currency', currency: 'RUB' })} за ${formatVolume(r.volumeMl)}` +
-          (r.abv ? ` при ${r.abv} %` : ''),
+          `${r.price.toLocaleString('ru', { style: 'currency', currency: 'RUB' })} за ${formatVolume(r.volumeMl)}`,
       },
-      { key: 'abvOver', title: 'Крепче', value: (r) => (r.abvOver ? `${r.abvOver} %` : '') },
       { key: 'source', title: 'Основание' },
     ],
     fields: [
       {
-        key: 'kindCode',
-        label: 'Вид продукции',
+        key: 'groupCode',
+        label: 'Группа продукции',
         type: 'select',
-        items: () => lookup.kinds().map((k) => ({ value: k.code, title: `${k.code} — ${k.name}` })),
+        items: () => lookup.minPriceGroups().map((g) => ({ value: g.code, title: g.name })),
       },
       { key: 'validFrom', label: 'Действует с', inputType: 'date' },
-      { key: 'price', label: 'Цена, ₽', hint: 'За эталонный объём' },
-      { key: 'volumeMl', label: 'Эталонный объём, мл', hint: 'Обычно 500' },
       {
-        key: 'abv',
-        label: 'Эталонная крепость, %',
-        optional: true,
-        hint: 'Если указана, цена пересчитывается и по крепости',
+        key: 'abvFrom',
+        label: 'Крепость свыше, %',
+        hint: '0 — цена не зависит от крепости',
+        initial: '0',
       },
       {
-        key: 'abvOver',
-        label: 'Только крепче, %',
+        key: 'abvTo',
+        label: 'До … включительно, %',
         optional: true,
-        hint: 'Например, 28 — для продукции крепче 28 %',
+        hint: 'Пусто — без верхней границы',
+      },
+      { key: 'price', label: 'Цена, ₽', hint: 'За эталонный объём' },
+      {
+        key: 'volumeMl',
+        label: 'Эталонный объём, мл',
+        hint: '500; у игристого — 750',
+        initial: '500',
+      },
+      {
+        key: 'samePriceOverMl',
+        label: 'Как эталонный объём, если тара свыше, мл',
+        optional: true,
+        hint: 'У водки 375: тара свыше 0,375 до 0,5 л стоит как 0,5 л',
       },
       { key: 'source', label: 'Основание', hint: 'Приказ Минфина России' },
     ],
@@ -375,18 +407,77 @@ export function buildRefs(lookup: {
       call(
         api.POST('/min-prices', {
           body: {
-            kindCode: text(v.kindCode),
+            groupCode: text(v.groupCode),
             validFrom: text(v.validFrom),
+            abvFrom: number(v.abvFrom) ?? 0,
+            abvTo: number(v.abvTo),
             price: number(v.price) ?? 0,
             volumeMl: number(v.volumeMl) ?? 0,
-            abv: number(v.abv),
-            abvOver: number(v.abvOver),
+            samePriceOverMl: number(v.samePriceOverMl),
             source: text(v.source),
           },
         }),
       ),
     remove: (r) => call(api.DELETE('/min-prices/{id}', { params: { path: { id: r.id } } })),
     canRemove: (r) => r.validFrom > today,
+  }
+
+  const suppliers: RefConfig<Supplier> = {
+    key: 'suppliers',
+    title: 'Поставщики',
+    rowKey: (s) => s.id,
+    load: async () => (await call(api.GET('/suppliers'))).items,
+    columns: [
+      { key: 'name', title: 'Поставщик' },
+      { key: 'inn', title: 'ИНН' },
+      { key: 'kpp', title: 'КПП' },
+      { key: 'fsrarId', title: 'ФСРАР ID' },
+      {
+        key: 'defaultReceivingMode',
+        title: 'Приёмка',
+        value: (s) => receivingModeLabels[s.defaultReceivingMode],
+      },
+    ],
+    fields: [
+      { key: 'name', label: 'Название' },
+      { key: 'inn', label: 'ИНН', hint: '10 цифр у организации, 12 — у предпринимателя' },
+      { key: 'kpp', label: 'КПП', optional: true, hint: 'У предпринимателя нет' },
+      { key: 'fsrarId', label: 'ФСРАР ID', optional: true, hint: '12 цифр' },
+      { key: 'licenseNo', label: 'Номер лицензии', optional: true },
+      { key: 'licenseValidTo', label: 'Лицензия действует до', optional: true, inputType: 'date' },
+      {
+        key: 'defaultReceivingMode',
+        label: 'Режим приёмки по умолчанию',
+        type: 'select',
+        initial: 'piece',
+        items: () =>
+          Object.entries(receivingModeLabels).map(([value, title]) => ({ value, title })),
+      },
+      { key: 'person', label: 'Контактное лицо', optional: true },
+      { key: 'phone', label: 'Телефон', optional: true },
+      { key: 'email', label: 'Эл. почта', optional: true },
+    ],
+    hasActive: true,
+    toForm: (s) => ({
+      name: s.name,
+      inn: s.inn,
+      kpp: s.kpp ?? '',
+      fsrarId: s.fsrarId ?? '',
+      licenseNo: s.licenseNo ?? '',
+      licenseValidTo: s.licenseValidTo ?? '',
+      defaultReceivingMode: s.defaultReceivingMode,
+      person: s.contacts.person ?? '',
+      phone: s.contacts.phone ?? '',
+      email: s.contacts.email ?? '',
+    }),
+    create: (v) => call(api.POST('/suppliers', { body: supplierBody(v) })),
+    update: (s, v) =>
+      call(
+        api.PUT('/suppliers/{id}', {
+          params: { path: { id: s.id } },
+          body: { ...supplierBody(v), isActive: Boolean(v.isActive) },
+        }),
+      ),
   }
 
   const countries: RefConfig<Country> = {
@@ -402,6 +493,7 @@ export function buildRefs(lookup: {
   }
 
   return [
+    suppliers,
     producers,
     brands,
     productLines,
