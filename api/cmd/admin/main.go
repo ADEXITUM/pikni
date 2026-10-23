@@ -62,7 +62,7 @@ func run(args []string) error {
 	case "create-admin":
 		temporary, err = svc.CreateAdmin(ctx, *login, *name)
 	case "reset-password":
-		temporary, err = svc.ResetPassword(ctx, *login)
+		temporary, err = svc.ResetPasswordByLogin(ctx, *login)
 	}
 	if err != nil {
 		return err

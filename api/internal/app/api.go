@@ -9,6 +9,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	locstore "github.com/ADEXITUM/pikni/api/internal/locations/store"
+	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
 // Псевдонимы нужны, чтобы встроить обработчики разных модулей с одинаковым
@@ -17,6 +18,7 @@ type (
 	auditHandler     = audit.Handler
 	authHandler      = auth.Handler
 	locationsHandler = locations.Handler
+	usersHandler     = users.Handler
 )
 
 // API собирает обработчики модулей в одну реализацию сгенерированного интерфейса.
@@ -24,6 +26,7 @@ type API struct {
 	*auditHandler
 	*authHandler
 	*locationsHandler
+	*usersHandler
 }
 
 var _ apispec.StrictServerInterface = (*API)(nil)
@@ -38,6 +41,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
 		locationsHandler: locations.NewHandler(locations.NewService(locstore.New(pool))),
+		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}
 
 	limit := auth.RateLimit()

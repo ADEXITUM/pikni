@@ -217,6 +217,45 @@ func TestMySessions(t *testing.T) {
 	pc.do(http.MethodDelete, "/auth/sessions/"+uuid.NewString(), nil, http.StatusNotFound)
 }
 
+func TestAdminManagesStaff(t *testing.T) {
+	t.Parallel()
+	admin, db := newBrowser(t)
+	createStaff(t, db, "admin", apispec.RoleAdmin)
+	createStaff(t, db, "boss", apispec.RoleManager)
+	var store uuid.UUID
+	err := db.App.QueryRow(t.Context(), `
+		insert into locations (code, name, kind, city, timezone)
+		values ('МГ-01', 'Магазин 1', 'store', 'Благовещенск', 'Asia/Yakutsk') returning id`).Scan(&store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	boss := &browser{t: t, e: admin.e, header: http.Header{}}
+	boss.login("boss")
+	boss.do(http.MethodGet, "/users", nil, http.StatusForbidden)
+
+	admin.login("admin")
+	rec := admin.do(http.MethodPost, "/users", map[string]any{
+		"login": "kassir", "fullName": "Кассир", "role": "cashier", "locationIds": []uuid.UUID{store},
+	}, http.StatusCreated)
+	var created apispec.CreatedUser
+	if err := json.NewDecoder(rec.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+
+	kassir := &browser{t: t, e: admin.e, header: http.Header{}}
+	rec = kassir.do(http.MethodPost, "/auth/login", map[string]string{"login": "kassir", "password": created.TemporaryPassword}, http.StatusOK)
+	kassir.cookie = sessionCookie(t, rec)
+
+	admin.do(http.MethodPost, "/users/"+created.User.ID.String()+"/block", nil, http.StatusOK)
+	kassir.do(http.MethodGet, "/auth/me", nil, http.StatusUnauthorized)
+	kassir.do(http.MethodPost, "/auth/login", map[string]string{"login": "kassir", "password": created.TemporaryPassword}, http.StatusForbidden)
+
+	admin.do(http.MethodPut, "/users/"+created.User.ID.String(), map[string]any{
+		"fullName": "Кассир", "role": "cashier", "locationIds": []uuid.UUID{store}, "version": created.User.Version,
+	}, http.StatusConflict)
+}
+
 func TestMeShowsWorkLocations(t *testing.T) {
 	t.Parallel()
 	b, db := newBrowser(t)

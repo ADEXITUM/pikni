@@ -123,6 +123,10 @@ var matrix = map[apispec.Role]map[apispec.Permission]scope{
 	},
 }
 
+func NetworkRole(r apispec.Role) bool {
+	return networkRoles[r]
+}
+
 func scopeOf(role string, p apispec.Permission) scope {
 	return matrix[apispec.Role(role)][p]
 }

@@ -192,6 +192,162 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /users:
+    get:
+      operationId: listUsers
+      summary: Сотрудники
+      tags: [users]
+      x-permission: users.manage
+      responses:
+        "200":
+          description: Все сотрудники по алфавиту
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createUser
+      summary: Создать сотрудника
+      description: Пароль генерирует сервер и показывает один раз. При первом входе сотрудник придумывает свой.
+      tags: [users]
+      x-permission: users.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUser"
+      responses:
+        "201":
+          description: Сотрудник создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedUser"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}:
+    put:
+      operationId: updateUser
+      summary: Изменить ФИО, роль и точки
+      description: Оптимистическая блокировка — version из открытой карточки. Если карточку уже изменили, ответ 409.
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Сотрудник изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/block:
+    post:
+      operationId: blockUser
+      summary: Заблокировать сотрудника и завершить его сеансы
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сотрудник заблокирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/unblock:
+    post:
+      operationId: unblockUser
+      summary: Разблокировать сотрудника
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сотрудник разблокирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/password:
+    post:
+      operationId: resetUserPassword
+      summary: Сбросить пароль
+      description: Выдаёт временный пароль, снимает блокировку за ошибки входа и завершает сеансы сотрудника.
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Временный пароль, показывается один раз
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemporaryPassword"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/sessions:
+    delete:
+      operationId: endUserSessions
+      summary: Завершить все сеансы сотрудника
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Сеансы завершены
+        default:
+          $ref: "#/components/responses/Problem"
+
   /locations:
     get:
       operationId: listLocations
@@ -277,6 +433,9 @@ components:
         - auth.password_changed
         - auth.session_ended
         - user.created
+        - user.updated
+        - user.blocked
+        - user.unblocked
         - user.password_reset
 
     AuditEntry:
@@ -363,6 +522,104 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SessionInfo"
+
+    User:
+      type: object
+      required: [id, login, fullName, role, locationIds, isBlocked, mustChangePassword, version, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        fullName:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          items:
+            type: string
+            format: uuid
+        isBlocked:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+        lockedUntil:
+          type: string
+          format: date-time
+          description: Вход временно закрыт после неудачных попыток
+        version:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+
+    UserList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+
+    NewUser:
+      type: object
+      required: [login, fullName, role, locationIds]
+      properties:
+        login:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{3,32}$"
+          example: a.petrova
+        fullName:
+          type: string
+          example: Петрова А. В.
+        role:
+          $ref: "#/components/schemas/Role"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          description: Обязательно для ролей магазина и склада, пусто для ролей уровня сети
+          items:
+            type: string
+            format: uuid
+
+    UserUpdate:
+      type: object
+      required: [fullName, role, locationIds, version]
+      properties:
+        fullName:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          format: int32
+
+    CreatedUser:
+      type: object
+      required: [user, temporaryPassword]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        temporaryPassword:
+          type: string
+
+    TemporaryPassword:
+      type: object
+      required: [temporaryPassword]
+      properties:
+        temporaryPassword:
+          type: string
 
     LoginRequest:
       type: object
