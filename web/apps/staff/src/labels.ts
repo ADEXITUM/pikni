@@ -1,4 +1,4 @@
-import type { LocationKind, Role, ZoneKind } from '@pikni/api'
+import type { LocationKind, Role, SaleScope, ZoneKind } from '@pikni/api'
 
 export const roleLabels: Record<Role, string> = {
   admin: 'Администратор',
@@ -38,3 +38,8 @@ export const russianTimezones = [
   { value: 'Asia/Magadan', title: 'Магадан (UTC+11)' },
   { value: 'Asia/Kamchatka', title: 'Камчатка (UTC+12)' },
 ]
+
+export const saleScopeLabels: Record<SaleScope, string> = {
+  all: 'Вся алкогольная продукция',
+  strong: 'Крепче 15 %',
+}

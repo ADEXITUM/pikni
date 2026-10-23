@@ -304,6 +304,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/locations/{id}/sale-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Можно ли продавать алкоголь в точке
+         * @description Проверка по правилам региона точки и федеральным правилам на момент at (по умолчанию — сейчас), отдельно для продукции крепче 15 % и для остальной алкогольной продукции.
+         */
+        get: operations["checkSale"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Правила продажи алкоголя и дни полного запрета */
+        get: operations["listSaleRules"];
+        put?: never;
+        /**
+         * Добавить редакцию правила продажи
+         * @description Без subjectCode — федеральное правило. Старые редакции не меняются.
+         */
+        post: operations["createSaleRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить редакцию, которая ещё не вступила в силу */
+        delete: operations["deleteSaleRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-bans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Добавить день полного запрета */
+        post: operations["createSaleBan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sale-bans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Удалить день запрета */
+        delete: operations["deleteSaleBan"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -336,7 +428,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -540,6 +632,69 @@ export interface components {
             fri?: components["schemas"]["DayHours"];
             sat?: components["schemas"]["DayHours"];
             sun?: components["schemas"]["DayHours"];
+        };
+        /**
+         * @description all — вся алкогольная продукция, strong — крепче 15 %
+         * @enum {string}
+         */
+        SaleScope: "all" | "strong";
+        NewSaleRule: {
+            /**
+             * @description Не задан — федеральное правило
+             * @example 28
+             */
+            subjectCode?: string;
+            scope: components["schemas"]["SaleScope"];
+            /** Format: date */
+            validFrom: string;
+            /** @example 11:00 */
+            from: string;
+            /** @example 21:00 */
+            to: string;
+            /** @description Закон-основание */
+            source: string;
+        };
+        SaleRule: components["schemas"]["NewSaleRule"] & {
+            /** Format: uuid */
+            id: string;
+        };
+        /** @description Ровно одно из date (разовый запрет) и monthDay (ежегодный, «ММ-ДД») */
+        NewSaleBan: {
+            subjectCode: string;
+            /** @example День знаний */
+            name: string;
+            scope: components["schemas"]["SaleScope"];
+            /** Format: date */
+            date?: string;
+            /** @example 09-01 */
+            monthDay?: string;
+            source: string;
+        };
+        SaleBan: components["schemas"]["NewSaleBan"] & {
+            /** Format: uuid */
+            id: string;
+        };
+        SaleRulebook: {
+            rules: components["schemas"]["SaleRule"][];
+            bans: components["schemas"]["SaleBan"][];
+        };
+        SaleVerdict: {
+            allowed: boolean;
+            /** @description Начало окна продажи на этот день, «ЧЧ:ММ» */
+            from?: string;
+            /** @description Конец окна, не включая */
+            to?: string;
+            /** @description Название дня полного запрета */
+            banDay?: string;
+        };
+        SaleCheck: {
+            /**
+             * @description Местное время точки, на которое проверено
+             * @example 2026-10-23T20:30:00+09:00
+             */
+            localTime: string;
+            strong: components["schemas"]["SaleVerdict"];
+            other: components["schemas"]["SaleVerdict"];
         };
         RuSubject: {
             /** @example 28 */
@@ -1068,6 +1223,144 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Location"];
                 };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    checkSale: {
+        parameters: {
+            query?: {
+                at?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат проверки */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleCheck"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listSaleRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Все редакции правил и дни запрета */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleRulebook"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSaleRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSaleRule"];
+            };
+        };
+        responses: {
+            /** @description Редакция добавлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleRule"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteSaleRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Редакция удалена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSaleBan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSaleBan"];
+            };
+        };
+        responses: {
+            /** @description День запрета добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleBan"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteSaleBan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description День запрета удалён */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

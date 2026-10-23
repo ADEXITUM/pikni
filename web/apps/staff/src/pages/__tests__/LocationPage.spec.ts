@@ -55,7 +55,15 @@ describe('LocationPage', () => {
     vi.mocked(api.GET).mockImplementation(((path: string) =>
       Promise.resolve({
         data:
-          path === '/ru-subjects' ? { items: [{ code: '28', name: 'Амурская область' }] } : store,
+          path === '/ru-subjects'
+            ? { items: [{ code: '28', name: 'Амурская область' }] }
+            : path === '/locations/{id}/sale-check'
+              ? {
+                  localTime: '2026-10-23T20:30:00+09:00',
+                  strong: { allowed: true, from: '11:00', to: '21:00' },
+                  other: { allowed: false, banDay: 'День знаний' },
+                }
+              : store,
         response: new Response(),
       })) as never)
     vi.mocked(api.POST).mockReset()
@@ -66,6 +74,10 @@ describe('LocationPage', () => {
 
     expect(wrapper.text()).toContain('МГ-01 · Магазин на ул. Ленина')
     expect(wrapper.text()).toContain('Торговый зал')
+    const sale = wrapper.find('[data-test="sale-now"]').text()
+    expect(sale).toContain('местное время 20:30')
+    expect(sale).toContain('можно до 21:00')
+    expect(sale).toContain('нельзя весь день: День знаний')
     expect(wrapper.find('[data-test="name"] input').attributes('disabled')).toBeDefined()
     expect(wrapper.find('[data-test="save"]').exists()).toBe(false)
   })

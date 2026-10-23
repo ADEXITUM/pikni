@@ -8,6 +8,7 @@ import type { SubmitEventPromise } from 'vuetify'
 
 import OpeningHoursEditor from '@/components/OpeningHoursEditor.vue'
 import { locationKindLabels, russianTimezones, zoneRegisters } from '@/labels'
+import { describeVerdict } from '@/sale'
 import { useMe } from '@/session'
 
 const route = useRoute()
@@ -31,6 +32,20 @@ const {
     return data
   },
   enabled: computed(() => !isNew.value),
+})
+
+// Обновляется раз в минуту: окно продажи может закрыться, пока страница открыта.
+const { data: sale } = useQuery({
+  queryKey: ['sale-check', id],
+  queryFn: async () => {
+    const { data, error } = await api.GET('/locations/{id}/sale-check', {
+      params: { path: { id: id.value } },
+    })
+    if (error) throw new ApiError(error)
+    return data
+  },
+  enabled: computed(() => !isNew.value),
+  refetchInterval: 60_000,
 })
 
 const { data: subjects } = useQuery({
@@ -166,6 +181,25 @@ async function submit(event: SubmitEventPromise) {
     <v-alert v-if="isError" type="error" title="Не удалось загрузить точку" class="mb-4">
       {{ loadError?.message }}
     </v-alert>
+
+    <v-card v-if="sale" class="mb-4" data-test="sale-now">
+      <v-card-item
+        title="Продажа алкоголя сейчас"
+        :subtitle="`местное время ${sale.localTime.slice(11, 16)}`"
+      />
+      <v-list density="compact">
+        <v-list-item
+          title="Крепче 15 %"
+          :subtitle="describeVerdict(sale.strong)"
+          :base-color="sale.strong.allowed ? 'success' : 'error'"
+        />
+        <v-list-item
+          title="Пиво, вино и прочее до 15 %"
+          :subtitle="describeVerdict(sale.other)"
+          :base-color="sale.other.allowed ? 'success' : 'error'"
+        />
+      </v-list>
+    </v-card>
 
     <v-form v-if="isNew || location" :disabled="!canEdit" @submit.prevent="submit">
       <v-card title="Основное" class="mb-4">

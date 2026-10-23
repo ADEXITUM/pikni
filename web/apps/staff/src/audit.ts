@@ -17,6 +17,10 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'user.password_reset': 'Сброс пароля',
   'location.created': 'Создание точки',
   'location.updated': 'Изменение точки',
+  'sale_rule.created': 'Новая редакция правила продажи',
+  'sale_rule.deleted': 'Удаление редакции правила продажи',
+  'sale_ban.created': 'Новый день запрета продажи',
+  'sale_ban.deleted': 'Удаление дня запрета продажи',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
@@ -69,6 +73,8 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'user') return login ?? e.entityId ?? ''
   if (e.entityType === 'session') return 'сеанс'
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
+  if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
+  if (e.entityType === 'sale_rule') return `регион ${e.data.subjectCode ?? 'РФ'}`
   return ''
 }
 

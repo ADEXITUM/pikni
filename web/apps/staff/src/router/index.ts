@@ -38,6 +38,12 @@ const router = createRouter({
       meta: { title: 'Точка', permission: 'refs.view' },
     },
     {
+      path: '/sale-rules',
+      name: 'sale-rules',
+      component: () => import('@/pages/SaleRulesPage.vue'),
+      meta: { title: 'Правила продажи алкоголя', permission: 'refs.view' },
+    },
+    {
       path: '/users',
       name: 'users',
       component: () => import('@/pages/UsersPage.vue'),
