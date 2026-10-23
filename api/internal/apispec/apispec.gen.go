@@ -10,32 +10,242 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AuditAction.
+const (
+	AuditActionAuthLogin           AuditAction = "auth.login"
+	AuditActionAuthLoginFailed     AuditAction = "auth.login_failed"
+	AuditActionAuthLogout          AuditAction = "auth.logout"
+	AuditActionAuthPasswordChanged AuditAction = "auth.password_changed"
+	AuditActionAuthSessionEnded    AuditAction = "auth.session_ended"
+	AuditActionUserBlocked         AuditAction = "user.blocked"
+	AuditActionUserCreated         AuditAction = "user.created"
+	AuditActionUserPasswordReset   AuditAction = "user.password_reset"
+	AuditActionUserUnblocked       AuditAction = "user.unblocked"
+	AuditActionUserUpdated         AuditAction = "user.updated"
+)
+
+// Valid indicates whether the value is a known member of the AuditAction enum.
+func (e AuditAction) Valid() bool {
+	switch e {
+	case AuditActionAuthLogin:
+		return true
+	case AuditActionAuthLoginFailed:
+		return true
+	case AuditActionAuthLogout:
+		return true
+	case AuditActionAuthPasswordChanged:
+		return true
+	case AuditActionAuthSessionEnded:
+		return true
+	case AuditActionUserBlocked:
+		return true
+	case AuditActionUserCreated:
+		return true
+	case AuditActionUserPasswordReset:
+		return true
+	case AuditActionUserUnblocked:
+		return true
+	case AuditActionUserUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LocationKind.
 const (
-	Store     LocationKind = "store"
-	Warehouse LocationKind = "warehouse"
+	LocationKindStore     LocationKind = "store"
+	LocationKindWarehouse LocationKind = "warehouse"
 )
 
 // Valid indicates whether the value is a known member of the LocationKind enum.
 func (e LocationKind) Valid() bool {
 	switch e {
-	case Store:
+	case LocationKindStore:
 		return true
-	case Warehouse:
+	case LocationKindWarehouse:
 		return true
 	default:
 		return false
 	}
+}
+
+// Defines values for Permission.
+const (
+	PermissionAssetsEdit         Permission = "assets.edit"
+	PermissionAssetsView         Permission = "assets.view"
+	PermissionAuditView          Permission = "audit.view"
+	PermissionAvailabilityView   Permission = "availability.view"
+	PermissionCostView           Permission = "cost.view"
+	PermissionDocsApprove        Permission = "docs.approve"
+	PermissionEgaisReconcile     Permission = "egais.reconcile"
+	PermissionFloorEdit          Permission = "floor.edit"
+	PermissionFloorView          Permission = "floor.view"
+	PermissionPosSell            Permission = "pos.sell"
+	PermissionPosView            Permission = "pos.view"
+	PermissionReceiptEdit        Permission = "receipt.edit"
+	PermissionReceiptView        Permission = "receipt.view"
+	PermissionRefsEdit           Permission = "refs.edit"
+	PermissionRefsView           Permission = "refs.view"
+	PermissionReportsView        Permission = "reports.view"
+	PermissionReservationsManage Permission = "reservations.manage"
+	PermissionStocktakeCount     Permission = "stocktake.count"
+	PermissionStocktakeManage    Permission = "stocktake.manage"
+	PermissionTransferEdit       Permission = "transfer.edit"
+	PermissionTransferRequest    Permission = "transfer.request"
+	PermissionTransferView       Permission = "transfer.view"
+	PermissionUsersManage        Permission = "users.manage"
+	PermissionUsersView          Permission = "users.view"
+	PermissionWriteoffCreate     Permission = "writeoff.create"
+)
+
+// Valid indicates whether the value is a known member of the Permission enum.
+func (e Permission) Valid() bool {
+	switch e {
+	case PermissionAssetsEdit:
+		return true
+	case PermissionAssetsView:
+		return true
+	case PermissionAuditView:
+		return true
+	case PermissionAvailabilityView:
+		return true
+	case PermissionCostView:
+		return true
+	case PermissionDocsApprove:
+		return true
+	case PermissionEgaisReconcile:
+		return true
+	case PermissionFloorEdit:
+		return true
+	case PermissionFloorView:
+		return true
+	case PermissionPosSell:
+		return true
+	case PermissionPosView:
+		return true
+	case PermissionReceiptEdit:
+		return true
+	case PermissionReceiptView:
+		return true
+	case PermissionRefsEdit:
+		return true
+	case PermissionRefsView:
+		return true
+	case PermissionReportsView:
+		return true
+	case PermissionReservationsManage:
+		return true
+	case PermissionStocktakeCount:
+		return true
+	case PermissionStocktakeManage:
+		return true
+	case PermissionTransferEdit:
+		return true
+	case PermissionTransferRequest:
+		return true
+	case PermissionTransferView:
+		return true
+	case PermissionUsersManage:
+		return true
+	case PermissionUsersView:
+		return true
+	case PermissionWriteoffCreate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Role.
+const (
+	RoleAccountant   Role = "accountant"
+	RoleAdmin        Role = "admin"
+	RoleCashier      Role = "cashier"
+	RoleManager      Role = "manager"
+	RoleStoreManager Role = "store_manager"
+	RoleStorekeeper  Role = "storekeeper"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case RoleAccountant:
+		return true
+	case RoleAdmin:
+		return true
+	case RoleCashier:
+		return true
+	case RoleManager:
+		return true
+	case RoleStoreManager:
+		return true
+	case RoleStorekeeper:
+		return true
+	default:
+		return false
+	}
+}
+
+// AuditAction Вид события. Русские названия — в словаре клиента.
+type AuditAction string
+
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	// Action Вид события. Русские названия — в словаре клиента.
+	Action AuditAction `json:"action"`
+	At     time.Time   `json:"at"`
+
+	// Data Подробности события, например логин и роль созданного пользователя
+	Data       map[string]interface{} `json:"data"`
+	EntityID   *string                `json:"entityId,omitempty"`
+	EntityType *string                `json:"entityType,omitempty"`
+	ID         int64                  `json:"id"`
+	IP         *string                `json:"ip,omitempty"`
+	SessionID  *openapi_types.UUID    `json:"sessionId,omitempty"`
+
+	// User Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера
+	User *AuditUser `json:"user,omitempty"`
+}
+
+// AuditPage defines model for AuditPage.
+type AuditPage struct {
+	Items []AuditEntry `json:"items"`
+
+	// NextBefore Курсор следующей страницы; нет, если это последняя
+	NextBefore *int64 `json:"nextBefore,omitempty"`
+}
+
+// AuditUser Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера
+type AuditUser struct {
+	FullName string             `json:"fullName"`
+	ID       openapi_types.UUID `json:"id"`
+	Login    string             `json:"login"`
+}
+
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// CreatedUser defines model for CreatedUser.
+type CreatedUser struct {
+	TemporaryPassword string `json:"temporaryPassword"`
+	User              User   `json:"user"`
 }
 
 // Location defines model for Location.
@@ -65,6 +275,47 @@ type LocationList struct {
 	Items []Location `json:"items"`
 }
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	// Login Example: petrova
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+// Me defines model for Me.
+type Me struct {
+	CsrfToken string `json:"csrfToken"`
+
+	// FullName Example: Петрова А. В.
+	FullName string             `json:"fullName"`
+	ID       openapi_types.UUID `json:"id"`
+
+	// LocationIDs Точки, с которыми работает пользователь. Для ролей уровня сети – все точки
+	LocationIDs []openapi_types.UUID `json:"locationIds"`
+	Login       string               `json:"login"`
+
+	// MustChangePassword Вход по временному паролю; до смены доступны только /auth/*
+	MustChangePassword bool         `json:"mustChangePassword"`
+	Permissions        []Permission `json:"permissions"`
+	Role               Role         `json:"role"`
+}
+
+// NewUser defines model for NewUser.
+type NewUser struct {
+	// FullName Example: Петрова А. В.
+	FullName string `json:"fullName"`
+
+	// LocationIDs Обязательно для ролей магазина и склада, пусто для ролей уровня сети
+	LocationIDs []openapi_types.UUID `json:"locationIds"`
+
+	// Login Example: a.petrova
+	Login string `json:"login"`
+	Role  Role   `json:"role"`
+}
+
+// Permission Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
+type Permission string
+
 // Problem defines model for Problem.
 type Problem struct {
 	Detail *string `json:"detail,omitempty"`
@@ -79,16 +330,384 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
+// Role defines model for Role.
+type Role string
+
+// SessionInfo defines model for SessionInfo.
+type SessionInfo struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Current Сеанс, из которого сделан запрос
+	Current bool               `json:"current"`
+	ID      openapi_types.UUID `json:"id"`
+	IP      *string            `json:"ip,omitempty"`
+
+	// LastSeenAt Обновляется не чаще раза в 5 минут
+	LastSeenAt time.Time `json:"lastSeenAt"`
+	UserAgent  *string   `json:"userAgent,omitempty"`
+}
+
+// SessionList defines model for SessionList.
+type SessionList struct {
+	Items []SessionInfo `json:"items"`
+}
+
+// TemporaryPassword defines model for TemporaryPassword.
+type TemporaryPassword struct {
+	TemporaryPassword string `json:"temporaryPassword"`
+}
+
+// User defines model for User.
+type User struct {
+	CreatedAt   time.Time            `json:"createdAt"`
+	FullName    string               `json:"fullName"`
+	ID          openapi_types.UUID   `json:"id"`
+	IsBlocked   bool                 `json:"isBlocked"`
+	LocationIDs []openapi_types.UUID `json:"locationIds"`
+
+	// LockedUntil Вход временно закрыт после неудачных попыток
+	LockedUntil        *time.Time `json:"lockedUntil,omitempty"`
+	Login              string     `json:"login"`
+	MustChangePassword bool       `json:"mustChangePassword"`
+	Role               Role       `json:"role"`
+	Version            int32      `json:"version"`
+}
+
+// UserList defines model for UserList.
+type UserList struct {
+	Items []User `json:"items"`
+}
+
+// UserUpdate defines model for UserUpdate.
+type UserUpdate struct {
+	FullName    string               `json:"fullName"`
+	LocationIDs []openapi_types.UUID `json:"locationIds"`
+	Role        Role                 `json:"role"`
+	Version     int32                `json:"version"`
+}
+
+// AuditActionFilter Вид события. Русские названия — в словаре клиента.
+type AuditActionFilter = AuditAction
+
+// AuditEntityID defines model for AuditEntityID.
+type AuditEntityID = string
+
+// AuditEntityType Example: user
+type AuditEntityType = string
+
+// AuditFrom defines model for AuditFrom.
+type AuditFrom = time.Time
+
+// AuditTo defines model for AuditTo.
+type AuditTo = time.Time
+
+// AuditUserID defines model for AuditUserID.
+type AuditUserID = openapi_types.UUID
+
+// ListAuditLogParams defines parameters for ListAuditLog.
+type ListAuditLogParams struct {
+	// Before Только записи с номером меньше указанного
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// From Начало периода включительно
+	From *AuditFrom `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Конец периода, не включая
+	To *AuditTo `form:"to,omitempty" json:"to,omitempty"`
+
+	// UserID Кто выполнил действие
+	UserID     *AuditUserID       `form:"userId,omitempty" json:"userId,omitempty"`
+	Action     *AuditActionFilter `form:"action,omitempty" json:"action,omitempty"`
+	EntityType *AuditEntityType   `form:"entityType,omitempty" json:"entityType,omitempty"`
+	EntityID   *AuditEntityID     `form:"entityId,omitempty" json:"entityId,omitempty"`
+}
+
+// ExportAuditLogParams defines parameters for ExportAuditLog.
+type ExportAuditLogParams struct {
+	// From Начало периода включительно
+	From *AuditFrom `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Конец периода, не включая
+	To *AuditTo `form:"to,omitempty" json:"to,omitempty"`
+
+	// UserID Кто выполнил действие
+	UserID     *AuditUserID       `form:"userId,omitempty" json:"userId,omitempty"`
+	Action     *AuditActionFilter `form:"action,omitempty" json:"action,omitempty"`
+	EntityType *AuditEntityType   `form:"entityType,omitempty" json:"entityType,omitempty"`
+	EntityID   *AuditEntityID     `form:"entityId,omitempty" json:"entityId,omitempty"`
+
+	// Tz Часовой пояс IANA для времени в файле, по умолчанию UTC
+	Tz *string `form:"tz,omitempty" json:"tz,omitempty"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = ChangePasswordRequest
+
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = NewUser
+
+// UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
+type UpdateUserJSONRequestBody = UserUpdate
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAuditLog Журнал действий
+	// (GET /audit)
+	ListAuditLog(ctx *echo.Context, params ListAuditLogParams) error
+	// ExportAuditLog Выгрузка журнала в Excel
+	// (GET /audit/export)
+	ExportAuditLog(ctx *echo.Context, params ExportAuditLogParams) error
+	// Login Вход по логину и паролю
+	// (POST /auth/login)
+	Login(ctx *echo.Context) error
+	// Logout Выход
+	// (POST /auth/logout)
+	Logout(ctx *echo.Context) error
+	// GetMe Текущий пользователь и CSRF-токен сессии
+	// (GET /auth/me)
+	GetMe(ctx *echo.Context) error
+	// ChangePassword Смена своего пароля
+	// (POST /auth/password)
+	ChangePassword(ctx *echo.Context) error
+	// EndOtherSessions Завершить все свои сеансы, кроме текущего
+	// (DELETE /auth/sessions)
+	EndOtherSessions(ctx *echo.Context) error
+	// ListMySessions Мои активные сеансы
+	// (GET /auth/sessions)
+	ListMySessions(ctx *echo.Context) error
+	// EndSession Завершить свой сеанс
+	// (DELETE /auth/sessions/{id})
+	EndSession(ctx *echo.Context, id openapi_types.UUID) error
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx *echo.Context) error
+	// ListUsers Сотрудники
+	// (GET /users)
+	ListUsers(ctx *echo.Context) error
+	// CreateUser Создать сотрудника
+	// (POST /users)
+	CreateUser(ctx *echo.Context) error
+	// UpdateUser Изменить ФИО, роль и точки
+	// (PUT /users/{id})
+	UpdateUser(ctx *echo.Context, id openapi_types.UUID) error
+	// BlockUser Заблокировать сотрудника и завершить его сеансы
+	// (POST /users/{id}/block)
+	BlockUser(ctx *echo.Context, id openapi_types.UUID) error
+	// ResetUserPassword Сбросить пароль
+	// (POST /users/{id}/password)
+	ResetUserPassword(ctx *echo.Context, id openapi_types.UUID) error
+	// EndUserSessions Завершить все сеансы сотрудника
+	// (DELETE /users/{id}/sessions)
+	EndUserSessions(ctx *echo.Context, id openapi_types.UUID) error
+	// UnblockUser Разблокировать сотрудника
+	// (POST /users/{id}/unblock)
+	UnblockUser(ctx *echo.Context, id openapi_types.UUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// ListAuditLog converts echo context to params.
+func (w *ServerInterfaceWrapper) ListAuditLog(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditLogParams
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", ctx.QueryParams(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter before: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", ctx.QueryParams(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter from: %s", err))
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", ctx.QueryParams(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter to: %s", err))
+	}
+
+	// ------------- Optional query parameter "userId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "userId", ctx.QueryParams(), &params.UserID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", ctx.QueryParams(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter action: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityType" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityType", ctx.QueryParams(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityType: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityId", ctx.QueryParams(), &params.EntityID, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListAuditLog(ctx, params)
+	return err
+}
+
+// ExportAuditLog converts echo context to params.
+func (w *ServerInterfaceWrapper) ExportAuditLog(ctx *echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAuditLogParams
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", ctx.QueryParams(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter from: %s", err))
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", ctx.QueryParams(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter to: %s", err))
+	}
+
+	// ------------- Optional query parameter "userId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "userId", ctx.QueryParams(), &params.UserID, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", ctx.QueryParams(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter action: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityType" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityType", ctx.QueryParams(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityType: %s", err))
+	}
+
+	// ------------- Optional query parameter "entityId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityId", ctx.QueryParams(), &params.EntityID, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter entityId: %s", err))
+	}
+
+	// ------------- Optional query parameter "tz" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tz", ctx.QueryParams(), &params.Tz, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tz: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ExportAuditLog(ctx, params)
+	return err
+}
+
+// Login converts echo context to params.
+func (w *ServerInterfaceWrapper) Login(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Login(ctx)
+	return err
+}
+
+// Logout converts echo context to params.
+func (w *ServerInterfaceWrapper) Logout(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.Logout(ctx)
+	return err
+}
+
+// GetMe converts echo context to params.
+func (w *ServerInterfaceWrapper) GetMe(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetMe(ctx)
+	return err
+}
+
+// ChangePassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ChangePassword(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ChangePassword(ctx)
+	return err
+}
+
+// EndOtherSessions converts echo context to params.
+func (w *ServerInterfaceWrapper) EndOtherSessions(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.EndOtherSessions(ctx)
+	return err
+}
+
+// ListMySessions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListMySessions(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListMySessions(ctx)
+	return err
+}
+
+// EndSession converts echo context to params.
+func (w *ServerInterfaceWrapper) EndSession(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.EndSession(ctx, id)
+	return err
 }
 
 // ListLocations converts echo context to params.
@@ -97,6 +716,104 @@ func (w *ServerInterfaceWrapper) ListLocations(ctx *echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListLocations(ctx)
+	return err
+}
+
+// ListUsers converts echo context to params.
+func (w *ServerInterfaceWrapper) ListUsers(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListUsers(ctx)
+	return err
+}
+
+// CreateUser converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateUser(ctx *echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateUser(ctx)
+	return err
+}
+
+// UpdateUser converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateUser(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateUser(ctx, id)
+	return err
+}
+
+// BlockUser converts echo context to params.
+func (w *ServerInterfaceWrapper) BlockUser(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.BlockUser(ctx, id)
+	return err
+}
+
+// ResetUserPassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ResetUserPassword(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ResetUserPassword(ctx, id)
+	return err
+}
+
+// EndUserSessions converts echo context to params.
+func (w *ServerInterfaceWrapper) EndUserSessions(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.EndUserSessions(ctx, id)
+	return err
+}
+
+// UnblockUser converts echo context to params.
+func (w *ServerInterfaceWrapper) UnblockUser(ctx *echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UnblockUser(ctx, id)
 	return err
 }
 
@@ -147,11 +864,382 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 		Handler: si,
 	}
 
+	router.POST(options.BaseURL+"/auth/login", wrapper.Login, options.OperationMiddlewares["login"]...)
+	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout, options.OperationMiddlewares["logout"]...)
+	router.GET(options.BaseURL+"/auth/me", wrapper.GetMe, options.OperationMiddlewares["getMe"]...)
+	router.POST(options.BaseURL+"/auth/password", wrapper.ChangePassword, options.OperationMiddlewares["changePassword"]...)
+	router.DELETE(options.BaseURL+"/auth/sessions", wrapper.EndOtherSessions, options.OperationMiddlewares["endOtherSessions"]...)
+	router.GET(options.BaseURL+"/auth/sessions", wrapper.ListMySessions, options.OperationMiddlewares["listMySessions"]...)
+	router.DELETE(options.BaseURL+"/auth/sessions/:id", wrapper.EndSession, options.OperationMiddlewares["endSession"]...)
+	router.GET(options.BaseURL+"/audit", wrapper.ListAuditLog, options.OperationMiddlewares["listAuditLog"]...)
+	router.GET(options.BaseURL+"/users", wrapper.ListUsers, options.OperationMiddlewares["listUsers"]...)
+	router.POST(options.BaseURL+"/users", wrapper.CreateUser, options.OperationMiddlewares["createUser"]...)
+	router.PUT(options.BaseURL+"/users/:id", wrapper.UpdateUser, options.OperationMiddlewares["updateUser"]...)
+	router.POST(options.BaseURL+"/users/:id/block", wrapper.BlockUser, options.OperationMiddlewares["blockUser"]...)
+	router.POST(options.BaseURL+"/users/:id/unblock", wrapper.UnblockUser, options.OperationMiddlewares["unblockUser"]...)
+	router.POST(options.BaseURL+"/users/:id/password", wrapper.ResetUserPassword, options.OperationMiddlewares["resetUserPassword"]...)
+	router.DELETE(options.BaseURL+"/users/:id/sessions", wrapper.EndUserSessions, options.OperationMiddlewares["endUserSessions"]...)
+	router.GET(options.BaseURL+"/audit/export", wrapper.ExportAuditLog, options.OperationMiddlewares["exportAuditLog"]...)
 	router.GET(options.BaseURL+"/locations", wrapper.ListLocations, options.OperationMiddlewares["listLocations"]...)
 
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type ListAuditLogRequestObject struct {
+	Params ListAuditLogParams
+}
+
+type ListAuditLogResponseObject interface {
+	VisitListAuditLogResponse(w http.ResponseWriter) error
+}
+
+type ListAuditLog200JSONResponse AuditPage
+
+func (response ListAuditLog200JSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListAuditLogdefaultApplicationProblemPlusJSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportAuditLogRequestObject struct {
+	Params ExportAuditLogParams
+}
+
+type ExportAuditLogResponseObject interface {
+	VisitExportAuditLogResponse(w http.ResponseWriter) error
+}
+
+type ExportAuditLog200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type ExportAuditLog200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse struct {
+	Body          io.Reader
+	Headers       ExportAuditLog200ResponseHeaders
+	ContentLength int64
+}
+
+func (response ExportAuditLog200ApplicationVndOpenxmlformatsOfficedocumentSpreadsheetmlSheetResponse) VisitExportAuditLogResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ExportAuditLogdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ExportAuditLogdefaultApplicationProblemPlusJSONResponse) VisitExportAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Login200JSONResponse struct {
+	Body    Me
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogindefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogindefaultApplicationProblemPlusJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie *string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LogoutdefaultApplicationProblemPlusJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse Me
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetMedefaultApplicationProblemPlusJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangePasswordRequestObject struct {
+	Body *ChangePasswordJSONRequestBody
+}
+
+type ChangePasswordResponseObject interface {
+	VisitChangePasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangePassword204Response struct {
+}
+
+func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ChangePassworddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ChangePassworddefaultApplicationProblemPlusJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndOtherSessionsRequestObject struct {
+}
+
+type EndOtherSessionsResponseObject interface {
+	VisitEndOtherSessionsResponse(w http.ResponseWriter) error
+}
+
+type EndOtherSessions204Response struct {
+}
+
+func (response EndOtherSessions204Response) VisitEndOtherSessionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EndOtherSessionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EndOtherSessionsdefaultApplicationProblemPlusJSONResponse) VisitEndOtherSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMySessionsRequestObject struct {
+}
+
+type ListMySessionsResponseObject interface {
+	VisitListMySessionsResponse(w http.ResponseWriter) error
+}
+
+type ListMySessions200JSONResponse SessionList
+
+func (response ListMySessions200JSONResponse) VisitListMySessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMySessionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListMySessionsdefaultApplicationProblemPlusJSONResponse) VisitListMySessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndSessionRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type EndSessionResponseObject interface {
+	VisitEndSessionResponse(w http.ResponseWriter) error
+}
+
+type EndSession204Response struct {
+}
+
+func (response EndSession204Response) VisitEndSessionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EndSessiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EndSessiondefaultApplicationProblemPlusJSONResponse) VisitEndSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListLocationsRequestObject struct {
 }
@@ -191,11 +1279,326 @@ func (response ListLocationsdefaultApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type ListUsersRequestObject struct {
+}
+
+type ListUsersResponseObject interface {
+	VisitListUsersResponse(w http.ResponseWriter) error
+}
+
+type ListUsers200JSONResponse UserList
+
+func (response ListUsers200JSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUsersdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListUsersdefaultApplicationProblemPlusJSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateUserRequestObject struct {
+	Body *CreateUserJSONRequestBody
+}
+
+type CreateUserResponseObject interface {
+	VisitCreateUserResponse(w http.ResponseWriter) error
+}
+
+type CreateUser201JSONResponse CreatedUser
+
+func (response CreateUser201JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateUserdefaultApplicationProblemPlusJSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUserRequestObject struct {
+	ID   openapi_types.UUID `json:"id"`
+	Body *UpdateUserJSONRequestBody
+}
+
+type UpdateUserResponseObject interface {
+	VisitUpdateUserResponse(w http.ResponseWriter) error
+}
+
+type UpdateUser200JSONResponse User
+
+func (response UpdateUser200JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateUserdefaultApplicationProblemPlusJSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BlockUserRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type BlockUserResponseObject interface {
+	VisitBlockUserResponse(w http.ResponseWriter) error
+}
+
+type BlockUser200JSONResponse User
+
+func (response BlockUser200JSONResponse) VisitBlockUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BlockUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response BlockUserdefaultApplicationProblemPlusJSONResponse) VisitBlockUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResetUserPasswordRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type ResetUserPasswordResponseObject interface {
+	VisitResetUserPasswordResponse(w http.ResponseWriter) error
+}
+
+type ResetUserPassword200JSONResponse TemporaryPassword
+
+func (response ResetUserPassword200JSONResponse) VisitResetUserPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResetUserPassworddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ResetUserPassworddefaultApplicationProblemPlusJSONResponse) VisitResetUserPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndUserSessionsRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type EndUserSessionsResponseObject interface {
+	VisitEndUserSessionsResponse(w http.ResponseWriter) error
+}
+
+type EndUserSessions204Response struct {
+}
+
+func (response EndUserSessions204Response) VisitEndUserSessionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EndUserSessionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response EndUserSessionsdefaultApplicationProblemPlusJSONResponse) VisitEndUserSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnblockUserRequestObject struct {
+	ID openapi_types.UUID `json:"id"`
+}
+
+type UnblockUserResponseObject interface {
+	VisitUnblockUserResponse(w http.ResponseWriter) error
+}
+
+type UnblockUser200JSONResponse User
+
+func (response UnblockUser200JSONResponse) VisitUnblockUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnblockUserdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UnblockUserdefaultApplicationProblemPlusJSONResponse) VisitUnblockUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListAuditLog Журнал действий
+	// (GET /audit)
+	ListAuditLog(ctx context.Context, request ListAuditLogRequestObject) (ListAuditLogResponseObject, error)
+	// ExportAuditLog Выгрузка журнала в Excel
+	// (GET /audit/export)
+	ExportAuditLog(ctx context.Context, request ExportAuditLogRequestObject) (ExportAuditLogResponseObject, error)
+	// Login Вход по логину и паролю
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Logout Выход
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// GetMe Текущий пользователь и CSRF-токен сессии
+	// (GET /auth/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// ChangePassword Смена своего пароля
+	// (POST /auth/password)
+	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// EndOtherSessions Завершить все свои сеансы, кроме текущего
+	// (DELETE /auth/sessions)
+	EndOtherSessions(ctx context.Context, request EndOtherSessionsRequestObject) (EndOtherSessionsResponseObject, error)
+	// ListMySessions Мои активные сеансы
+	// (GET /auth/sessions)
+	ListMySessions(ctx context.Context, request ListMySessionsRequestObject) (ListMySessionsResponseObject, error)
+	// EndSession Завершить свой сеанс
+	// (DELETE /auth/sessions/{id})
+	EndSession(ctx context.Context, request EndSessionRequestObject) (EndSessionResponseObject, error)
 	// ListLocations Точки сети
 	// (GET /locations)
 	ListLocations(ctx context.Context, request ListLocationsRequestObject) (ListLocationsResponseObject, error)
+	// ListUsers Сотрудники
+	// (GET /users)
+	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
+	// CreateUser Создать сотрудника
+	// (POST /users)
+	CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error)
+	// UpdateUser Изменить ФИО, роль и точки
+	// (PUT /users/{id})
+	UpdateUser(ctx context.Context, request UpdateUserRequestObject) (UpdateUserResponseObject, error)
+	// BlockUser Заблокировать сотрудника и завершить его сеансы
+	// (POST /users/{id}/block)
+	BlockUser(ctx context.Context, request BlockUserRequestObject) (BlockUserResponseObject, error)
+	// ResetUserPassword Сбросить пароль
+	// (POST /users/{id}/password)
+	ResetUserPassword(ctx context.Context, request ResetUserPasswordRequestObject) (ResetUserPasswordResponseObject, error)
+	// EndUserSessions Завершить все сеансы сотрудника
+	// (DELETE /users/{id}/sessions)
+	EndUserSessions(ctx context.Context, request EndUserSessionsRequestObject) (EndUserSessionsResponseObject, error)
+	// UnblockUser Разблокировать сотрудника
+	// (POST /users/{id}/unblock)
+	UnblockUser(ctx context.Context, request UnblockUserRequestObject) (UnblockUserResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *echo.Context, request any) (any, error)
@@ -208,6 +1611,251 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListAuditLog operation middleware
+func (sh *strictHandler) ListAuditLog(ctx *echo.Context, params ListAuditLogParams) error {
+	var request ListAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditLog(ctx.Request().Context(), request.(ListAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditLog")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListAuditLogResponseObject); ok {
+		return validResponse.VisitListAuditLogResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ExportAuditLog operation middleware
+func (sh *strictHandler) ExportAuditLog(ctx *echo.Context, params ExportAuditLogParams) error {
+	var request ExportAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportAuditLog(ctx.Request().Context(), request.(ExportAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportAuditLog")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ExportAuditLogResponseObject); ok {
+		return validResponse.VisitExportAuditLogResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(ctx *echo.Context) error {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx.Request().Context(), request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		return validResponse.VisitLoginResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(ctx *echo.Context) error {
+	var request LogoutRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx.Request().Context(), request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		return validResponse.VisitLogoutResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx *echo.Context) error {
+	var request GetMeRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx.Request().Context(), request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		return validResponse.VisitGetMeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ChangePassword operation middleware
+func (sh *strictHandler) ChangePassword(ctx *echo.Context) error {
+	var request ChangePasswordRequestObject
+
+	var body ChangePasswordJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangePassword(ctx.Request().Context(), request.(ChangePasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangePassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
+		return validResponse.VisitChangePasswordResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// EndOtherSessions operation middleware
+func (sh *strictHandler) EndOtherSessions(ctx *echo.Context) error {
+	var request EndOtherSessionsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.EndOtherSessions(ctx.Request().Context(), request.(EndOtherSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndOtherSessions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(EndOtherSessionsResponseObject); ok {
+		return validResponse.VisitEndOtherSessionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListMySessions operation middleware
+func (sh *strictHandler) ListMySessions(ctx *echo.Context) error {
+	var request ListMySessionsRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMySessions(ctx.Request().Context(), request.(ListMySessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMySessions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListMySessionsResponseObject); ok {
+		return validResponse.VisitListMySessionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// EndSession operation middleware
+func (sh *strictHandler) EndSession(ctx *echo.Context, id openapi_types.UUID) error {
+	var request EndSessionRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.EndSession(ctx.Request().Context(), request.(EndSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndSession")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(EndSessionResponseObject); ok {
+		return validResponse.VisitEndSessionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListLocations operation middleware
@@ -233,25 +1881,284 @@ func (sh *strictHandler) ListLocations(ctx *echo.Context) error {
 	return nil
 }
 
+// ListUsers operation middleware
+func (sh *strictHandler) ListUsers(ctx *echo.Context) error {
+	var request ListUsersRequestObject
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUsers(ctx.Request().Context(), request.(ListUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUsers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListUsersResponseObject); ok {
+		return validResponse.VisitListUsersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateUser operation middleware
+func (sh *strictHandler) CreateUser(ctx *echo.Context) error {
+	var request CreateUserRequestObject
+
+	var body CreateUserJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateUser(ctx.Request().Context(), request.(CreateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateUserResponseObject); ok {
+		return validResponse.VisitCreateUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateUser operation middleware
+func (sh *strictHandler) UpdateUser(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UpdateUserRequestObject
+
+	request.ID = id
+
+	var body UpdateUserJSONRequestBody
+	var err error
+	if _, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = echo.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateUser(ctx.Request().Context(), request.(UpdateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateUserResponseObject); ok {
+		return validResponse.VisitUpdateUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// BlockUser operation middleware
+func (sh *strictHandler) BlockUser(ctx *echo.Context, id openapi_types.UUID) error {
+	var request BlockUserRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.BlockUser(ctx.Request().Context(), request.(BlockUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BlockUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(BlockUserResponseObject); ok {
+		return validResponse.VisitBlockUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResetUserPassword operation middleware
+func (sh *strictHandler) ResetUserPassword(ctx *echo.Context, id openapi_types.UUID) error {
+	var request ResetUserPasswordRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ResetUserPassword(ctx.Request().Context(), request.(ResetUserPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResetUserPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ResetUserPasswordResponseObject); ok {
+		return validResponse.VisitResetUserPasswordResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// EndUserSessions operation middleware
+func (sh *strictHandler) EndUserSessions(ctx *echo.Context, id openapi_types.UUID) error {
+	var request EndUserSessionsRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.EndUserSessions(ctx.Request().Context(), request.(EndUserSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndUserSessions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(EndUserSessionsResponseObject); ok {
+		return validResponse.VisitEndUserSessionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UnblockUser operation middleware
+func (sh *strictHandler) UnblockUser(ctx *echo.Context, id openapi_types.UUID) error {
+	var request UnblockUserRequestObject
+
+	request.ID = id
+
+	handler := func(ctx *echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UnblockUser(ctx.Request().Context(), request.(UnblockUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnblockUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UnblockUserResponseObject); ok {
+		return validResponse.VisitUnblockUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"lFRLb+REEP4rVsENMzNhgxC+RUhIERFacUOrHDp2J+mN3d10txeGyFIeSICCFCFuPAUXDlzMMgPOZMeR",
-	"9hdU/yNU7WQyLwicpm1Xf1XfY+oYUlVoJbl0FpJjMNxqJS0PD4+N2st5QcdUSceloyPTOhcpc0LJvu4q",
-	"XntqlaRvNj3kBaPTq4bvQwKv9O/x+91X27/Draoqhozb1AhNcJAA/ui/wAZ/xwnWET6P/GfY+hN8gbU/",
-	"w3H0wbvvRG9vvvkW0M1bOOq2o7qB6KyN0tw40XFIhRvSL/+EFTrn1OJrvMYa/8AWn+PYf4ljnPpTnEAM",
-	"bqipwjoj5AFUMaQq40u3v8dvXh9srCsWGZXuK1MwBwmUpcjWlR0JmT2k0B2f96i2ikGyYnUO4lDjX9jg",
-	"NMIp1pE/x+tehN8RI3qL9br+ThT8UyUD3pL4v2LtT4MuLV5FeIOtv/Sn0fbW+1sQzzXfsoL1P2RHpbNH",
-	"qy2qGAz/qBSGZ5A8gaBCEPKWx60EcefN3EC7Myi195SnjqZdUIIUkGVBqB8zww9VaQnOOmXmb99zvbu9",
-	"I6xbzYZwvFg8/BdPoJo1Ysaw4SrhgLaOzNwfanGSjDsmcjqtULCOudIumL852JyBC+n4ATedsS5fTskP",
-	"OA7ZwCschVi0ayMx1EsX2Z4qXbKXM/mwweHrXfvZwKv86Z6Q+2o1eFuPtyO88SfY4DW2+GcXYH8ZURr9",
-	"mT/x5ziiVzihdEYvf8OfwsMUm5cU+W8puF10/QVeRQGwxRts/CnW9P9o/VlQ4Np/RSrQbtHK9oasyHuz",
-	"4RO4xyUMiOEZN7YbctDb6A1ILaW5ZFpAAo96g94jiEEzdxgs6ue3IQlPBzyEjowOL7czSICiuDOrihc3",
-	"7huDwb9s2/+3ZReyv27V/oyTsAlH/iLCJsIX8xvFX8S0T2gFnPhLHGHrPw+2TP0FZeqGNCQ3Rv4cAvY+",
-	"K3P3T0PNWM4t/xhsWRTMDGmYX0KDCTbk+difYUOusANLCbtXdTcQsdyQL5A8OYbS5JBAn2nRf7YB1W71",
-	"9wA=",
+	"7FxfbxvXlf8qg9k+JLsjSo6dbqOiD4rtbIUoiWBJQHa9WmNEXklTkTOTmUtbiiFAFFO7gbzWxu1ugm4T",
+	"N0GBfegLLZsRTYkUkE9w7lfIJ1mcc+/M3OFcSpRMuV1sX2LNv3vPPed3/h/mvl0OamHgM5/H9vR9e525",
+	"FRbRnwssjr3Avx4EGx7DGxUWlyMv5F7g29O2vG+JBrRFQzSgAx0r9DZ8707sVaw3fsl5+JFf3XKsBVau",
+	"R8yxFtwaW/A4+8Wcu+lY8y5f/8WkG3pv2o4dl9dZzcU9+FbI7Gk75pHnr9nb29uOHbqRW2NcUTVTr3h8",
+	"poxEvOdVOYvwpocEfVJn0Zbt2L5bwyVceie3+E8itmpP2383mZ15Uj6NJ7V1bdyVrm/63ONbszeG7cHk",
+	"88qpR8ittUgPT1uN3tDXY5tuLaziC/WYRbYzbIP3oqBWFBN8DS3xEFpwBH0LTqAtdqADfXgBLQsOoAtH",
+	"4rF4CB2xC204Eo+gB33bMdK3ihvolK0GUc3l9rRdcTmb4F6NDaduMTDQ9nvoQw/a4sEAZY6Ft3X6WmJ/",
+	"CFU8uDBNSzGLZm+Y6BK7yK0DsQcn0Icj6EEHjix4AW14KRpiFw6gA+0hFKGYZitmqup1r2IgaNuxIxaH",
+	"gR8zQvl8FKxUGYmzHPic+Rz/dMOw6pVdpHIylG/8w69iJPn+iChP1qUdBw79jfgNdOAZdAkZlvgM+mIH",
+	"jqGF0LBuvXfdeufa2/9I3FPLDeijgZFPoAMv0Eb04ZnYE7vQEfslC/4ommQzushFlHULDuEAWshnsW/9",
+	"uPM7oqCBoMX7Ygdf68IRvg89sQutku3YzK/X7Onbtlvn66VqsOahumcXd1Zdr8oq2r2gzpOr0I3je0FU",
+	"uVNed/217K1YWr07zK/QTRRmqRwxl2eX9bCiX65Ug/KG9tQfuJFuFbGYcXu5IP7MQkRbyMQwCkIWcU9i",
+	"wU2ZO7L9cmyXj6oMDj4k4LiVioffu9V5jQAe1VkBK09RT8UOihUNBqlEZ0DOjhTsCan1Maq3RfJ8Dh3o",
+	"Wfg6fn8kHsnvDlHxoYfLwXNpq+gpHCoMSAO1n50gWPkVK3M8QWqHi+bX0c2q6bFXyXHK8/lPr2V7eD5n",
+	"ayyiF0Pj9wows5UR9FwCYiRRom2ypV34pO5FrIJApzVdwnDi3Uh4ywae0Crz7horIsrjrJb/40xyJDa3",
+	"033cKHLp2meb/F22GkTMaEebYgelK3akNrfhhWiKx+JzNKQWwkbsKLV/IPZ+TmZf7DoWxhSo7Zb4d2mK",
+	"T6CfLAA9sU8wOFNmg9yj0w7l1ZISzcV8QcmCr5F2SzTlKZqIZ/EQemJP/Bq//zX5tj4cEPabgyu8RAPX",
+	"hx4pw5HUJnSJB/Tflu0MCHG1Xq1+SA7nbFAPQ6O0mcaYpQC7xL6m+5oYeZ2M6bwyeLfYJ3UW8yIAy/Uo",
+	"Yj5P3svRmlhLE70+u3fWNzV3c475a3zdnr7y1s8cu+b5yfXPnDPOOUhWfkPjeaVjSKCTPyVntTCI3GhL",
+	"p/lCFsFoDJJosLCLidC5QMYNBll4fCsfZsIXcAQtNMIEvs/J5Taga5JIOaiwga//AL+dmLpiOxdG5Ybn",
+	"V87iSHKe9/Hd7ST0GqADz4CRBfmbHrQs0YSjkgX/jSfCu9Ay7Y9+8tPANxm0/4EW6ecB9OGltEr7omHN",
+	"znw4Yzva5jOx507+s7tR5/GG7YyiXsRIdQ7FAkfKRiPoNMm+r7iWBEX33IitB/UYl4t5EOlfZ2dNvp7z",
+	"THp6PkeRrFV0EyMb4jk0MkPNRmquMkaHjEfBXdckxvB81mWAxsTchadp1QcG51qOo9XFYIP5Rm3XrbaG",
+	"1afoOigeOsDo+z9KFjwpvYIKVZUoZiuxAcXfQV88xODbsUSD3A76OLEj9uBYxmUteEY3W+TShoRij0oW",
+	"/A5DMhXJSZ/eVMfoiX3pwjAy/HHnt+gCG9C2xG6yu+1kuDrzRDlAOfbmxFowofKtBHezN+LTnJpj1+ox",
+	"z3soU8oiHTUdGmnegTZGryoyPUbHfUIZCbLk8c/RjffxoPSO2KNrCmyacEI38MDEvS70rUlMMib/Pjvh",
+	"ShBUmUs6E7Ko5lEwObrOzaffmIKzKKiys1a4he+M5vHVgkZGOhrw80fJo9GkRh+ye2YP+qracroafAPP",
+	"xD4cZnhGCaP8BiANx7onwR0pOOuSl5TVihNKaHeNnxs14rKxn3HLLWU2MnQ5ZxEe/t9uz0z8izvx6dTE",
+	"O6U7E8v3rzpX39r+iWnzC2NoOHzOwoMG6qLUnpJ5OoB+XtNaJQs9PuGiIx5Ay/rhz2mC+eODJxacqA9b",
+	"PxxJi3agrN6+jNt3yeod4deo5E/hi4mfWvAdfKmXGjDoiks118fEylGXdz12D0/HVvN/s4rHybXHPLtf",
+	"Zl5YuFRvrlaDIEqeyQv1hEeuH6+yqBQp56jdUu+n1+qTMEipwT9jVq3ajn0v8jgLVldVTcN27EpQjktu",
+	"GEbBXRUrlDe4u8GyU2a3ykHd50R3zKK7JESNG+5d16u6K17V41vJ1mzN9eJSxMqBX/ZI+m4cM56Spq4U",
+	"zRELg0h7iHmZvDAFL1qVLG83Koy7XtWcrnOX1+OcilybumbK97nHq4OW5+ukXPWSsjdZKx2irzklXAnq",
+	"fHql6vpnh4P0NNk+JdikJ7eUaqZ1sEqNNE4KJKIyAUnM9XkSBd7JHtL1BmMhXZXdeN1jkZHRqhUw668G",
+	"hoBH5kAz56g4qUTLoN3fQhvrAaLhWNCBQy04UWUh0SDOo+ntWWi8Sa/7omF0qSOGS0NKO1U35guM+TPc",
+	"7D0oIjiAI2lBREPsy7o11as/xz92yGtQPfVt9CMd6Imm2LWdERmF9mVmTbFqlCxCMdbRpJI7hwlGSrrj",
+	"SAF0oFw8C1g0Jc7nz60H9WqkRNkciFwA4+Ooz3jxu6qUPH3fgO6B8OZyAgrcfsnnXtWgA2msPBAmS8Xs",
+	"YkYhdrXinbEyhq74BF+EPtUYRmPveaP8IvdGD2wc+y6LknBErzpefWuEquPpobQuQ13gQ4LshBBdwYfB",
+	"eBwKLStPF9Zk/HyJuiWnB/dnRe6XAe3XJP+zRJ4sXWQfNRfK9cjjWwtIj2Sb6jeM1JB3ZN0a1e2LxEFR",
+	"PyarR2Ph+is4VOnrPtXmqSmnuVaxZ70x/9HComPNL+F/Zhav/9Kxbtycu7l4800Kw7PSeD6Xkl3dNlHw",
+	"WOzKVZ/Tu7KI1rU+nri+cOu9CcocqROEL/XIQMgqXRuOrTS3VFFBn4rmmEm1sqNgYkaVc5lk11jJyrIF",
+	"7EaJJnxPPrttQV/R1hIPJKdEEzufRCCRfkDeWzSwKyp2FC0da3Miy22tN3Aj5nNsyrKK7FseicdYPMG8",
+	"8QD64jd4elxD1QtNdZQ3S//qJ73kMkkxayanIxUZ0tzQe59tyR6up0KyPBRm5meVoInR30vqZfrZxxSJ",
+	"bDAeqEsNiR/+DE/pogedH7BC+ns6OVU6xR68tGhBZFlHNGTkhRJ4oYv6wMIsY8utVUtp9DptZ+viGhrc",
+	"p+2p0pXSFCpXEDLfDT172r5amipdlXnqOoF9kjIA/GuNmYKwL6GliOoQSZYMyaRj6VKDCVqysFWy4Ntc",
+	"B6pF/NA7UNCSIpT1nRY1LXfFjrVC/S0JvazfhcdEe6Z0GQ2MF3NqJc0Fa3Z+cOW2qQiXVoXgUDuHaMhT",
+	"UMsU/7WUcj5CMOVxqpqlQwYRJN3mQYThPTPzcErVq3k8t1SFrbr1Kren356itotXwyzkrakparrIqyvm",
+	"DUwmN+PWZDbOMurLi8HIr6qhj1Ffz40ajfqRNutzvk+QsOWBWZC3pqZOmQM53/xH1hQ2TYB8O6AM8D3V",
+	"rno0PdSiUYFE5uZtUrq1QRPHjuu1mouTDTb8V7Zgof9pOzZ312I50IFav+zYurW1p/V6AC4srcMk28Si",
+	"wXAj8R3a++9RdT5DgygekQXccyzxkEp2ool2UapflwpJT2Q4K/bVIAzm+xi+JoMpD7U20HHaBoK2xT8t",
+	"WoWbRN5wu/A3ZThFGZzztOCS4msuHenkZejQJ2hFj8kAP1R4f2wtLV4fNmL26ZCBvDPafOfT5Lt+pYSu",
+	"cLNWlVY6nghWV70yqwTleo35vBSHEXMr8TpjvFYt0b951U+t+4rnu9GWgaSi0v9Jcsb6eG7hY9vRB0Cv",
+	"SzonbnhxGMRe0j4+ZVhzDBbiidiD5xSgHEK3YINQljc3y6x6IWPB1yfTtDEMZHI04MFVnqaqrO8Gla2x",
+	"2d5cb3M7nybwqM62L9Huf2A2+Fr+nk23tKGXx8EC4xPZFLBpG/XyZH5k+BXwoNIee/r28gA69OZcOk2G",
+	"9fpOri+Xwwdft5dzEAjq/FQMBHVV5Nalcc1crpS5FlqdQ8o02mKHgn45XPCXZWNOrSTrCowx6I2W02iq",
+	"U2Oai82z7J8Y/4DZrx+/OfbnwgktDR1L4PIdtKErmpQcD0/kEIWUzcpiFqIgl49fnPn6MEMC28L8LmU7",
+	"8tRiD9q5rYfOU+ZxS2k6FgqKcUyhFnUZRtI8QDaStTTp59PUIjyi9E1lUl9Abxyg+FYuh4NFDYpH2snk",
+	"arLr/sUlruo8qp9VZbKENhBa+pWP+DqLFljaax+BKWagyLaL2MvjgWYaxsGrL7VFO2JXPErnQSTrOjki",
+	"HAurxzIJtsRuqnxtle2ej6eO2Wphuv7B1nDejc986R2WIXYsY38/VzKnOg1NIWBBfRc6OEiQTlxjjWNH",
+	"VQLa8HIcgvoDCUPfrQCRVwf15H2vsn0GshXTigkThehYIsoidK9iDxqI8/z8YnlUZy85kFORcRmTooIo",
+	"zXip8f5CnE/qzfFQ/43AnEvfukRFyI0bmjVBjdWgJnQGRm8oZ2/CiZraeEGDZNRyIojKoLBLP01ojsfp",
+	"q0k1fWwn4X/G1aIQskkQEgBNiZzK/CV64xIZn/aDzGmAMsSDteGO4in6is8In4jM5nh8Z2EzjbmSY0XG",
+	"avM2286wQCjn9J8TQOi3ZbQbjfpok/UqcejLoqrYo58h4UvUUsDJYdnEV72ETtLTUKWftI1iYF9Sgn+B",
+	"xQZt5USvDSEW9fSW5GD3ZYRXyaTdSAHVlfFFddqYvFnrB1mn/yRoTHCTyyWWdRB9rZHRp8adMs1OnVlY",
+	"Nw+KnJAnPcYCI/6FRkuWGjH6fkZpbJeaTH36xaPsQqhGidbwUv10WffqUl8jnaUtWfCf6icz+UdY3GxS",
+	"9TOLf2WbzNHaaNa1qXeKcJSdWwXH1+OExw95rQX9mosu54D7+HOTrzJhy2j7T/AVfONYWjqUH8V+FfBP",
+	"0i8eh5dUaKjhteLor0Ckh9AqKHdrfLFiYemhlo1c3GEx/2onA3WmwP5CMBihSvEkm0cYGBuiRrOWOz/C",
+	"XyfQGY4Tl1ywlVj4o/m6fvrj5U5+IGCgvJH6/zTfMnGsaApvsZhRlKbVP/5PI7k4Y2eODE8XkClykmMm",
+	"+ehpPC78mRxHSfCrUfKqwB2x2IIA0OoFf2156V+keHO6Jr2qYNSP6Ye7liX5wv8z5yK16rLcyx/Ni48x",
+	"dM73eLShttvLyGL8cUEiw3pUtadt/D/FTN69Ym8vb//vAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

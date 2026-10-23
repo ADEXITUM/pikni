@@ -2,9 +2,18 @@ import createClient from 'openapi-fetch'
 
 import type { components, paths } from './pikni.gen'
 
+export type { Middleware } from 'openapi-fetch'
+
+export type AuditAction = components['schemas']['AuditAction']
+export type AuditEntry = components['schemas']['AuditEntry']
 export type Location = components['schemas']['Location']
 export type LocationKind = components['schemas']['LocationKind']
+export type Me = components['schemas']['Me']
+export type Permission = components['schemas']['Permission']
 export type Problem = components['schemas']['Problem']
+export type Role = components['schemas']['Role']
+export type SessionInfo = components['schemas']['SessionInfo']
+export type User = components['schemas']['User']
 
 export const api = createClient<paths>({ baseUrl: '/api/v1' })
 

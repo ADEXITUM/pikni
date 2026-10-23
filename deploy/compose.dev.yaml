@@ -4,18 +4,22 @@ services:
   postgres:
     image: postgres:18
     environment:
-      POSTGRES_USER: pikni
-      POSTGRES_PASSWORD: pikni
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: pikni
+      PIKNI_OWNER_PASSWORD: pikni_owner
+      PIKNI_APP_PASSWORD: pikni_app
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       # С версии 18 образ хранит данные в подкаталоге /var/lib/postgresql/18/docker,
       # поэтому том монтируется на уровень выше.
       - pgdata:/var/lib/postgresql
+      - ../api/db/initdb/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
       - ../api/db/seed:/seed:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pikni -d pikni"]
+      # Через TCP, а не сокет: пока выполняются скрипты первичной настройки,
+      # временный сервер слушает только сокет, и проверка не должна считать его готовым.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d pikni"]
       interval: 5s
       timeout: 3s
       retries: 10

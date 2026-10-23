@@ -10,13 +10,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // база часовых поясов вшита в бинарник: в минимальном образе её нет
 
 	"github.com/labstack/echo/v5"
 
-	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/app"
-	"github.com/ADEXITUM/pikni/api/internal/locations"
-	"github.com/ADEXITUM/pikni/api/internal/locations/store"
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/platform/httpx"
 	"github.com/ADEXITUM/pikni/api/internal/platform/logging"
@@ -80,8 +78,9 @@ func run() error {
 	httpx.RegisterHealth(e, version)
 	httpx.RegisterReady(e, log, map[string]httpx.Check{"database": pool.Ping})
 
-	locs := locations.NewHandler(locations.NewService(store.New(pool)))
-	apispec.RegisterHandlersWithBaseURL(e, apispec.NewStrictHandler(app.NewAPI(locs), nil), "/api/v1")
+	if err := app.Register(e, pool); err != nil {
+		return err
+	}
 
 	sc := echo.StartConfig{
 		Address:         cfg.HTTPAddr,

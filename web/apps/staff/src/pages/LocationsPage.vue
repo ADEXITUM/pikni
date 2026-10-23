@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import { api, ApiError, type LocationKind } from '@pikni/api'
+import type { LocationKind } from '@pikni/api'
 import { useQuery } from '@tanstack/vue-query'
 
-const { data, isPending, isError, error, refetch } = useQuery({
-  queryKey: ['locations'],
-  queryFn: async () => {
-    const { data, error } = await api.GET('/locations')
-    if (error) throw new ApiError(error)
-    return data.items
-  },
-})
+import { locationsQuery } from '@/queries'
+
+const { data, isPending, isError, error, refetch } = useQuery(locationsQuery)
 
 const headers = [
   { title: 'Код', key: 'code' },

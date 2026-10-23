@@ -42,7 +42,7 @@ tasks:
   seed:
     desc: Загрузить тестовые данные в локальную базу
     cmds:
-      - '{{.COMPOSE}} exec -T postgres psql -U pikni -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
+      - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
 
   db:reset:
     desc: Пересоздать локальную базу с нуля
@@ -53,11 +53,17 @@ tasks:
       - task: migrate
       - task: seed
 
+  admin:
+    desc: 'Учётные записи из консоли: task admin -- create-admin -login admin'
+    dir: api
+    cmds:
+      - go run ./cmd/admin {{.CLI_ARGS}}
+
   psql:
     desc: Открыть консоль psql
     interactive: true
     cmds:
-      - '{{.COMPOSE}} exec postgres psql -U pikni -d pikni'
+      - '{{.COMPOSE}} exec postgres psql -U pikni_owner -d pikni'
 
   dev:
     desc: Запустить базу, API с автоперезапуском и фронтенд в одном терминале

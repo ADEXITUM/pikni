@@ -6,12 +6,364 @@ info:
 servers:
   - url: /api/v1
 
+security:
+  - session: []
+
 paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: Вход по логину и паролю
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Вход выполнен
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Выход
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "204":
+          description: Сессия завершена
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      summary: Текущий пользователь и CSRF-токен сессии
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "200":
+          description: Сессия действительна
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/password:
+    post:
+      operationId: changePassword
+      summary: Смена своего пароля
+      x-permission: authenticated
+      description: Остальные сессии пользователя завершаются.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Пароль изменён
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/sessions:
+    get:
+      operationId: listMySessions
+      summary: Мои активные сеансы
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "200":
+          description: Сеансы от последней активности к ранней
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionList"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: endOtherSessions
+      summary: Завершить все свои сеансы, кроме текущего
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "204":
+          description: Остальные сеансы завершены
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/sessions/{id}:
+    delete:
+      operationId: endSession
+      summary: Завершить свой сеанс
+      tags: [auth]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Сеанс завершён
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /audit:
+    get:
+      operationId: listAuditLog
+      summary: Журнал действий
+      description: Записи от новых к старым. Следующая страница — параметр before из nextBefore.
+      tags: [audit]
+      x-permission: audit.view
+      parameters:
+        - name: before
+          in: query
+          description: Только записи с номером меньше указанного
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - $ref: "#/components/parameters/AuditFrom"
+        - $ref: "#/components/parameters/AuditTo"
+        - $ref: "#/components/parameters/AuditUserID"
+        - $ref: "#/components/parameters/AuditActionFilter"
+        - $ref: "#/components/parameters/AuditEntityType"
+        - $ref: "#/components/parameters/AuditEntityID"
+      responses:
+        "200":
+          description: Страница журнала
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditPage"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users:
+    get:
+      operationId: listUsers
+      summary: Сотрудники
+      tags: [users]
+      x-permission: users.view
+      responses:
+        "200":
+          description: Все сотрудники по алфавиту
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createUser
+      summary: Создать сотрудника
+      description: Пароль генерирует сервер и показывает один раз. При первом входе сотрудник придумывает свой.
+      tags: [users]
+      x-permission: users.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUser"
+      responses:
+        "201":
+          description: Сотрудник создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedUser"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}:
+    put:
+      operationId: updateUser
+      summary: Изменить ФИО, роль и точки
+      description: Оптимистическая блокировка — version из открытой карточки. Если карточку уже изменили, ответ 409.
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Сотрудник изменён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/block:
+    post:
+      operationId: blockUser
+      summary: Заблокировать сотрудника и завершить его сеансы
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сотрудник заблокирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/unblock:
+    post:
+      operationId: unblockUser
+      summary: Разблокировать сотрудника
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сотрудник разблокирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/password:
+    post:
+      operationId: resetUserPassword
+      summary: Сбросить пароль
+      description: Выдаёт временный пароль, снимает блокировку за ошибки входа и завершает сеансы сотрудника.
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Временный пароль, показывается один раз
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemporaryPassword"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /users/{id}/sessions:
+    delete:
+      operationId: endUserSessions
+      summary: Завершить все сеансы сотрудника
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Сеансы завершены
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /audit/export:
+    get:
+      operationId: exportAuditLog
+      summary: Выгрузка журнала в Excel
+      description: Те же фильтры, что у списка. Время в файле — в часовом поясе tz.
+      tags: [audit]
+      x-permission: audit.view
+      parameters:
+        - $ref: "#/components/parameters/AuditFrom"
+        - $ref: "#/components/parameters/AuditTo"
+        - $ref: "#/components/parameters/AuditUserID"
+        - $ref: "#/components/parameters/AuditActionFilter"
+        - $ref: "#/components/parameters/AuditEntityType"
+        - $ref: "#/components/parameters/AuditEntityID"
+        - name: tz
+          in: query
+          description: Часовой пояс IANA для времени в файле, по умолчанию UTC
+          schema:
+            type: string
+            example: Asia/Yakutsk
+      responses:
+        "200":
+          description: Файл XLSX
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
   /locations:
     get:
       operationId: listLocations
       summary: Точки сети
       tags: [locations]
+      x-permission: refs.view
       responses:
         "200":
           description: Склады и магазины, упорядоченные по коду
@@ -23,6 +375,61 @@ paths:
           $ref: "#/components/responses/Problem"
 
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: pikni_sid
+      description: >
+        Cookie сессии, выдаётся при входе. Изменяющие запросы (POST, PUT, PATCH, DELETE)
+        дополнительно передают заголовок X-CSRF-Token со значением csrfToken из ответа входа или /auth/me.
+        Право, нужное операции, указано в расширении x-permission (authenticated — любой вошедший пользователь).
+
+  headers:
+    SessionCookie:
+      description: Cookie сессии pikni_sid (HttpOnly, Secure, SameSite=Lax, Path=/api)
+      schema:
+        type: string
+
+  parameters:
+    AuditFrom:
+      name: from
+      in: query
+      description: Начало периода включительно
+      schema:
+        type: string
+        format: date-time
+    AuditTo:
+      name: to
+      in: query
+      description: Конец периода, не включая
+      schema:
+        type: string
+        format: date-time
+    AuditUserID:
+      name: userId
+      in: query
+      description: Кто выполнил действие
+      schema:
+        type: string
+        format: uuid
+    AuditActionFilter:
+      name: action
+      in: query
+      schema:
+        $ref: "#/components/schemas/AuditAction"
+    AuditEntityType:
+      name: entityType
+      in: query
+      schema:
+        type: string
+        example: user
+    AuditEntityID:
+      name: entityId
+      in: query
+      schema:
+        type: string
+
   responses:
     Problem:
       description: Ошибка в формате RFC 9457
@@ -32,6 +439,293 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    Role:
+      type: string
+      enum: [admin, manager, accountant, store_manager, storekeeper, cashier]
+
+    Permission:
+      type: string
+      description: Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
+      enum:
+        - users.manage
+        - users.view
+        - refs.view
+        - refs.edit
+        - cost.view
+        - receipt.view
+        - receipt.edit
+        - floor.view
+        - floor.edit
+        - transfer.request
+        - transfer.view
+        - transfer.edit
+        - pos.view
+        - pos.sell
+        - writeoff.create
+        - docs.approve
+        - stocktake.manage
+        - stocktake.count
+        - reservations.manage
+        - availability.view
+        - egais.reconcile
+        - assets.view
+        - assets.edit
+        - reports.view
+        - audit.view
+
+    AuditAction:
+      type: string
+      description: Вид события. Русские названия — в словаре клиента.
+      enum:
+        - auth.login
+        - auth.login_failed
+        - auth.logout
+        - auth.password_changed
+        - auth.session_ended
+        - user.created
+        - user.updated
+        - user.blocked
+        - user.unblocked
+        - user.password_reset
+
+    AuditEntry:
+      type: object
+      required: [id, at, action, data]
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        action:
+          $ref: "#/components/schemas/AuditAction"
+        user:
+          $ref: "#/components/schemas/AuditUser"
+        sessionId:
+          type: string
+          format: uuid
+        ip:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+          description: Подробности события, например логин и роль созданного пользователя
+
+    AuditUser:
+      type: object
+      description: Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера
+      required: [id, login, fullName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        fullName:
+          type: string
+
+    AuditPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        nextBefore:
+          type: integer
+          format: int64
+          description: Курсор следующей страницы; нет, если это последняя
+
+    SessionInfo:
+      type: object
+      required: [id, current, createdAt, lastSeenAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        current:
+          type: boolean
+          description: Сеанс, из которого сделан запрос
+        ip:
+          type: string
+        userAgent:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+          description: Обновляется не чаще раза в 5 минут
+
+    SessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionInfo"
+
+    User:
+      type: object
+      required: [id, login, fullName, role, locationIds, isBlocked, mustChangePassword, version, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        fullName:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          items:
+            type: string
+            format: uuid
+        isBlocked:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+        lockedUntil:
+          type: string
+          format: date-time
+          description: Вход временно закрыт после неудачных попыток
+        version:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+
+    UserList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+
+    NewUser:
+      type: object
+      required: [login, fullName, role, locationIds]
+      properties:
+        login:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{3,32}$"
+          example: a.petrova
+        fullName:
+          type: string
+          example: Петрова А. В.
+        role:
+          $ref: "#/components/schemas/Role"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          description: Обязательно для ролей магазина и склада, пусто для ролей уровня сети
+          items:
+            type: string
+            format: uuid
+
+    UserUpdate:
+      type: object
+      required: [fullName, role, locationIds, version]
+      properties:
+        fullName:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          items:
+            type: string
+            format: uuid
+        version:
+          type: integer
+          format: int32
+
+    CreatedUser:
+      type: object
+      required: [user, temporaryPassword]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        temporaryPassword:
+          type: string
+
+    TemporaryPassword:
+      type: object
+      required: [temporaryPassword]
+      properties:
+        temporaryPassword:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          example: petrova
+        password:
+          type: string
+          format: password
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+
+    Me:
+      type: object
+      required: [id, login, fullName, role, mustChangePassword, csrfToken, permissions, locationIds]
+      properties:
+        id:
+          type: string
+          format: uuid
+        login:
+          type: string
+        fullName:
+          type: string
+          example: Петрова А. В.
+        role:
+          $ref: "#/components/schemas/Role"
+        mustChangePassword:
+          type: boolean
+          description: Вход по временному паролю; до смены доступны только /auth/*
+        csrfToken:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+        locationIds:
+          type: array
+          x-go-name: LocationIDs
+          description: Точки, с которыми работает пользователь. Для ролей уровня сети – все точки
+          items:
+            type: string
+            format: uuid
+
     LocationKind:
       type: string
       enum: [warehouse, store]

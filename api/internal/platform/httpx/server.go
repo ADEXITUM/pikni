@@ -3,6 +3,7 @@ package httpx
 
 import (
 	"log/slog"
+	"net/http"
 
 	echootel "github.com/labstack/echo-opentelemetry"
 	"github.com/labstack/echo/v5"
@@ -13,13 +14,31 @@ func NewServer(log *slog.Logger, serviceName string) *echo.Echo {
 	e := echo.New()
 	e.Logger = log
 	e.HTTPErrorHandler = errorHandler
+	// За Caddy адрес клиента приходит в X-Forwarded-For. Заголовку верим, только если
+	// запрос пришёл из частной сети, где стоит прокси.
+	e.IPExtractor = echo.ExtractIPFromXFFHeader()
 
 	e.Use(middleware.RequestID())
 	e.Use(echootel.NewMiddlewareWithConfig(echootel.Config{ServerName: serviceName, Skipper: isProbe}))
 	e.Use(requestLogger(log))
 	e.Use(middleware.Recover())
+	e.Use(crossOriginProtection())
 
 	return e
+}
+
+// Изменяющие запросы с чужих сайтов отклоняются по заголовкам Sec-Fetch-Site и Origin,
+// которые браузер выставляет сам и которые страница подделать не может.
+func crossOriginProtection() echo.MiddlewareFunc {
+	cop := http.NewCrossOriginProtection()
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if err := cop.Check(c.Request()); err != nil {
+				return echo.NewHTTPError(http.StatusForbidden, "Запрос с другого сайта отклонён")
+			}
+			return next(c)
+		}
+	}
 }
 
 func isProbe(c *echo.Context) bool {

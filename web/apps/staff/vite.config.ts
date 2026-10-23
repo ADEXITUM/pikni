@@ -12,9 +12,14 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // Компоненты Vuetify подключаются по мере использования. Если их предварительно собирать,
+  // Vite находит новый компонент только при первом открытии страницы и перезагружает её.
+  optimizeDeps: {
+    exclude: ['vuetify'],
+  },
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': process.env.PIKNI_API_URL ?? 'http://localhost:8080',
     },
   },
 })

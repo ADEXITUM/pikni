@@ -16,17 +16,10 @@ type Config struct {
 	LogFormat       string        `env:"LOG_FORMAT" envDefault:"json"`
 	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"15s"`
 
-	DatabaseURL         string `env:"DATABASE_URL" envDefault:"postgres://pikni:pikni@localhost:5432/pikni?sslmode=disable"`
-	DatabaseMigratorURL string `env:"DATABASE_MIGRATOR_URL"`
+	DatabaseURL         string `env:"DATABASE_URL" envDefault:"postgres://pikni_app:pikni_app@localhost:5432/pikni?sslmode=disable"`
+	DatabaseMigratorURL string `env:"DATABASE_MIGRATOR_URL" envDefault:"postgres://pikni_owner:pikni_owner@localhost:5432/pikni?sslmode=disable"`
 
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
-}
-
-func (c Config) MigratorURL() string {
-	if c.DatabaseMigratorURL != "" {
-		return c.DatabaseMigratorURL
-	}
-	return c.DatabaseURL
 }
 
 func LoadConfig() (Config, error) {

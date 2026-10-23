@@ -4,6 +4,264 @@
  */
 
 export interface paths {
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вход по логину и паролю */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Выход */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Текущий пользователь и CSRF-токен сессии */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Смена своего пароля
+         * @description Остальные сессии пользователя завершаются.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Мои активные сеансы */
+        get: operations["listMySessions"];
+        put?: never;
+        post?: never;
+        /** Завершить все свои сеансы, кроме текущего */
+        delete: operations["endOtherSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Завершить свой сеанс */
+        delete: operations["endSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Журнал действий
+         * @description Записи от новых к старым. Следующая страница — параметр before из nextBefore.
+         */
+        get: operations["listAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сотрудники */
+        get: operations["listUsers"];
+        put?: never;
+        /**
+         * Создать сотрудника
+         * @description Пароль генерирует сервер и показывает один раз. При первом входе сотрудник придумывает свой.
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Изменить ФИО, роль и точки
+         * @description Оптимистическая блокировка — version из открытой карточки. Если карточку уже изменили, ответ 409.
+         */
+        put: operations["updateUser"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Заблокировать сотрудника и завершить его сеансы */
+        post: operations["blockUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Разблокировать сотрудника */
+        post: operations["unblockUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Сбросить пароль
+         * @description Выдаёт временный пароль, снимает блокировку за ошибки входа и завершает сеансы сотрудника.
+         */
+        post: operations["resetUserPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Завершить все сеансы сотрудника */
+        delete: operations["endUserSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Выгрузка журнала в Excel
+         * @description Те же фильтры, что у списка. Время в файле — в часовом поясе tz.
+         */
+        get: operations["exportAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/locations": {
         parameters: {
             query?: never;
@@ -25,6 +283,139 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        Role: "admin" | "manager" | "accountant" | "store_manager" | "storekeeper" | "cashier";
+        /**
+         * @description Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
+         * @enum {string}
+         */
+        Permission: "users.manage" | "users.view" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
+        /**
+         * @description Вид события. Русские названия — в словаре клиента.
+         * @enum {string}
+         */
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset";
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            action: components["schemas"]["AuditAction"];
+            user?: components["schemas"]["AuditUser"];
+            /** Format: uuid */
+            sessionId?: string;
+            ip?: string;
+            entityType?: string;
+            entityId?: string;
+            /** @description Подробности события, например логин и роль созданного пользователя */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Кто выполнил действие. Нет у неудачных входов и у действий консоли сервера */
+        AuditUser: {
+            /** Format: uuid */
+            id: string;
+            login: string;
+            fullName: string;
+        };
+        AuditPage: {
+            items: components["schemas"]["AuditEntry"][];
+            /**
+             * Format: int64
+             * @description Курсор следующей страницы; нет, если это последняя
+             */
+            nextBefore?: number;
+        };
+        SessionInfo: {
+            /** Format: uuid */
+            id: string;
+            /** @description Сеанс, из которого сделан запрос */
+            current: boolean;
+            ip?: string;
+            userAgent?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Обновляется не чаще раза в 5 минут
+             */
+            lastSeenAt: string;
+        };
+        SessionList: {
+            items: components["schemas"]["SessionInfo"][];
+        };
+        User: {
+            /** Format: uuid */
+            id: string;
+            login: string;
+            fullName: string;
+            role: components["schemas"]["Role"];
+            locationIds: string[];
+            isBlocked: boolean;
+            mustChangePassword: boolean;
+            /**
+             * Format: date-time
+             * @description Вход временно закрыт после неудачных попыток
+             */
+            lockedUntil?: string;
+            /** Format: int32 */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        UserList: {
+            items: components["schemas"]["User"][];
+        };
+        NewUser: {
+            /** @example a.petrova */
+            login: string;
+            /** @example Петрова А. В. */
+            fullName: string;
+            role: components["schemas"]["Role"];
+            /** @description Обязательно для ролей магазина и склада, пусто для ролей уровня сети */
+            locationIds: string[];
+        };
+        UserUpdate: {
+            fullName: string;
+            role: components["schemas"]["Role"];
+            locationIds: string[];
+            /** Format: int32 */
+            version: number;
+        };
+        CreatedUser: {
+            user: components["schemas"]["User"];
+            temporaryPassword: string;
+        };
+        TemporaryPassword: {
+            temporaryPassword: string;
+        };
+        LoginRequest: {
+            /** @example petrova */
+            login: string;
+            /** Format: password */
+            password: string;
+        };
+        ChangePasswordRequest: {
+            /** Format: password */
+            currentPassword: string;
+            /** Format: password */
+            newPassword: string;
+        };
+        Me: {
+            /** Format: uuid */
+            id: string;
+            login: string;
+            /** @example Петрова А. В. */
+            fullName: string;
+            role: components["schemas"]["Role"];
+            /** @description Вход по временному паролю; до смены доступны только /auth/* */
+            mustChangePassword: boolean;
+            csrfToken: string;
+            permissions: components["schemas"]["Permission"][];
+            /** @description Точки, с которыми работает пользователь. Для ролей уровня сети – все точки */
+            locationIds: string[];
+        };
         /** @enum {string} */
         LocationKind: "warehouse" | "store";
         Location: {
@@ -67,13 +458,408 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Начало периода включительно */
+        AuditFrom: string;
+        /** @description Конец периода, не включая */
+        AuditTo: string;
+        /** @description Кто выполнил действие */
+        AuditUserID: string;
+        AuditActionFilter: components["schemas"]["AuditAction"];
+        AuditEntityType: string;
+        AuditEntityID: string;
+    };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description Cookie сессии pikni_sid (HttpOnly, Secure, SameSite=Lax, Path=/api) */
+        SessionCookie: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Вход выполнен */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SessionCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сессия завершена */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SessionCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сессия действительна */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Пароль изменён */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMySessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сеансы от последней активности к ранней */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    endOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Остальные сеансы завершены */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    endSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сеанс завершён */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAuditLog: {
+        parameters: {
+            query?: {
+                /** @description Только записи с номером меньше указанного */
+                before?: number;
+                limit?: number;
+                /** @description Начало периода включительно */
+                from?: components["parameters"]["AuditFrom"];
+                /** @description Конец периода, не включая */
+                to?: components["parameters"]["AuditTo"];
+                /** @description Кто выполнил действие */
+                userId?: components["parameters"]["AuditUserID"];
+                action?: components["parameters"]["AuditActionFilter"];
+                entityType?: components["parameters"]["AuditEntityType"];
+                entityId?: components["parameters"]["AuditEntityID"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница журнала */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Все сотрудники по алфавиту */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewUser"];
+            };
+        };
+        responses: {
+            /** @description Сотрудник создан */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedUser"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Сотрудник изменён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    blockUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сотрудник заблокирован */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    unblockUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сотрудник разблокирован */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    resetUserPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Временный пароль, показывается один раз */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemporaryPassword"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    endUserSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сеансы завершены */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    exportAuditLog: {
+        parameters: {
+            query?: {
+                /** @description Начало периода включительно */
+                from?: components["parameters"]["AuditFrom"];
+                /** @description Конец периода, не включая */
+                to?: components["parameters"]["AuditTo"];
+                /** @description Кто выполнил действие */
+                userId?: components["parameters"]["AuditUserID"];
+                action?: components["parameters"]["AuditActionFilter"];
+                entityType?: components["parameters"]["AuditEntityType"];
+                entityId?: components["parameters"]["AuditEntityID"];
+                /** @description Часовой пояс IANA для времени в файле, по умолчанию UTC */
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл XLSX */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     listLocations: {
         parameters: {
             query?: never;
