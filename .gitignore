@@ -12,6 +12,8 @@ coverage.*
 
 # Node и сборки фронтенда
 node_modules/
+# Кеш компиляции Node, который создаётся во временном каталоге рядом с запущенной командой
+node-compile-cache/
 dist/
 .vite/
 *.tsbuildinfo
