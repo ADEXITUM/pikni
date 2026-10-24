@@ -80,9 +80,20 @@ tasks:
       - task: migrate
       - task: dev:run
 
+  dev:https:
+    desc: Как dev, но фронтенд по HTTPS и виден в локальной сети — для камеры на телефоне
+    cmds:
+      - task: up
+      - task: migrate
+      - task: dev:run
+        vars: { HTTPS: '1' }
+
   dev:run:
     internal: true
-    deps: [dev:api, dev:web]
+    deps:
+      - dev:api
+      - task: dev:web
+        vars: { HTTPS: '{{.HTTPS}}' }
 
   dev:api:
     internal: true
@@ -97,6 +108,8 @@ tasks:
   dev:web:
     internal: true
     dir: web
+    env:
+      PIKNI_HTTPS: '{{.HTTPS}}'
     cmds:
       - npm run dev:staff
 
