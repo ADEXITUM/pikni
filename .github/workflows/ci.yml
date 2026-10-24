@@ -33,6 +33,26 @@ jobs:
       - run: go test -race ./...
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+  govsim:
+    name: Emulator (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: govsim
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: govsim/go.mod
+          cache-dependency-path: govsim/go.sum
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: govsim
+      - run: go test -race ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   web:
     name: Web (Vue)
     runs-on: ubuntu-latest

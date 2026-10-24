@@ -34,10 +34,23 @@ tasks:
       - '{{.COMPOSE}} --profile obs down'
 
   migrate:
-    desc: Применить миграции схемы
-    dir: api
+    desc: Применить миграции схемы (и завести базу имитатора, если её ещё нет)
     cmds:
-      - go run ./cmd/migrate
+      - task: govsim:db
+      - cmd: go run ./cmd/migrate
+        dir: api
+      - cmd: go run ./cmd/govsim migrate
+        dir: govsim
+
+  govsim:db:
+    internal: true
+    desc: Роль и база имитатора в существующем томе PostgreSQL — скрипт первичной настройки их не создаст
+    cmds:
+      - |
+        {{.COMPOSE}} exec -T postgres psql -U postgres -d pikni -q -v ON_ERROR_STOP=1 <<'SQL'
+        select 'create role govsim login password ''govsim''' where not exists (select from pg_roles where rolname = 'govsim') \gexec
+        select 'create database govsim owner govsim' where not exists (select from pg_database where datname = 'govsim') \gexec
+        SQL
 
   seed:
     desc: Загрузить тестовые данные в локальную базу
@@ -45,6 +58,13 @@ tasks:
       - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
       - task: seed:catalog
       - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/matrix.sql'
+      - task: seed:govsim
+
+  seed:govsim:
+    internal: true
+    dir: govsim
+    cmds:
+      - go run ./cmd/govsim seed -catalog ../api/db/seed/catalog.csv
 
   seed:catalog:
     internal: true
@@ -92,6 +112,7 @@ tasks:
     internal: true
     deps:
       - dev:api
+      - dev:govsim
       - task: dev:web
         vars: { HTTPS: '{{.HTTPS}}' }
 
@@ -104,6 +125,12 @@ tasks:
       OTEL_METRIC_EXPORT_INTERVAL: '10000'
     cmds:
       - go tool air
+
+  dev:govsim:
+    internal: true
+    dir: govsim
+    cmds:
+      - go run ./cmd/govsim serve
 
   dev:web:
     internal: true
