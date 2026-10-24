@@ -6,6 +6,7 @@ import {
   scanEvent,
   type RecognizedCode,
   type ScanEvent,
+  type ScanFormat,
   type ScanSource,
 } from '@pikni/scanner'
 import { onBeforeUnmount, onMounted } from 'vue'
@@ -31,14 +32,14 @@ export interface Scan {
 export function useScanner(onScan: (scan: Scan) => void, dedupeMs = 2000) {
   const fresh = createDeduper(dedupeMs)
 
-  function submit(raw: string, source: ScanSource) {
+  function submit(raw: string, source: ScanSource, format?: ScanFormat) {
     if (source !== 'manual' && !fresh(raw)) return
-    onScan({ event: scanEvent(raw, source), code: recognize(raw) })
+    onScan({ event: scanEvent(raw, source, format), code: recognize(raw) })
   }
 
   let stop: (() => void) | undefined
   onMounted(() => (stop = listenWedge({ onScan: (raw) => submit(raw, 'wedge') })))
   onBeforeUnmount(() => stop?.())
 
-  return { submit }
+  return { submit, forget: fresh.forget }
 }

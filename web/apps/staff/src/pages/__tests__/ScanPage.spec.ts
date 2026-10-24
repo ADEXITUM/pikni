@@ -5,9 +5,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { playFeedback } from '@/feedback'
+
 import ScanPage from '../ScanPage.vue'
 
 type ApiModule = typeof import('@pikni/api')
+
+vi.mock('@/feedback', () => ({ playFeedback: vi.fn<(event: string) => void>() }))
 
 vi.mock('@pikni/api', async (importOriginal) => ({
   ...(await importOriginal<ApiModule>()),
@@ -44,6 +48,12 @@ const found: CodeResolution = {
   },
 }
 
+const CameraStub = {
+  name: 'ScanCamera',
+  template: '<div data-test="camera" />',
+  emits: ['scan', 'close'],
+}
+
 async function mountPage() {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -55,6 +65,7 @@ async function mountPage() {
   const wrapper = mount(ScanPage, {
     global: {
       plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient: new QueryClient() }]],
+      stubs: { ScanCamera: CameraStub },
     },
     attachTo: document.body,
   })
@@ -68,6 +79,8 @@ const scanWithWedge = (code: string) => {
 
 describe('ScanPage', () => {
   beforeEach(() => {
+    localStorage.clear()
+    vi.mocked(playFeedback).mockClear()
     vi.mocked(api.GET).mockClear()
     vi.mocked(api.GET).mockImplementation(((
       _: string,
@@ -116,6 +129,57 @@ describe('ScanPage', () => {
     expect(wrapper.find('[data-test="local"]').text()).toContain('SSCC')
     expect(api.GET).toHaveBeenCalledTimes(1)
     expect(wrapper.find('[data-test="recent"]').findAll('.v-list-item')).toHaveLength(3)
+    wrapper.unmount()
+  })
+
+  it('камера включается кнопкой и запоминается; повтор кода из кадра гасится', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.find('[data-test="camera"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="camera-on"]').trigger('click')
+    expect(localStorage.getItem('pikni.scan.camera')).toBe('1')
+    const camera = wrapper.findComponent(CameraStub)
+    camera.vm.$emit('scan', { raw: '2900000000025', format: 'ean_13' })
+    camera.vm.$emit('scan', { raw: '2900000000025', format: 'ean_13' })
+    await flushPromises()
+
+    expect(api.GET).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="result"]').text()).toContain('камера')
+
+    camera.vm.$emit('close')
+    await flushPromises()
+    expect(wrapper.find('[data-test="camera"]').exists()).toBe(false)
+    expect(localStorage.getItem('pikni.scan.camera')).toBe('0')
+    wrapper.unmount()
+  })
+
+  it('у каждого исхода свой сигнал и слово; отменённый скан можно сразу повторить', async () => {
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="camera-on"]').trigger('click')
+    const camera = wrapper.findComponent(CameraStub)
+    const scan = async (raw: string) => {
+      camera.vm.$emit('scan', { raw, format: 'ean_13' })
+      await flushPromises()
+    }
+    const outcome = () => wrapper.find('[data-test="outcome"]').text()
+
+    await scan('2900000000025')
+    expect(playFeedback).toHaveBeenLastCalledWith('accepted')
+    expect(outcome()).toContain('Найден')
+
+    await scan('4006381333931')
+    expect(playFeedback).toHaveBeenLastCalledWith('unknown')
+    expect(outcome()).toContain('Нет в каталоге')
+
+    await scan('00046000000000000015')
+    expect(playFeedback).toHaveBeenLastCalledWith('notInPlan')
+
+    await wrapper.find('[data-test="undo"]').trigger('click')
+    expect(playFeedback).toHaveBeenLastCalledWith('undone')
+    expect(wrapper.find('[data-test="recent"]').findAll('.v-list-item')).toHaveLength(2)
+
+    await scan('00046000000000000015')
+    expect(wrapper.find('[data-test="local"]').text()).toContain('SSCC')
     wrapper.unmount()
   })
 })

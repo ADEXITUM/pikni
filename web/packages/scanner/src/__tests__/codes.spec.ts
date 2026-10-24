@@ -52,4 +52,11 @@ describe('createDeduper', () => {
     expect(fresh('B', 3100)).toBe(true)
     expect(fresh('A', 5100)).toBe(true)
   })
+
+  it('после отмены скана тот же код принимается сразу', () => {
+    const fresh = createDeduper(2000)
+    expect(fresh('A', 0)).toBe(true)
+    fresh.forget('A')
+    expect(fresh('A', 100)).toBe(true)
+  })
 })

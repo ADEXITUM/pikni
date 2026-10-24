@@ -1,12 +1,48 @@
 <script setup lang="ts">
-import { mdiBarcodeScan, mdiMagnify } from '@mdi/js'
+import {
+  mdiAlertCircleOutline,
+  mdiBarcodeScan,
+  mdiCameraOutline,
+  mdiCheckCircleOutline,
+  mdiHelpCircleOutline,
+  mdiInformationOutline,
+  mdiMagnify,
+  mdiUndoVariant,
+} from '@mdi/js'
 import { api, ApiError, type CodeResolution } from '@pikni/api'
 import type { RecognizedCode, ScanSource } from '@pikni/scanner'
+import type { SoundEvent } from '@pikni/ui'
 import { computed, reactive, ref } from 'vue'
 
+import ScanCamera from '@/components/ScanCamera.vue'
+import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'
+import { load, save } from '@/preferences'
 import { formatPrice, variantLabel } from '@/products'
 import { codeKindLabels, useScanner } from '@/scanning'
+
+type Outcome = 'found' | 'missing' | 'local' | 'unrecognized' | 'error'
+
+// Исход скана — сигнал, цвет, значок и слово (СК-3). Цвет всегда продублирован словом и
+// значком, звук — карточкой: информация не передаётся одним каналом.
+const outcomes: Record<Outcome, { sound: SoundEvent; color: string; icon: string; word: string }> =
+  {
+    found: { sound: 'accepted', color: 'success', icon: mdiCheckCircleOutline, word: 'Найден' },
+    local: { sound: 'notInPlan', color: 'warning', icon: mdiInformationOutline, word: 'Считан' },
+    missing: {
+      sound: 'unknown',
+      color: 'error',
+      icon: mdiHelpCircleOutline,
+      word: 'Нет в каталоге',
+    },
+    unrecognized: {
+      sound: 'unknown',
+      color: 'error',
+      icon: mdiHelpCircleOutline,
+      word: 'Не распознан',
+    },
+    error: { sound: 'unknown', color: 'error', icon: mdiAlertCircleOutline, word: 'Ошибка' },
+  }
 
 interface Entry {
   id: string
@@ -14,7 +50,7 @@ interface Entry {
   code: RecognizedCode
   source: ScanSource
   at: string
-  status: 'loading' | 'found' | 'missing' | 'local' | 'error'
+  status: 'loading' | Outcome
   result?: CodeResolution
   error?: string
 }
@@ -30,30 +66,61 @@ const current = computed(
 const searchable = (c: RecognizedCode) =>
   ['product', 'crpt', 'excise_mark'].includes(c.kind) && !c.newMark
 
-const { submit } = useScanner(async ({ event, code }) => {
+function settle(entry: Entry, status: Outcome) {
+  entry.status = status
+  playFeedback(outcomes[status].sound)
+}
+
+const { submit, forget } = useScanner(async ({ event, code }) => {
   const entry = reactive<Entry>({
     id: event.id,
     raw: event.raw,
     code,
     source: event.source,
     at: event.scannedAt,
-    status: searchable(code) ? 'loading' : 'local',
+    status: 'loading',
   })
   recent.value = [entry, ...recent.value].slice(0, 10)
   selectedId.value = undefined
-  if (!searchable(code)) return
+  if (!searchable(code)) return settle(entry, code.kind === 'unknown' ? 'unrecognized' : 'local')
   try {
     const { data, error } = await api.GET('/codes/resolve', {
       params: { query: { code: event.raw } },
     })
     if (error) throw new ApiError(error)
     entry.result = data
-    entry.status = data.product ? 'found' : 'missing'
+    settle(entry, data.product ? 'found' : 'missing')
   } catch (e) {
-    entry.status = 'error'
     entry.error = e instanceof ApiError ? e.message : 'Нет связи с сервером'
+    settle(entry, 'error')
   }
 })
+
+// Ошибочный скан убирается из списка, а тот же код можно сразу считать снова.
+function undo(entry: Entry) {
+  recent.value = recent.value.filter((e) => e.id !== entry.id)
+  if (selectedId.value === entry.id) selectedId.value = undefined
+  forget(entry.raw)
+  playFeedback('undone')
+}
+
+// Уголки рамки камеры вспыхивают цветом исхода последнего скана.
+const flash = computed(() => {
+  const e = recent.value[0]
+  return e && e.status !== 'loading' ? { color: outcomes[e.status].color, key: e.id } : undefined
+})
+const outcome = (e: Entry) => (e.status === 'loading' ? undefined : outcomes[e.status])
+
+// Камера включена по умолчанию на телефоне и планшете; на ПК обычно стоит ручной сканер.
+// Выбор запоминается на устройстве.
+const stored = load('pikni.scan.camera')
+const cameraOn = ref(
+  stored === null ? (window.matchMedia?.('(pointer: coarse)').matches ?? false) : stored === '1',
+)
+function setCamera(on: boolean) {
+  cameraOn.value = on
+  save('pikni.scan.camera', on ? '1' : '0')
+}
 
 const manual = ref('')
 function submitManual() {
@@ -76,30 +143,48 @@ const title = (e: Entry) =>
 <template>
   <v-container class="pk-scan">
     <h1 class="text-h5 mb-2">Сканер</h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
-      Отсканируйте штрихкод, марку ЕГАИС или код «Честного знака» — ручной сканер работает без
+    <p class="text-body-2 text-medium-emphasis mb-4" :class="{ 'd-none d-sm-block': cameraOn }">
+      Наведите камеру на штрихкод, марку ЕГАИС или код «Честного знака». Ручной сканер работает без
       нажатия на поле. Повреждённый код можно ввести вручную.
     </p>
 
-    <v-form class="mb-4" @submit.prevent="submitManual">
-      <v-text-field
-        v-model="manual"
-        :prepend-inner-icon="mdiBarcodeScan"
-        label="Код вручную"
-        :append-inner-icon="mdiMagnify"
-        hide-details
-        data-test="manual"
-        @click:append-inner="submitManual"
-      />
-    </v-form>
+    <ScanCamera
+      v-if="cameraOn"
+      class="mb-4"
+      :flash="flash"
+      @scan="(c) => submit(c.raw, 'camera', c.format)"
+      @close="setCamera(false)"
+    />
+    <v-btn
+      v-else
+      :prepend-icon="mdiCameraOutline"
+      variant="tonal"
+      class="mb-4"
+      data-test="camera-on"
+      @click="setCamera(true)"
+    >
+      Включить камеру
+    </v-btn>
 
-    <v-card v-if="current" class="mb-4" data-test="result">
+    <v-card
+      v-if="current"
+      class="pk-result mb-4"
+      :style="
+        outcome(current) && { '--pk-outcome': `rgb(var(--v-theme-${outcome(current)!.color}))` }
+      "
+      data-test="result"
+    >
       <v-card-item>
+        <template v-if="outcome(current)" #prepend>
+          <v-icon :icon="outcome(current)!.icon" :color="outcome(current)!.color" size="32" />
+        </template>
         <v-card-subtitle>
-          <template v-if="current.status === 'found'">
-            {{ codeKindLabels[current.code.kind] }} ·
-          </template>
-          {{ sourceLabels[current.source] }}
+          <span
+            v-if="outcome(current)"
+            :class="`text-${outcome(current)!.color} font-weight-bold`"
+            data-test="outcome"
+            >{{ outcome(current)!.word }} · </span
+          >{{ codeKindLabels[current.code.kind] }} · {{ sourceLabels[current.source] }}
         </v-card-subtitle>
         <v-card-title class="text-wrap">{{ title(current) }}</v-card-title>
       </v-card-item>
@@ -116,40 +201,35 @@ const title = (e: Entry) =>
 
         <v-progress-linear v-if="current.status === 'loading'" indeterminate />
 
-        <template v-else-if="current.status === 'found' && current.result?.product">
-          <dl class="pk-facts" data-test="found">
-            <dt>Артикул</dt>
-            <dd class="pk-code">{{ current.result.product.article }}</dd>
-            <dt>Категория</dt>
-            <dd>{{ current.result.product.categoryName }}</dd>
-            <template v-if="current.result.variant">
-              <dt>Вариант</dt>
-              <dd>{{ variantLabel(current.result.variant) }}</dd>
-              <dt>Цена</dt>
-              <dd>
-                {{
-                  current.result.variant.retailPrice !== undefined
-                    ? formatPrice(current.result.variant.retailPrice)
-                    : 'не назначена'
-                }}
-                <span v-if="current.result.variant.minPrice" class="text-medium-emphasis">
-                  · МРЦ {{ formatPrice(current.result.variant.minPrice) }}
-                </span>
-              </dd>
-            </template>
-          </dl>
-          <v-btn
-            :to="{ name: 'product', params: { id: current.result.product.id } }"
-            variant="tonal"
-            class="mt-3"
-          >
-            Открыть карточку
-          </v-btn>
-        </template>
+        <dl
+          v-else-if="current.status === 'found' && current.result?.product"
+          class="pk-facts"
+          data-test="found"
+        >
+          <dt>Артикул</dt>
+          <dd class="pk-code">{{ current.result.product.article }}</dd>
+          <dt>Категория</dt>
+          <dd>{{ current.result.product.categoryName }}</dd>
+          <template v-if="current.result.variant">
+            <dt>Вариант</dt>
+            <dd>{{ variantLabel(current.result.variant) }}</dd>
+            <dt>Цена</dt>
+            <dd>
+              {{
+                current.result.variant.retailPrice !== undefined
+                  ? formatPrice(current.result.variant.retailPrice)
+                  : 'не назначена'
+              }}
+              <span v-if="current.result.variant.minPrice" class="text-medium-emphasis">
+                · МРЦ {{ formatPrice(current.result.variant.minPrice) }}
+              </span>
+            </dd>
+          </template>
+        </dl>
 
         <v-alert
           v-else-if="current.status === 'missing'"
-          type="warning"
+          type="error"
           variant="tonal"
           data-test="missing"
         >
@@ -157,10 +237,20 @@ const title = (e: Entry) =>
           «Варианты».
         </v-alert>
         <v-alert v-else-if="current.status === 'error'" type="error">{{ current.error }}</v-alert>
+        <v-alert
+          v-else-if="current.status === 'unrecognized'"
+          type="error"
+          variant="tonal"
+          data-test="unrecognized"
+        >
+          Код не распознан. Проверьте, что сканируете штрихкод товара, марку или код «Честного
+          знака»; у штрихкода EAN могла не сойтись контрольная цифра. Повреждённый код можно ввести
+          вручную.
+        </v-alert>
 
         <v-alert
           v-else-if="current.status === 'local'"
-          type="info"
+          type="warning"
           variant="tonal"
           data-test="local"
         >
@@ -178,17 +268,38 @@ const title = (e: Entry) =>
           <template v-else-if="current.code.kind === 'asset'">
             Инвентарный номер {{ current.code.code }}. Учёт имущества в системе пока не подключён.
           </template>
-          <template v-else-if="current.code.kind === 'service_qr'">
+          <template v-else>
             Служебный код Пикни. Откройте его на экране, где он нужен, — например, при сопряжении
             смартфона.
           </template>
-          <template v-else>
-            Код не распознан. Проверьте, что сканируете штрихкод товара, марку или код «Честного
-            знака»; у штрихкода EAN могла не сойтись контрольная цифра.
-          </template>
         </v-alert>
       </v-card-text>
+      <v-card-actions v-if="current.status !== 'loading'">
+        <v-btn
+          v-if="current.status === 'found' && current.result?.product"
+          :to="{ name: 'product', params: { id: current.result.product.id } }"
+          variant="tonal"
+        >
+          Открыть карточку
+        </v-btn>
+        <v-spacer />
+        <v-btn :prepend-icon="mdiUndoVariant" data-test="undo" @click="undo(current)">
+          Отменить скан
+        </v-btn>
+      </v-card-actions>
     </v-card>
+
+    <v-form class="mb-4" @submit.prevent="submitManual">
+      <v-text-field
+        v-model="manual"
+        :prepend-inner-icon="mdiBarcodeScan"
+        label="Код вручную"
+        :append-inner-icon="mdiMagnify"
+        hide-details
+        data-test="manual"
+        @click:append-inner="submitManual"
+      />
+    </v-form>
 
     <v-card v-if="recent.length > 1" title="Последние сканы">
       <v-list density="compact" data-test="recent">
@@ -199,7 +310,20 @@ const title = (e: Entry) =>
           :title="title(e)"
           :subtitle="`${sourceLabels[e.source]} · ${formatDateTime(e.at)}`"
           @click="selectedId = e.id"
-        />
+        >
+          <template #prepend>
+            <v-icon v-if="outcome(e)" :icon="outcome(e)!.icon" :color="outcome(e)!.color" />
+          </template>
+          <template #append>
+            <v-btn
+              :icon="mdiUndoVariant"
+              variant="text"
+              size="small"
+              aria-label="Отменить скан"
+              @click.stop="undo(e)"
+            />
+          </template>
+        </v-list-item>
       </v-list>
     </v-card>
   </v-container>
@@ -208,6 +332,11 @@ const title = (e: Entry) =>
 <style scoped>
 .pk-scan {
   max-width: 720px;
+}
+
+/* Полоса слева — цвет исхода скана; слово и значок дублируют его. */
+.pk-result {
+  border-inline-start: 4px solid var(--pk-outcome, transparent);
 }
 
 .pk-facts {

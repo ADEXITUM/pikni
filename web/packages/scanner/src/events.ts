@@ -23,12 +23,14 @@ export function scanEvent(
 
 // createDeduper гасит повторное чтение того же кода в течение окна (СК-2): камера видит код
 // в каждом кадре. Пока код остаётся в кадре, окно продлевается, поэтому повтор не проскочит.
+// forget снимает код с учёта: после отмены ошибочного скана его можно сразу считать снова.
 export function createDeduper(windowMs = 2000) {
   const seen = new Map<string, number>()
-  return (raw: string, now = Date.now()): boolean => {
+  const fresh = (raw: string, now = Date.now()): boolean => {
     for (const [code, at] of seen) if (now - at > windowMs) seen.delete(code)
     const last = seen.get(raw)
     seen.set(raw, now)
     return last === undefined
   }
+  return Object.assign(fresh, { forget: (raw: string) => seen.delete(raw) })
 }

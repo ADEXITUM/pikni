@@ -19,3 +19,4 @@ export function createPikniVuetify() {
     locale: { locale: 'ru', fallback: 'en', messages: { ru, en } },
   })
 }
+export { createSounds, soundEvents, type SoundEvent, type SoundSettings } from './sounds'
