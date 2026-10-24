@@ -7,9 +7,129 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+const claimQueued = `-- name: ClaimQueued :many
+select m.id, m.location_id, l.fsrar_id, m.doc_type, m.payload, m.attempts
+from egais_messages m
+join locations l on l.id = m.location_id
+where m.direction = 'out' and m.status = 'queued' and m.next_attempt_at <= now()
+order by m.created_at
+limit 20
+for update of m skip locked
+`
+
+type ClaimQueuedRow struct {
+	ID         uuid.UUID
+	LocationID uuid.UUID
+	FsrarID    *string
+	DocType    string
+	Payload    []byte
+	Attempts   int32
+}
+
+// Отправка очереди: несколько экземпляров сервера берут разные сообщения (skip locked).
+func (q *Queries) ClaimQueued(ctx context.Context) ([]ClaimQueuedRow, error) {
+	rows, err := q.db.Query(ctx, claimQueued)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ClaimQueuedRow
+	for rows.Next() {
+		var i ClaimQueuedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LocationID,
+			&i.FsrarID,
+			&i.DocType,
+			&i.Payload,
+			&i.Attempts,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const documentExchange = `-- name: DocumentExchange :many
+select id, direction, doc_type, status, attempts, last_error, next_attempt_at, created_at, updated_at,
+       coalesce(ticket ->> 'reason', '')::text as reason
+from egais_messages
+where document_id = $1
+order by created_at, id
+`
+
+type DocumentExchangeRow struct {
+	ID            uuid.UUID
+	Direction     string
+	DocType       string
+	Status        string
+	Attempts      int32
+	LastError     *string
+	NextAttemptAt time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Reason        string
+}
+
+func (q *Queries) DocumentExchange(ctx context.Context, documentID *uuid.UUID) ([]DocumentExchangeRow, error) {
+	rows, err := q.db.Query(ctx, documentExchange, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DocumentExchangeRow
+	for rows.Next() {
+		var i DocumentExchangeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Direction,
+			&i.DocType,
+			&i.Status,
+			&i.Attempts,
+			&i.LastError,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const documentPending = `-- name: DocumentPending :one
+select count(*) filter (where status in ('queued', 'sent'))::integer as pending,
+       count(*) filter (where status = 'rejected')::integer as rejected
+from egais_messages
+where document_id = $1 and direction = 'out'
+`
+
+type DocumentPendingRow struct {
+	Pending  int32
+	Rejected int32
+}
+
+// Сколько исходящих сообщений документа ещё без квитанции и сколько отклонено.
+func (q *Queries) DocumentPending(ctx context.Context, documentID *uuid.UUID) (DocumentPendingRow, error) {
+	row := q.db.QueryRow(ctx, documentPending, documentID)
+	var i DocumentPendingRow
+	err := row.Scan(&i.Pending, &i.Rejected)
+	return i, err
+}
 
 const enqueueMessage = `-- name: EnqueueMessage :one
 
@@ -36,4 +156,162 @@ func (q *Queries) EnqueueMessage(ctx context.Context, arg EnqueueMessageParams) 
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const exchangeLocations = `-- name: ExchangeLocations :many
+select id, fsrar_id::text as fsrar_id
+from locations
+where is_active and fsrar_id is not null
+`
+
+type ExchangeLocationsRow struct {
+	ID      uuid.UUID
+	FsrarID string
+}
+
+func (q *Queries) ExchangeLocations(ctx context.Context) ([]ExchangeLocationsRow, error) {
+	rows, err := q.db.Query(ctx, exchangeLocations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExchangeLocationsRow
+	for rows.Next() {
+		var i ExchangeLocationsRow
+		if err := rows.Scan(&i.ID, &i.FsrarID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findSent = `-- name: FindSent :one
+select id, document_id, doc_type
+from egais_messages
+where location_id = $1 and direction = 'out' and external_id = $2
+for update
+`
+
+type FindSentParams struct {
+	LocationID uuid.UUID
+	ExternalID *string
+}
+
+type FindSentRow struct {
+	ID         uuid.UUID
+	DocumentID *uuid.UUID
+	DocType    string
+}
+
+func (q *Queries) FindSent(ctx context.Context, arg FindSentParams) (FindSentRow, error) {
+	row := q.db.QueryRow(ctx, findSent, arg.LocationID, arg.ExternalID)
+	var i FindSentRow
+	err := row.Scan(&i.ID, &i.DocumentID, &i.DocType)
+	return i, err
+}
+
+const insertInbound = `-- name: InsertInbound :one
+insert into egais_messages (location_id, direction, doc_type, external_id, payload, status)
+values ($1, 'in', $2, $3, $4, 'processed')
+on conflict (location_id, direction, external_id) where external_id is not null do nothing
+returning id
+`
+
+type InsertInboundParams struct {
+	LocationID uuid.UUID
+	DocType    string
+	ExternalID *string
+	Payload    []byte
+}
+
+func (q *Queries) InsertInbound(ctx context.Context, arg InsertInboundParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, insertInbound,
+		arg.LocationID,
+		arg.DocType,
+		arg.ExternalID,
+		arg.Payload,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertRestsSnapshot = `-- name: InsertRestsSnapshot :exec
+insert into egais_rests_snapshots (location_id, payload) values ($1, $2)
+`
+
+type InsertRestsSnapshotParams struct {
+	LocationID uuid.UUID
+	Payload    []byte
+}
+
+func (q *Queries) InsertRestsSnapshot(ctx context.Context, arg InsertRestsSnapshotParams) error {
+	_, err := q.db.Exec(ctx, insertRestsSnapshot, arg.LocationID, arg.Payload)
+	return err
+}
+
+const linkInbound = `-- name: LinkInbound :exec
+update egais_messages set document_id = $1 where id = $2
+`
+
+type LinkInboundParams struct {
+	DocumentID *uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) LinkInbound(ctx context.Context, arg LinkInboundParams) error {
+	_, err := q.db.Exec(ctx, linkInbound, arg.DocumentID, arg.ID)
+	return err
+}
+
+const markRetry = `-- name: MarkRetry :exec
+update egais_messages
+set attempts = attempts + 1, last_error = $1, next_attempt_at = $2, updated_at = now()
+where id = $3
+`
+
+type MarkRetryParams struct {
+	LastError     *string
+	NextAttemptAt time.Time
+	ID            uuid.UUID
+}
+
+func (q *Queries) MarkRetry(ctx context.Context, arg MarkRetryParams) error {
+	_, err := q.db.Exec(ctx, markRetry, arg.LastError, arg.NextAttemptAt, arg.ID)
+	return err
+}
+
+const markSent = `-- name: MarkSent :exec
+update egais_messages
+set status = 'sent', external_id = $1, attempts = attempts + 1, last_error = null, updated_at = now()
+where id = $2
+`
+
+type MarkSentParams struct {
+	ExternalID *string
+	ID         uuid.UUID
+}
+
+func (q *Queries) MarkSent(ctx context.Context, arg MarkSentParams) error {
+	_, err := q.db.Exec(ctx, markSent, arg.ExternalID, arg.ID)
+	return err
+}
+
+const setTicket = `-- name: SetTicket :exec
+update egais_messages set status = $1, ticket = $2, updated_at = now() where id = $3
+`
+
+type SetTicketParams struct {
+	Status string
+	Ticket []byte
+	ID     uuid.UUID
+}
+
+func (q *Queries) SetTicket(ctx context.Context, arg SetTicketParams) error {
+	_, err := q.db.Exec(ctx, setTicket, arg.Status, arg.Ticket, arg.ID)
+	return err
 }

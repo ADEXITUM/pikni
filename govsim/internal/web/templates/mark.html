@@ -1,0 +1,24 @@
+{{template "head" .}}
+<h1>Марка</h1>
+<form class="inline card" method="get" action="/ui/marks">
+  <input name="code" value="{{.Code}}" placeholder="PKN…" size="40" autofocus>
+  <button>Найти</button>
+</form>
+{{if .Missing}}<p class="bad">Марки нет в ЕГАИС имитатора.</p>{{end}}
+{{with .Mark}}
+<div class="card">
+  <div class="code">{{.Code}}</div>
+  <div>{{.Name}} · алкокод <span class="code">{{.Alcocode}}</span></div>
+  <div>Владелец <span class="code">{{.Owner}}</span> · {{status .Status}}{{if .Blocked}} · <span class="bad">заблокирована</span>{{end}}</div>
+  <form class="inline" method="post" action="/ui/marks/block" style="margin-top:8px">
+    <input type="hidden" name="code" value="{{.Code}}">
+    <label><input type="checkbox" name="blocked" {{if .Blocked}}checked{{end}}> Заблокирована (сценарий)</label>
+    <button>Сохранить</button>
+  </form>
+</div>
+<table>
+  <tr><th>Когда</th><th>Событие</th><th>Участник</th></tr>
+  {{range .Events}}<tr><td>{{.At.Format "02.01.2006 15:04:05"}}</td><td>{{.Event}}</td><td class="code">{{with .FSRARID}}{{.}}{{end}}</td></tr>{{end}}
+</table>
+{{end}}
+{{template "foot"}}

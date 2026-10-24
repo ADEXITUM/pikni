@@ -59,8 +59,10 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 		if err != nil {
 			return err
 		}
-		if err := checkMarkCounts(lines, docMarks); err != nil {
-			return err
+		if doc.Kind != Receipt {
+			if err := checkMarkCounts(lines, docMarks); err != nil {
+				return err
+			}
 		}
 		ev := marks.Event{DocumentID: id, UserID: userID(ctx)}
 		codes := make([]string, len(docMarks))
@@ -70,8 +72,13 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 		}
 
 		var moves []stock.Move
+		var unitCosts map[uuid.UUID]int64
 		status := StatusPosted
 		switch doc.Kind {
+		case Receipt:
+			if unitCosts, status, err = s.postReceipt(ctx, tx, q, doc, ev); err != nil {
+				return err
+			}
 		case Opening:
 			prices, err := s.catalog.PurchasePrices(ctx, variantIDs(lines), time.Now())
 			if err != nil {
@@ -132,12 +139,14 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 			}
 		}
 
-		unitCosts, err := stock.Apply(ctx, tx, stock.Doc{ID: id, Date: doc.DocDate}, moves)
-		if se, ok := errors.AsType[*stock.ShortageError](err); ok {
-			return s.describeShortage(ctx, q, lines, se)
-		}
-		if err != nil {
-			return err
+		if doc.Kind != Receipt {
+			unitCosts, err = stock.Apply(ctx, tx, stock.Doc{ID: id, Date: doc.DocDate}, moves)
+			if se, ok := errors.AsType[*stock.ShortageError](err); ok {
+				return s.describeShortage(ctx, q, lines, se)
+			}
+			if err != nil {
+				return err
+			}
 		}
 		costs := store.SetLineCostsParams{}
 		for _, l := range lines {

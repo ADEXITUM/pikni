@@ -43,7 +43,7 @@ func (s *Service) Resolve(ctx context.Context, raw string) (Resolution, error) {
 	case scan.Kind == apispec.ScanKindEgaisMark, scan.Kind == apispec.ScanKindAlcocode:
 		params.Alcocode = &scan.Code
 	case scan.Kind == apispec.ScanKindCrptCode:
-		params.Gtin = &scan.Code
+		params.Gtin, params.Code = &scan.Code, eanOfGTIN(scan.Code)
 	default:
 		params.Code = &scan.Code
 		params.Gtin, _ = normalizeGTIN(&scan.Code)
@@ -88,7 +88,7 @@ func (s *Service) FindVariant(ctx context.Context, scan Scan) (*uuid.UUID, error
 	case apispec.ScanKindEgaisMark, apispec.ScanKindAlcocode:
 		params.Alcocode = &scan.Code
 	case apispec.ScanKindCrptCode:
-		params.Gtin = &scan.Code
+		params.Gtin, params.Code = &scan.Code, eanOfGTIN(scan.Code)
 	default:
 		params.Code = &scan.Code
 		params.Gtin, _ = normalizeGTIN(&scan.Code)
@@ -115,4 +115,14 @@ func (s *Service) PurchasePrices(ctx context.Context, variantIDs []uuid.UUID, at
 		prices[r.VariantID] = r.Kopecks
 	}
 	return prices, nil
+}
+
+// eanOfGTIN — штрихкод EAN-13 из GTIN-14 с ведущим нулём: у товара в каталоге может не быть GTIN,
+// а код «Честного знака» всегда несёт GTIN-14.
+func eanOfGTIN(gtin string) *string {
+	if len(gtin) == 14 && gtin[0] == '0' {
+		ean := gtin[1:]
+		return &ean
+	}
+	return nil
 }

@@ -39,6 +39,8 @@ var problems = map[error]*echo.HTTPError{
 	ErrInactiveVariant:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Вариант в архиве"),
 	ErrForeignScan:      echo.NewHTTPError(http.StatusConflict, "Скан с этим идентификатором относится к другому документу"),
 	auth.ErrForbidden:   echo.NewHTTPError(http.StatusForbidden, "Недостаточно прав для этой точки"),
+	ErrModeTooWeak:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Продукцию с марками принимают выборочно или поштучно"),
+	ErrUnknownMode:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Режим приёмки есть только у поступления"),
 }
 
 func problem(err error) error {
@@ -49,6 +51,10 @@ func problem(err error) error {
 	if e, ok := errors.AsType[*ShortageError](err); ok {
 		return echo.NewHTTPError(http.StatusConflict, fmt.Sprintf(
 			"Не хватает товара %s «%s» в зоне «%s»: свободно %d, нужно %d", e.Article, e.Name, e.Zone, e.Available, e.Need))
+	}
+	if e, ok := errors.AsType[*UnmappedError](err); ok {
+		return echo.NewHTTPError(http.StatusUnprocessableEntity,
+			"В ТТН есть продукция, которой нет в каталоге — укажите алкокод у варианта: "+strings.Join(e.Names, "; "))
 	}
 	if e, ok := errors.AsType[*marks.TakenError](err); ok {
 		return echo.NewHTTPError(http.StatusConflict, "Марка уже учтена в системе: "+e.Code)
@@ -79,7 +85,10 @@ func zoneKind(s *string) *apispec.ZoneKind {
 func toLine(l store.ListLinesRow, showCost bool) apispec.DocumentLine {
 	line := apispec.DocumentLine{
 		VariantID: l.VariantID, ProductID: l.ProductID, Article: l.Article, Name: l.Name,
-		VolumeMl: l.VolumeMl, NetWeightG: l.NetWeightG, GiftPack: l.GiftPack, Qty: l.Qty,
+		VolumeMl: l.VolumeMl, NetWeightG: l.NetWeightG, GiftPack: l.GiftPack, Qty: l.Qty, QtyPlan: l.QtyPlan,
+	}
+	if l.QtyPlan != nil {
+		line.QtyFact, line.QtyAccepted = &l.Qty, &l.Qty
 	}
 	if l.Container != nil {
 		c := apispec.Container(*l.Container)
@@ -105,7 +114,13 @@ func toScan(s store.ListScansRow) apispec.DocumentScan {
 }
 
 func toSummary(r store.ListDocumentsRow) apispec.DocumentSummary {
+	var mode *apispec.ReceivingMode
+	if r.ReceivingMode != nil {
+		m := apispec.ReceivingMode(*r.ReceivingMode)
+		mode = &m
+	}
 	return apispec.DocumentSummary{
+		SupplierName: r.SupplierName, TtnNumber: r.TtnNumber, ReceivingMode: mode,
 		ID: r.ID, Kind: apispec.DocumentKind(r.Kind), Number: r.Number, Status: apispec.DocumentStatus(r.Status),
 		DocDate: openapi_types.Date{Time: r.DocDate}, LocationID: r.LocationID, LocationName: r.LocationName,
 		ZoneID: r.ZoneID, ZoneKind: apispec.ZoneKind(r.ZoneKind), DestZoneID: r.DestZoneID,
@@ -128,6 +143,48 @@ func toDocument(d Detail) apispec.Document {
 	for i, l := range d.Lines {
 		doc.Lines[i] = toLine(l, d.ShowCost)
 	}
+	doc.SupplierName, doc.TtnNumber = r.SupplierName, r.TtnNumber
+	if r.ReceivingMode != nil {
+		m := apispec.ReceivingMode(*r.ReceivingMode)
+		doc.ReceivingMode = &m
+	}
+	if st := d.Receipt; st != nil {
+		doc.Lines = make([]apispec.DocumentLine, len(st.Lines))
+		for i, l := range st.Lines {
+			line := toLine(l.ListLinesRow, d.ShowCost)
+			line.QtyFact, line.QtyAccepted = &l.Fact, &l.Accepted
+			line.Qty = l.Fact
+			doc.Lines[i] = line
+		}
+		info := apispec.ReceiptInfo{
+			Mode: apispec.ReceivingMode(st.Mode), Shortage: st.Shortage, Surplus: st.Surplus, Foreign: st.Foreign,
+			Differences: st.Differences(), Packages: []apispec.ReceiptPackage{}, Unmapped: []apispec.UnmappedPosition{},
+		}
+		for _, p := range st.Packages {
+			info.Packages = append(info.Packages, apispec.ReceiptPackage{
+				Code: p.Code, Qty: p.Qty, ToOpen: p.ToOpen, Scanned: p.Scanned, Counted: p.Counted,
+			})
+		}
+		for _, u := range st.Unmapped {
+			info.Unmapped = append(info.Unmapped, apispec.UnmappedPosition{Identity: u.Identity, Alcocode: u.Alcocode, Name: u.Name, Qty: u.Qty})
+		}
+		doc.Receipt = &info
+	}
+	exchange := make([]apispec.ExchangeMessage, len(d.Exchange))
+	for i, m := range d.Exchange {
+		exchange[i] = apispec.ExchangeMessage{
+			ID: m.ID, Direction: apispec.ExchangeMessageDirection(m.Direction), DocType: m.DocType,
+			Status: apispec.ExchangeMessageStatus(m.Status), Attempts: m.Attempts, LastError: m.LastError,
+			CreatedAt: m.CreatedAt,
+		}
+		if m.Reason != "" {
+			exchange[i].Reason = &m.Reason
+		}
+		if m.Status == "queued" {
+			exchange[i].NextAttemptAt = &m.NextAttemptAt
+		}
+	}
+	doc.Exchange = &exchange
 	for i, s := range d.Scans {
 		doc.Scans[i] = toScan(s)
 	}
@@ -279,4 +336,15 @@ func (h *Handler) CancelDocument(ctx context.Context, req apispec.CancelDocument
 		return nil, err
 	}
 	return apispec.CancelDocument200JSONResponse(doc), nil
+}
+
+func (h *Handler) SetReceivingMode(ctx context.Context, req apispec.SetReceivingModeRequestObject) (apispec.SetReceivingModeResponseObject, error) {
+	if err := h.svc.SetMode(ctx, req.ID, string(req.Body.Mode)); err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.SetReceivingMode200JSONResponse(doc), nil
 }

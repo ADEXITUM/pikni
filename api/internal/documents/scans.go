@@ -49,6 +49,7 @@ type verdict struct {
 	variant  *uuid.UUID
 	mark     *string
 	crpt     *string
+	pkg      *string
 }
 
 var zoneNames = map[string]string{"warehouse": "склад", "backroom": "склад магазина", "floor": "торговый зал"}
@@ -79,7 +80,11 @@ func (s *Service) AddScan(ctx context.Context, docID uuid.UUID, in NewScan) (Sca
 			return err
 		}
 
-		v, err := s.classify(ctx, q, doc, in)
+		classify := s.classify
+		if doc.Kind == Receipt {
+			classify = s.classifyReceipt
+		}
+		v, err := classify(ctx, q, doc, in)
 		if err != nil {
 			return err
 		}
@@ -89,12 +94,14 @@ func (s *Service) AddScan(ctx context.Context, docID uuid.UUID, in NewScan) (Sca
 		}
 		if err := q.InsertScan(ctx, store.InsertScanParams{
 			ID: in.ID, DocumentID: docID, UserID: userID(ctx), Source: in.Source, Raw: in.Raw,
-			CodeKind: v.codeKind, VariantID: v.variant, MarkCode: v.mark, CrptCode: v.crpt, Qty: 1,
+			CodeKind: v.codeKind, VariantID: v.variant, MarkCode: v.mark, CrptCode: v.crpt, PackageCode: v.pkg, Qty: 1,
 			Status: v.status, Reason: reason, ScannedAt: in.ScannedAt,
 		}); err != nil {
 			return err
 		}
-		if v.status == ScanAccepted {
+		// В поступлении марки и короба считаются по ТТН, строку наращивают только сканы товара без марок.
+		counts := doc.Kind != Receipt || v.mark == nil && v.pkg == nil
+		if v.status == ScanAccepted && counts && v.variant != nil {
 			if _, err := q.AddToLine(ctx, store.AddToLineParams{DocumentID: docID, VariantID: *v.variant, Qty: 1}); err != nil {
 				return err
 			}
@@ -113,7 +120,8 @@ func (s *Service) UndoScan(ctx context.Context, docID, scanID uuid.UUID) (ScanRe
 	var res ScanResult
 	err := db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
-		if _, err := lockDraft(ctx, q, docID, editPerm); err != nil {
+		doc, err := lockDraft(ctx, q, docID, editPerm)
+		if err != nil {
 			return err
 		}
 		undone, err := q.UndoScan(ctx, store.UndoScanParams{ID: scanID, DocumentID: docID})
@@ -133,7 +141,7 @@ func (s *Service) UndoScan(ctx context.Context, docID, scanID uuid.UUID) (ScanRe
 		if err != nil {
 			return err
 		}
-		if undone.Status == ScanAccepted && undone.VariantID != nil {
+		if undone.Status == ScanAccepted && undone.VariantID != nil && (doc.Kind != Receipt || undone.MarkCode == nil && undone.PackageCode == nil) {
 			if err := q.ChangeLineQty(ctx, store.ChangeLineQtyParams{DocumentID: docID, VariantID: *undone.VariantID, Delta: -undone.Qty}); err != nil {
 				return err
 			}

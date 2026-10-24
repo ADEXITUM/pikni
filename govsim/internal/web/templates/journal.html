@@ -1,0 +1,15 @@
+{{template "head" .}}
+<h1>Журнал документов</h1>
+<p class="lead">Всё, что пришло во «входящие» ЕГАИС от УТМ точек и что отправил поставщик{{if .FSRAR}}, для участника <span class="code">{{.FSRAR}}</span> · <a href="/ui/journal">все</a>{{end}}. Последние 200.</p>
+<table>
+  <tr><th>Когда</th><th>Тип</th><th>От → кому</th><th>Итог</th></tr>
+  {{range .Entries}}
+  <tr>
+    <td>{{.CreatedAt.Format "02.01 15:04:05"}}</td>
+    <td>{{.Type}}<details><summary>содержимое</summary><pre>{{pretty .Payload}}</pre></details></td>
+    <td class="code">{{.From}}{{with .To}} → {{.}}{{end}}</td>
+    <td>{{if eq .Status "rejected"}}<span class="bad">отклонён</span>: {{with .RejectReason}}{{.}}{{end}}{{else}}<span class="ok">{{status .Status}}</span>{{end}}</td>
+  </tr>
+  {{else}}<tr><td colspan="4">Документов пока нет</td></tr>{{end}}
+</table>
+{{template "foot"}}

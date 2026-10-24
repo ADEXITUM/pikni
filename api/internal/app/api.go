@@ -1,6 +1,8 @@
 package app
 
 import (
+	"log/slog"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v5"
 
@@ -9,6 +11,8 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
 	"github.com/ADEXITUM/pikni/api/internal/documents"
+	"github.com/ADEXITUM/pikni/api/internal/egais"
+	"github.com/ADEXITUM/pikni/api/internal/exchange"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
@@ -41,6 +45,12 @@ type API struct {
 }
 
 var _ apispec.StrictServerInterface = (*API)(nil)
+
+// Exchanger собирает обмен с ЕГАИС: отправку очереди и приём сообщений УТМ точек.
+func Exchanger(pool *pgxpool.Pool, url string, log *slog.Logger) *exchange.Exchanger {
+	docs := documents.NewService(pool, catalog.NewService(pool), marks.NewService(pool))
+	return exchange.New(pool, egais.NewGovsim(url), docs, log)
+}
 
 func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 	sessions := auth.NewService(pool)

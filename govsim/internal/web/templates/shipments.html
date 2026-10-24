@@ -1,0 +1,35 @@
+{{template "head" .}}
+<h1>Поставки</h1>
+<p class="lead">Генератор демо-поставок: ТТН уходит во «входящие» точки, марки и коды «Честного знака» создаются здесь. Расхождения меняют только то, что лежит в коробах, — ТТН остаётся «правильной».</p>
+{{if .Error}}<p class="bad">{{.Error}}</p>{{end}}
+<form class="card" method="post" action="/ui/shipments">
+  <p>
+    Поставщик <select name="supplier">{{range .Participants}}{{if eq .Kind "supplier"}}<option value="{{.FSRARID}}">{{.Name}}</option>{{end}}{{end}}</select>
+    → получатель <select name="recipient">{{range .Participants}}{{if ne .Kind "supplier"}}<option value="{{.FSRARID}}">{{.Name}}</option>{{end}}{{end}}</select>
+    в коробе <input type="number" name="box_size" value="6" min="1" max="48" style="width:4em"> шт.
+  </p>
+  {{range $i := (slots)}}
+  <p>
+    <select name="alcocode"><option value="">—</option>{{range $.Products}}<option value="{{.Alcocode}}">{{.Name}}{{if eq .Accounting "quantity"}} (без марок){{end}}</option>{{end}}</select>
+    <input type="number" name="qty" value="6" min="1" style="width:5em"> шт.
+  </p>
+  {{end}}
+  <p><b>Расхождения:</b>
+    недостача <input type="number" name="shortage" value="0" min="0" style="width:4em">
+    излишек <input type="number" name="surplus" value="0" min="0" style="width:4em">
+    <label><input type="checkbox" name="foreign_mark"> чужая марка</label>
+  </p>
+  <p>Пересорт: вместо
+    <select name="mixup_from"><option value="">—</option>{{range .Products}}<option value="{{.Alcocode}}">{{.Name}}</option>{{end}}</select>
+    положить <select name="mixup_to"><option value="">—</option>{{range .Products}}<option value="{{.Alcocode}}">{{.Name}}</option>{{end}}</select>
+    <input type="number" name="mixup_qty" value="0" min="0" style="width:4em"> шт.
+  </p>
+  <button>Отправить поставку</button>
+</form>
+<table>
+  <tr><th>ТТН</th><th>Поставщик → получатель</th><th>Заложено</th><th></th></tr>
+  {{range .Shipments}}
+  <tr><td>{{.Number}}<br><small>{{.CreatedAt.Format "02.01 15:04"}}</small></td><td>{{.Supplier}} → {{.Recipient}}</td><td>{{if .Notes}}{{.Notes}}{{else}}без расхождений{{end}}</td><td><a href="/ui/shipments/{{.ID}}/print">печать</a></td></tr>
+  {{else}}<tr><td colspan="4">Поставок пока нет</td></tr>{{end}}
+</table>
+{{template "foot"}}
