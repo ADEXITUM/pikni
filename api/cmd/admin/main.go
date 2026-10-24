@@ -103,7 +103,7 @@ func importCatalog(ctx context.Context, pool *pgxpool.Pool, file string, ifEmpty
 	if err != nil {
 		return err
 	}
-	report, err := catalog.NewService(pool).Import(ctx, filepath.Base(file), data, true, nil)
+	report, err := catalog.NewService(pool).Import(ctx, filepath.Base(file), data, true, nil, nil)
 	if err != nil {
 		return err
 	}

@@ -1666,7 +1666,10 @@ paths:
     post:
       operationId: runImport
       summary: Импорт номенклатуры
-      description: Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+      description: >
+        Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+        Позиции, которые уже есть в каталоге, не дублируются: из расхождений с файлом
+        применяются только перечисленные в accept.
       tags: [catalog]
       x-permission: refs.edit
       requestBody:
@@ -1681,6 +1684,10 @@ paths:
                   type: string
                   format: binary
                   description: XLSX или CSV по шаблону, до 5 МБ и 5000 строк
+                accept:
+                  type: string
+                  description: JSON-массив ключей расхождений из предпросмотра, которые взять из файла; остальные остаются как в каталоге
+                  example: '["12:price", "12:abv"]'
       responses:
         "200":
           description: Отчёт об импорте
@@ -3443,7 +3450,7 @@ components:
 
     ImportReport:
       type: object
-      required: [committed, rows, products, variants, newProducers, newBrands, newLines, errors]
+      required: [committed, rows, products, existing, variants, newProducers, newBrands, newLines, changes, errors]
       properties:
         committed:
           type: boolean
@@ -3453,6 +3460,9 @@ components:
         products:
           type: integer
           description: Позиций создано (или будет создано)
+        existing:
+          type: integer
+          description: Позиций, которые уже есть в каталоге (производитель и наименование совпали)
         variants:
           type: integer
         newProducers:
@@ -3467,10 +3477,44 @@ components:
           type: array
           items:
             type: string
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportChange"
         errors:
           type: array
           items:
             $ref: "#/components/schemas/ImportError"
+
+    ImportChange:
+      type: object
+      description: >
+        Расхождение файла с каталогом у позиции или варианта, которые уже есть. Как конфликт при
+        слиянии веток: пользователь выбирает, оставить значение каталога или взять из файла.
+      required: [key, row, product, field, old, new]
+      properties:
+        key:
+          type: string
+          description: Строка и поле; одинаков при предпросмотре и загрузке того же файла
+          example: "12:price"
+        row:
+          type: integer
+        product:
+          type: string
+        variant:
+          type: string
+          description: Подпись варианта, если расхождение в варианте
+        field:
+          type: string
+          example: Цена
+        old:
+          type: string
+          description: Значение в каталоге
+          example: 459,00 ₽
+        new:
+          type: string
+          description: Значение в файле
+          example: 479,00 ₽
 
     AssortmentItem:
       type: object

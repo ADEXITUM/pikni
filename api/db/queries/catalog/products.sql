@@ -45,6 +45,11 @@ where (sqlc.narg(after)::uuid is null
 order by p.name, p.id
 limit @max_rows;
 
+-- name: FindProductByProducerName :one
+select id
+from products
+where producer_id = @producer_id and lower(name) = lower(@name);
+
 -- name: GetProduct :one
 select *
 from product_cards

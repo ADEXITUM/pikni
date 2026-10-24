@@ -30,7 +30,7 @@ func TestDemoSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := catalog.NewService(db.App).Import(ctx, "catalog.csv", data, true, nil)
+	report, err := catalog.NewService(db.App).Import(ctx, "catalog.csv", data, true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

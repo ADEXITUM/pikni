@@ -45,6 +45,7 @@ var problems = map[error]*echo.HTTPError{
 	ErrInvalidAbv:       echo.NewHTTPError(http.StatusUnprocessableEntity, "Крепость — от 0 до 100 %"),
 	ErrAbvRequired:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Для алкогольной продукции укажите крепость"),
 	ErrNotAlcoholic:     echo.NewHTTPError(http.StatusUnprocessableEntity, "Вид продукции и крепость указываются только в алкогольных категориях"),
+	ErrProductExists:    echo.NewHTTPError(http.StatusConflict, "У этого производителя уже есть позиция с таким наименованием"),
 	ErrInactiveCategory: echo.NewHTTPError(http.StatusUnprocessableEntity, "Категория в архиве"),
 	ErrLineNeedsBrand:   echo.NewHTTPError(http.StatusUnprocessableEntity, "Линейку можно выбрать только вместе с брендом"),
 	ErrBrandMismatch:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Бренд принадлежит другому производителю"),

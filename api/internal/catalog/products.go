@@ -22,6 +22,7 @@ var (
 	ErrInvalidAbv       = errors.New("ABV must be from 0 to 100")
 	ErrAbvRequired      = errors.New("alcohol needs ABV")
 	ErrNotAlcoholic     = errors.New("kind and ABV are only for alcohol categories")
+	ErrProductExists    = errors.New("producer already has a product with this name")
 	ErrInactiveCategory = errors.New("category is archived")
 	ErrLineNeedsBrand   = errors.New("product line needs a brand")
 	ErrBrandMismatch    = errors.New("brand belongs to another producer")
@@ -263,6 +264,8 @@ func optional(s *string) *string {
 // внешние ключи; здесь их нарушение переводится в понятную ошибку.
 func productWriteError(err error) error {
 	switch {
+	case db.IsUniqueViolationOn(err, "products_producer_name_key"):
+		return ErrProductExists
 	case db.IsForeignKeyViolationOn(err, "products_brand_fkey"):
 		return ErrBrandMismatch
 	case db.IsForeignKeyViolationOn(err, "products_line_fkey"):
