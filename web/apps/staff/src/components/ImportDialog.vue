@@ -4,6 +4,8 @@ import { api, ApiError, type ImportReport } from '@pikni/api'
 import { useMutation } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 
+import { confirm } from '@/confirm'
+
 const open = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ imported: [] }>()
 
@@ -76,6 +78,27 @@ watch(open, (isOpen) => {
   preview.value = undefined
   done.value = undefined
 })
+
+// Перед загрузкой — итог: сколько создаётся и какие значения каталога меняются.
+async function askLoad() {
+  const r = preview.value
+  if (!r) return
+  const byKey = new Map(r.changes.map((c) => [c.key, c]))
+  const ok = await confirm({
+    title: 'Загрузить файл в каталог?',
+    text: `Новых позиций: ${r.products}, новых вариантов: ${r.variants}, изменится значений: ${accepted.value.length}.`,
+    changes: accepted.value.slice(0, 20).map((k) => {
+      const c = byKey.get(k)!
+      return {
+        label: `${c.product}${c.variant ? ', ' + c.variant : ''}: ${c.field}`,
+        old: c.old,
+        new: c.new,
+      }
+    }),
+    confirmText: 'Загрузить',
+  })
+  if (ok) load()
+}
 
 const failure = computed(() => checkError.value ?? loadError.value)
 const canLoad = computed(() => {
@@ -227,7 +250,7 @@ const created = (r: ImportReport) =>
           :disabled="!canLoad"
           :loading="loading"
           data-test="import-run"
-          @click="load()"
+          @click="askLoad()"
         >
           Загрузить
         </v-btn>

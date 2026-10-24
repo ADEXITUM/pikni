@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/vue-query'
 import { computed, reactive, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
+import { confirmChanges, diffFields } from '@/confirm'
 import { containerLabels, variantLabel } from '@/products'
 import { volumesQuery } from '@/queries'
 import { formatVolume } from '@/refs'
@@ -94,7 +95,26 @@ watch(open, (isOpen) => {
 })
 
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) mutate()
+  if (!(await event).valid) return
+  const v = props.variant
+  if (v) {
+    const describe = (x: { alcocode?: string; gtin?: string; isActive: boolean }) => ({
+      alcocode: x.alcocode?.trim() ?? '',
+      gtin: x.gtin?.trim() ?? '',
+      isActive: x.isActive,
+    })
+    const changes = diffFields(describe(v), describe(form), {
+      alcocode: 'Алкокод',
+      gtin: 'GTIN',
+      isActive: 'Используется',
+    })
+    if (!changes.length) {
+      open.value = false
+      return
+    }
+    if (!(await confirmChanges(`Изменить вариант ${v.article}?`, changes))) return
+  }
+  mutate()
 }
 </script>
 

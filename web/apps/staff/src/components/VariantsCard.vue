@@ -4,6 +4,7 @@ import { api, ApiError, type Variant } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
+import { confirm } from '@/confirm'
 import BarcodeDialog from '@/components/BarcodeDialog.vue'
 import PricesDialog from '@/components/PricesDialog.vue'
 import VariantDialog from '@/components/VariantDialog.vue'
@@ -70,6 +71,15 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
   },
   onSettled: refresh,
 })
+
+async function askRemoveBarcode(v: Variant, code: string) {
+  const ok = await confirm({
+    title: 'Удалить штрихкод?',
+    text: `Штрихкод ${code} отвяжется от варианта ${v.article} · ${variantLabel(v)}: сканер перестанет его узнавать.`,
+    danger: true,
+  })
+  if (ok) removeBarcode(code)
+}
 </script>
 
 <template>
@@ -150,7 +160,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
                   :closable="canEdit"
                   :title="b.kind === 'internal' ? 'Внутренний штрихкод' : undefined"
                   :data-test="`barcode-${b.code}`"
-                  @click:close="removeBarcode(b.code)"
+                  @click:close="askRemoveBarcode(v, b.code)"
                 >
                   {{ b.code }}
                 </v-chip>

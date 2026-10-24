@@ -1,8 +1,10 @@
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import { formatVolume, type RefConfig } from '@/refs'
 
@@ -51,6 +53,12 @@ async function mountTable(c: RefConfig<Row>, canEdit = true) {
 }
 
 describe('RefTable', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   it('справочник без полей или без права — только для чтения', async () => {
     const readOnly = await mountTable(config({ fields: undefined }))
     expect(readOnly.text()).toContain('Тайга')
@@ -92,6 +100,12 @@ describe('RefTable', () => {
 })
 
 describe('RefTable: значения по умолчанию и удаление', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   it('новая запись получает initial, удалить можно только разрешённое', async () => {
     const remove = vi.fn<NonNullable<RefConfig<Row>['remove']>>().mockResolvedValue(undefined)
     const c = config({
@@ -110,6 +124,7 @@ describe('RefTable: значения по умолчанию и удаление
     await buttons[0]!.trigger('click')
     await flushPromises()
     expect(remove).toHaveBeenCalledWith(expect.objectContaining({ id: '2' }))
+    expect(confirmed.asked[0]?.text).toContain('«Будущая»')
 
     await wrapper.find('[data-test="ref-add"]').trigger('click')
     const input = wrapper.find('[data-test="field-name"] input')

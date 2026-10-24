@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
+import { confirm } from '@/confirm'
 import { formatDateTime } from '@/format'
 import { formatPrice, variantLabel } from '@/products'
 
@@ -70,6 +71,16 @@ const { mutate: remove, error: removeError } = useMutation({
   onSuccess: done,
 })
 
+async function askRemove(p: { id: string; price: number; validFrom: string }) {
+  const ok = await confirm({
+    title: 'Отменить назначенную цену?',
+    text: `Цена ${formatPrice(p.price)} с ${formatDateTime(p.validFrom)} не вступит в силу.`,
+    confirmText: 'Отменить цену',
+    danger: true,
+  })
+  if (ok) remove(p.id)
+}
+
 const failure = computed(() => error.value ?? removeError.value)
 
 watch(open, (isOpen) => {
@@ -80,7 +91,21 @@ watch(open, (isOpen) => {
 })
 
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) mutate()
+  if (!(await event).valid || !props.variant) return
+  const current = kind.value === 'retail' ? props.variant.retailPrice : props.variant.purchasePrice
+  const next = Number(form.price.replace(',', '.'))
+  const label = kind.value === 'retail' ? 'Розничная цена' : 'Закупочная цена'
+  const ok = await confirm({
+    title: `${props.variant.article} · ${variantLabel(props.variant)}`,
+    text: form.validFrom
+      ? `Новая цена начнёт действовать ${formatDateTime(new Date(form.validFrom).toISOString())}.`
+      : 'Новая цена начнёт действовать сразу.',
+    changes: [
+      { label, old: current === undefined ? '—' : formatPrice(current), new: formatPrice(next) },
+    ],
+    confirmText: 'Назначить',
+  })
+  if (ok) mutate()
 }
 </script>
 
@@ -149,7 +174,7 @@ async function submit(event: SubmitEventPromise) {
                 variant="text"
                 size="small"
                 title="Отменить назначенную цену"
-                @click="remove(p.id)"
+                @click="askRemove(p)"
               />
             </template>
           </v-list-item>

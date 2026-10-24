@@ -4,6 +4,7 @@ import { api, ApiError, type SaleBan, type SaleRule } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
+import { confirm } from '@/confirm'
 import SaleBanDialog from '@/components/SaleBanDialog.vue'
 import SaleRuleDialog from '@/components/SaleRuleDialog.vue'
 import { saleScopeLabels } from '@/labels'
@@ -85,6 +86,15 @@ const { mutate: remove, error: removeError } = useMutation({
   onSettled: refresh,
 })
 
+async function askRemove(target: { kind: 'rule' | 'ban'; id: string }, what: string) {
+  const ok = await confirm({
+    title: target.kind === 'rule' ? 'Удалить редакцию правил?' : 'Удалить день запрета?',
+    text: what,
+    danger: true,
+  })
+  if (ok) remove(target)
+}
+
 const date = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('ru')
 </script>
 
@@ -144,7 +154,12 @@ const date = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('ru')
                 variant="text"
                 size="small"
                 title="Удалить редакцию, которая ещё не вступила в силу"
-                @click="remove({ kind: 'rule', id: r.id })"
+                @click="
+                  askRemove(
+                    { kind: 'rule', id: r.id },
+                    `Редакция с ${date(r.validFrom)}: ${r.source}`,
+                  )
+                "
               />
             </td>
           </tr>
@@ -172,7 +187,7 @@ const date = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('ru')
                 variant="text"
                 size="small"
                 title="Удалить день запрета"
-                @click="remove({ kind: 'ban', id: b.id })"
+                @click="askRemove({ kind: 'ban', id: b.id }, `${b.name} — ${banDate(b)}`)"
               />
             </template>
           </v-list-item>

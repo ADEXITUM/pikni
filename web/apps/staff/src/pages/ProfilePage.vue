@@ -4,6 +4,7 @@ import { api, ApiError } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed } from 'vue'
 
+import { confirm } from '@/confirm'
 import SoundSettingsCard from '@/components/SoundSettingsCard.vue'
 import { describeDevice } from '@/device'
 import { formatAgo } from '@/format'
@@ -60,6 +61,25 @@ const {
   onSettled: refresh,
 })
 
+async function askEnd(id: string, device: string) {
+  const ok = await confirm({
+    title: 'Завершить сеанс?',
+    text: `На устройстве «${device}» потребуется войти заново.`,
+    confirmText: 'Завершить',
+    danger: true,
+  })
+  if (ok) endSession(id)
+}
+async function askEndOthers() {
+  const ok = await confirm({
+    title: 'Завершить другие сеансы?',
+    text: 'На всех устройствах, кроме этого, потребуется войти заново.',
+    confirmText: 'Завершить',
+    danger: true,
+  })
+  if (ok) endOthers()
+}
+
 const actionError = computed(() => endError.value ?? endOthersError.value)
 </script>
 
@@ -113,7 +133,7 @@ const actionError = computed(() => endError.value ?? endOthersError.value)
               color="error"
               size="small"
               :loading="ending && endingId === s.id"
-              @click="endSession(s.id)"
+              @click="askEnd(s.id, s.device.title)"
             >
               Завершить
             </v-btn>
@@ -127,7 +147,7 @@ const actionError = computed(() => endError.value ?? endOthersError.value)
           color="error"
           :loading="endingOthers"
           data-test="end-others"
-          @click="endOthers()"
+          @click="askEndOthers()"
         >
           Завершить все остальные сеансы
         </v-btn>

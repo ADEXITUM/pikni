@@ -2,6 +2,7 @@
 import { useRoute } from 'vue-router'
 
 import AppShell from '@/components/AppShell.vue'
+import ConfirmHost from '@/components/ConfirmHost.vue'
 
 const route = useRoute()
 </script>
@@ -12,5 +13,6 @@ const route = useRoute()
     <v-main>
       <router-view />
     </v-main>
+    <ConfirmHost />
   </v-app>
 </template>

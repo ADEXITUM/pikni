@@ -2,8 +2,10 @@ import { api, type Me, type SessionInfo } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import { meQuery } from '@/session'
 
@@ -64,6 +66,12 @@ async function mountPage() {
 }
 
 describe('ProfilePage', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   beforeEach(() => {
     vi.mocked(api.GET)
       .mockReset()

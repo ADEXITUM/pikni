@@ -6,6 +6,7 @@ import { reactive, ref, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
 import { attributeTypeLabels } from '@/categories'
+import { confirmChanges, diffFields } from '@/confirm'
 
 // Без attribute — новая характеристика категории categoryId.
 const props = defineProps<{ categoryId: string; attribute?: CategoryAttribute; nextSort: number }>()
@@ -113,7 +114,44 @@ async function submit(event: SubmitEventPromise) {
   if (!optionError.value && form.type === 'enum' && !form.options.some((o) => !o.archived)) {
     optionError.value = 'Нужно хотя бы одно действующее значение'
   }
-  if ((await event).valid && !optionError.value) mutate()
+  if (!(await event).valid || optionError.value) return
+  const a = props.attribute
+  if (a) {
+    const describe = (v: {
+      name: string
+      unit?: string | null
+      options: { value: string; archived: boolean }[]
+      filterable: boolean
+      usedForAnalogs: boolean
+      sort: number
+      isActive: boolean
+    }) => ({
+      name: v.name.trim(),
+      unit: v.unit?.trim() ?? '',
+      options: v.options.filter((o) => !o.archived).map((o) => o.value),
+      archived: v.options.filter((o) => o.archived).map((o) => o.value),
+      filterable: v.filterable,
+      usedForAnalogs: v.usedForAnalogs,
+      sort: String(v.sort),
+      isActive: v.isActive,
+    })
+    const changes = diffFields(describe(a), describe({ ...form, sort: Number(form.sort) }), {
+      name: 'Название',
+      unit: 'Единица',
+      options: 'Значения',
+      archived: 'Значения в архиве',
+      filterable: 'В фильтрах',
+      usedForAnalogs: 'Для подбора аналогов',
+      sort: 'Порядок',
+      isActive: 'Используется',
+    })
+    if (!changes.length) {
+      open.value = false
+      return
+    }
+    if (!(await confirmChanges(`Изменить характеристику «${a.name}»?`, changes))) return
+  }
+  mutate()
 }
 </script>
 

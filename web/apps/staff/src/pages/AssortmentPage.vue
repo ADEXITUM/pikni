@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AssortmentAddDialog from '@/components/AssortmentAddDialog.vue'
+import { confirm, confirmChanges } from '@/confirm'
 import { variantLabel } from '@/products'
 import { locationsQuery } from '@/queries'
 import { useMe } from '@/session'
@@ -62,9 +63,27 @@ const { mutate: setQty, error: setError } = useMutation({
   },
   onSettled: refresh,
 })
-function onQty(item: AssortmentItem, value: string) {
+async function onQty(item: AssortmentItem, value: string, input: HTMLInputElement) {
   const qty = Number(value)
-  if (Number.isInteger(qty) && qty >= 1 && qty <= 9999 && qty !== item.minQty) setQty({ item, qty })
+  if (!Number.isInteger(qty) || qty < 1 || qty > 9999 || qty === item.minQty) {
+    input.value = String(item.minQty)
+    return
+  }
+  const ok = await confirmChanges(`${item.article} · ${item.name}, ${variantLabel(item)}`, [
+    { label: 'Мин. остаток', old: String(item.minQty), new: String(qty) },
+  ])
+  if (ok) setQty({ item, qty })
+  else input.value = String(item.minQty)
+}
+
+async function askRemove(item: AssortmentItem) {
+  const ok = await confirm({
+    title: 'Убрать вариант из матрицы?',
+    text: `${item.article} · ${item.name}, ${variantLabel(item)}: точка больше не обязана держать его в наличии.`,
+    confirmText: 'Убрать',
+    danger: true,
+  })
+  if (ok) remove(item)
 }
 
 const { mutate: remove, error: removeError } = useMutation({
@@ -214,7 +233,13 @@ const failure = computed(() => setError.value ?? removeError.value)
                 hide-details
                 class="pk-qty"
                 data-test="assortment-min"
-                @change="onQty(a, ($event.target as HTMLInputElement).value)"
+                @change="
+                  onQty(
+                    a,
+                    ($event.target as HTMLInputElement).value,
+                    $event.target as HTMLInputElement,
+                  )
+                "
               />
               <span v-else>{{ a.minQty }}</span>
             </td>
@@ -225,7 +250,7 @@ const failure = computed(() => setError.value ?? removeError.value)
                 size="small"
                 title="Убрать из матрицы"
                 data-test="assortment-remove"
-                @click="remove(a)"
+                @click="askRemove(a)"
               />
             </td>
           </tr>

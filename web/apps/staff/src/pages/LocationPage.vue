@@ -7,9 +7,13 @@ import { useRoute, useRouter } from 'vue-router'
 import type { SubmitEventPromise } from 'vuetify'
 
 import OpeningHoursEditor from '@/components/OpeningHoursEditor.vue'
+import UnsavedBar from '@/components/UnsavedBar.vue'
+import { confirmChanges, diffFields } from '@/confirm'
+import { formatHours } from '@/hours'
 import { locationKindLabels, russianTimezones, zoneRegisters } from '@/labels'
 import { describeVerdict } from '@/sale'
 import { useMe } from '@/session'
+import { useUnsavedGuard } from '@/unsaved'
 
 const route = useRoute()
 const router = useRouter()
@@ -98,30 +102,67 @@ const form = reactive({
   isActive: true,
 })
 
+const formOf = (l: Location): typeof form => ({
+  code: l.code,
+  kind: l.kind,
+  name: l.name,
+  city: l.city,
+  timezone: l.timezone,
+  subjectCode: l.subjectCode,
+  address: l.address ?? '',
+  lat: l.lat?.toString() ?? '',
+  lon: l.lon?.toString() ?? '',
+  fsrarId: l.fsrarId ?? '',
+  kpp: l.kpp ?? '',
+  licenseNo: l.licenseNo ?? '',
+  licenseValidTo: l.licenseValidTo ?? '',
+  openingHours: { ...l.openingHours },
+  isActive: l.isActive,
+})
+
 watch(
   location,
   (l) => {
-    if (!l) return
-    Object.assign(form, {
-      code: l.code,
-      kind: l.kind,
-      name: l.name,
-      city: l.city,
-      timezone: l.timezone,
-      subjectCode: l.subjectCode,
-      address: l.address ?? '',
-      lat: l.lat?.toString() ?? '',
-      lon: l.lon?.toString() ?? '',
-      fsrarId: l.fsrarId ?? '',
-      kpp: l.kpp ?? '',
-      licenseNo: l.licenseNo ?? '',
-      licenseValidTo: l.licenseValidTo ?? '',
-      openingHours: { ...l.openingHours },
-      isActive: l.isActive,
-    })
+    if (l) Object.assign(form, formOf(l))
   },
   { immediate: true },
 )
+
+// Правка показывается до сохранения: «было — станет» по каждому полю.
+const changeLabels = {
+  name: 'Название',
+  city: 'Город',
+  timezone: 'Часовой пояс',
+  subject: 'Регион',
+  address: 'Адрес',
+  coordinates: 'Координаты',
+  fsrarId: 'ФСРАР ID',
+  kpp: 'КПП',
+  licenseNo: 'Лицензия',
+  licenseValidTo: 'Лицензия до',
+  hours: 'Режим работы',
+  active: 'Точка действует',
+}
+const describe = (f: typeof form): Record<string, unknown> => ({
+  name: f.name.trim(),
+  city: f.city.trim(),
+  timezone: f.timezone,
+  subject: subjectItems.value.find((s) => s.value === f.subjectCode)?.title ?? f.subjectCode,
+  address: f.address.trim(),
+  coordinates: f.lat.trim() && f.lon.trim() ? `${f.lat.trim()}, ${f.lon.trim()}` : '',
+  fsrarId: f.fsrarId.trim(),
+  kpp: f.kpp.trim(),
+  licenseNo: f.licenseNo.trim(),
+  licenseValidTo: f.licenseValidTo,
+  hours: formatHours(f.openingHours),
+  active: f.isActive,
+})
+const changes = computed(() =>
+  location.value ? diffFields(describe(formOf(location.value)), describe(form), changeLabels) : [],
+)
+const dirty = computed(() => !isNew.value && canEdit.value && changes.value.length > 0)
+useUnsavedGuard(dirty, 'карточке точки')
+const discard = () => location.value && Object.assign(form, formOf(location.value))
 
 const optional = (v: string) => v.trim() || undefined
 const number = (v: string) => (v.trim() === '' ? undefined : Number(v.replace(',', '.')))
@@ -175,7 +216,9 @@ const title = computed(() =>
 )
 
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) save()
+  if (!(await event).valid) return
+  if (!isNew.value && !(await confirmChanges('Сохранить изменения точки?', changes.value))) return
+  save()
 }
 </script>
 
@@ -337,11 +380,12 @@ async function submit(event: SubmitEventPromise) {
         {{ saveError instanceof ApiError ? saveError.message : 'Нет связи с сервером' }}
       </v-alert>
 
-      <div v-if="canEdit" class="d-flex justify-end">
+      <div v-if="canEdit && isNew" class="d-flex justify-end">
         <v-btn type="submit" color="primary" size="large" :loading="saving" data-test="save">
-          {{ isNew ? 'Создать точку' : 'Сохранить' }}
+          Создать точку
         </v-btn>
       </div>
+      <UnsavedBar v-if="dirty" :saving="saving" @discard="discard" />
     </v-form>
 
     <v-card

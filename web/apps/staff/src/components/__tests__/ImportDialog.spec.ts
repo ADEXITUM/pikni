@@ -2,9 +2,11 @@ import { api, type ImportReport } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { VFileInput } from 'vuetify/components'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import ImportDialog from '../ImportDialog.vue'
 
@@ -52,6 +54,12 @@ async function openWithFile() {
 }
 
 describe('ImportDialog', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   beforeEach(() => vi.mocked(api.POST).mockReset())
 
   it('ошибки по строкам не дают загрузить', async () => {

@@ -4,6 +4,8 @@ import { useMutation } from '@tanstack/vue-query'
 import { computed, reactive, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
+import { confirmChanges, diffFields } from '@/confirm'
+
 // Без category — новая категория внутри parent (без parent — верхнего уровня).
 const props = defineProps<{ category?: Category; parent?: Category; nextSort: number }>()
 const open = defineModel<boolean>({ required: true })
@@ -49,7 +51,28 @@ watch(open, (isOpen) => {
 })
 
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) mutate()
+  if (!(await event).valid) return
+  const c = props.category
+  if (c) {
+    const describe = (v: { name: string; sort: number; isActive: boolean; alcohol: boolean }) => ({
+      name: v.name.trim(),
+      sort: String(v.sort),
+      isActive: v.isActive,
+      alcohol: v.alcohol,
+    })
+    const changes = diffFields(describe(c), describe({ ...form, sort: Number(form.sort) }), {
+      name: 'Название',
+      sort: 'Порядок',
+      isActive: 'Используется',
+      ...(isRoot.value ? { alcohol: 'Алкогольная продукция' } : {}),
+    })
+    if (!changes.length) {
+      open.value = false
+      return
+    }
+    if (!(await confirmChanges(`Изменить категорию «${c.name}»?`, changes))) return
+  }
+  mutate()
 }
 </script>
 

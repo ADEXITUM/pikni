@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
+import { confirm, confirmChanges, diffFields } from '@/confirm'
 import type { RefConfig, RefValues } from '@/refs'
 
 const props = defineProps<{ config: RefConfig<Row>; canEdit: boolean }>()
@@ -35,6 +36,19 @@ const { mutate: remove, error: removeError } = useMutation({
   mutationFn: (row: Row) => props.config.remove!(row),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: key.value }),
 })
+const rowTitle = (row: Row) => {
+  const first = props.config.columns[0]!
+  return first.value ? first.value(row) : String((row as Record<string, unknown>)[first.key] ?? '')
+}
+async function askRemove(row: Row) {
+  const ok = await confirm({
+    title: 'Удалить запись?',
+    text: `«${rowTitle(row)}» удалится из справочника «${props.config.title}».`,
+    danger: true,
+  })
+  if (ok) remove(row)
+}
+
 const dialog = ref(false)
 const editing = ref<Row | null>(null)
 const form = reactive<RefValues>({})
@@ -73,8 +87,36 @@ const {
   },
 })
 
+// Значение поля так, как его видит человек: для списков — название, а не код.
+function describe(values: RefValues): Record<string, unknown> {
+  const out: Record<string, unknown> = { isActive: values.isActive }
+  for (const f of visibleFields.value) {
+    const v = values[f.key]
+    out[f.key] = f.items ? (f.items().find((i) => i.value === v)?.title ?? v) : v
+  }
+  return out
+}
+
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) mutate()
+  if (!(await event).valid) return
+  const row = editing.value
+  if (row) {
+    const labels: Record<string, string> = Object.fromEntries(
+      visibleFields.value.map((f) => [f.key, f.label]),
+    )
+    if (props.config.hasActive) labels.isActive = 'Используется'
+    const before = {
+      ...props.config.toForm?.(row),
+      isActive: (row as { isActive?: boolean }).isActive ?? true,
+    }
+    const changes = diffFields(describe(before), describe(form), labels)
+    if (!changes.length) {
+      dialog.value = false
+      return
+    }
+    if (!(await confirmChanges(`Изменить «${rowTitle(row)}»?`, changes))) return
+  }
+  mutate()
 }
 </script>
 
@@ -130,7 +172,7 @@ async function submit(event: SubmitEventPromise) {
             size="small"
             title="Удалить"
             data-test="ref-remove"
-            @click.stop="remove(item)"
+            @click.stop="askRemove(item)"
           />
         </template>
       </v-data-table>
