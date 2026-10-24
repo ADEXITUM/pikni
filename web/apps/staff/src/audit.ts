@@ -1,8 +1,16 @@
-import type { AuditAction, AuditEntry, LocationKind, OpeningHours, Role } from '@pikni/api'
+import type {
+  AuditAction,
+  AuditEntry,
+  DocumentKind,
+  DocumentStatus,
+  LocationKind,
+  OpeningHours,
+  Role,
+} from '@pikni/api'
 
 import { formatDateTime } from '@/format'
 import { formatHours } from '@/hours'
-import { locationKindLabels, roleLabels } from '@/labels'
+import { documentKindLabels, documentStatusLabels, locationKindLabels, roleLabels } from '@/labels'
 
 // Тот же словарь есть на сервере для выгрузки в Excel.
 export const auditActionLabels: Record<AuditAction, string> = {
@@ -37,6 +45,9 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'assortment.set': 'Изменение ассортиментной матрицы',
   'assortment.removed': 'Удаление из ассортиментной матрицы',
   'assortment.copied': 'Копирование ассортиментной матрицы',
+  'document.created': 'Создание документа',
+  'document.posted': 'Проведение документа',
+  'document.cancelled': 'Отмена черновика документа',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {
@@ -132,6 +143,7 @@ export function auditObject(e: AuditEntry): string {
     return [e.data.article, `«${String(e.data.name)}»`].filter(Boolean).join(' ')
   if (e.entityType === 'variant') return `${e.data.article} «${e.data.name}», ${e.data.variant}`
   if (e.entityType === 'assortment') return 'матрица ' + String(e.data.location)
+  if (e.entityType === 'document') return String(e.data.number)
   if (e.entityType === 'min_price') return 'МРЦ: ' + String(e.data.group)
   if (e.entityType === 'sale_ban') return typeof e.data.name === 'string' ? e.data.name : ''
   if (e.entityType && refEntities[e.entityType] && typeof e.data.name === 'string') {
@@ -233,6 +245,20 @@ export function auditDetails(e: AuditEntry, locationCodes: Map<string, string>):
     case 'location.created':
       details.push({ label: 'Название', value: String(take('name')) })
       details.push({ label: 'Тип', value: locationKindLabels[take('kind') as LocationKind] })
+      break
+    case 'document.created':
+    case 'document.posted':
+    case 'document.cancelled':
+      take('number')
+      details.push({ label: 'Вид', value: documentKindLabels[take('kind') as DocumentKind] })
+      if (data.lines !== undefined) {
+        details.push({ label: 'Строк', value: String(take('lines')) })
+        details.push({ label: 'Штук', value: String(take('qty')) })
+        details.push({
+          label: 'Статус',
+          value: documentStatusLabels[take('status') as DocumentStatus],
+        })
+      }
       break
     case 'auth.session_ended': {
       const count = take('count')

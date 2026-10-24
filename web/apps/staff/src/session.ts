@@ -19,6 +19,8 @@ declare module 'vue-router' {
     bare?: boolean
     // Право, без которого раздел не открывается и не виден в меню.
     permission?: Permission
+    // Экран сам принимает сканы ручного сканера: шапка не уводит с него на «Сканер».
+    scans?: boolean
   }
 }
 

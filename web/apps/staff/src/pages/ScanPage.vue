@@ -9,7 +9,7 @@ import {
   mdiMagnify,
   mdiUndoVariant,
 } from '@mdi/js'
-import { api, ApiError, type CodeResolution } from '@pikni/api'
+import { api, ApiError, type CodeResolution, type Mark } from '@pikni/api'
 import type { RecognizedCode, ScanSource } from '@pikni/scanner'
 import type { SoundEvent } from '@pikni/ui'
 import { computed, reactive, ref, watch } from 'vue'
@@ -18,6 +18,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ScanCamera from '@/components/ScanCamera.vue'
 import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'
+import { documentKindLabels, markStatusLabels, zoneLabels } from '@/labels'
 import { load, save } from '@/preferences'
 import { useMe } from '@/session'
 import { formatAbv, formatPrice, variantLabel } from '@/products'
@@ -54,6 +55,8 @@ interface Entry {
   at: string
   status: 'loading' | Outcome
   result?: CodeResolution
+  // Марка ЕГАИС: где числится и как туда попала (СО-8); null — марки нет в учёте.
+  mark?: Mark | null
   error?: string
 }
 
@@ -67,10 +70,10 @@ const current = computed(
   () => recent.value.find((e) => e.id === selectedId.value) ?? recent.value[0],
 )
 
-// На сервер уходят только коды, по которым ищется товар. Короб, имущество, служебный QR и
-// марка нового образца объясняются сразу на устройстве.
+// В каталоге ищутся коды, по которым находится товар. Марка без алкокода (нового образца
+// или учебная) ищется только в учёте марок; короб, имущество и служебный QR объясняются сразу.
 const searchable = (c: RecognizedCode) =>
-  ['product', 'article', 'crpt', 'excise_mark'].includes(c.kind) && !c.newMark
+  ['product', 'article', 'crpt'].includes(c.kind) || (c.kind === 'excise_mark' && !!c.alcocode)
 
 function settle(entry: Entry, status: Outcome) {
   entry.status = status
@@ -88,7 +91,12 @@ const { submit, forget } = useScanner(async ({ event, code }) => {
   })
   recent.value = [entry, ...recent.value].slice(0, 10)
   selectedId.value = undefined
-  if (!searchable(code)) return settle(entry, code.kind === 'unknown' ? 'unrecognized' : 'local')
+  const mark = code.kind === 'excise_mark' ? loadMark(entry) : undefined
+  if (!searchable(code)) {
+    await mark
+    if (entry.mark) return settle(entry, 'found')
+    return settle(entry, code.kind === 'unknown' ? 'unrecognized' : 'local')
+  }
   try {
     const { data, error } = await api.GET('/codes/resolve', {
       params: { query: { code: event.raw } },
@@ -101,6 +109,14 @@ const { submit, forget } = useScanner(async ({ event, code }) => {
     settle(entry, 'error')
   }
 })
+
+// Историю марки показывает и марка нового образца: товар по ней известен из учёта марок.
+async function loadMark(entry: Entry) {
+  const { data, response } = await api.GET('/marks/{code}', {
+    params: { path: { code: entry.raw } },
+  })
+  entry.mark = data ?? (response.status === 404 ? null : undefined)
+}
 
 // Код в адресе — скан ручным сканером на другом экране: шапка приложения прислала его сюда.
 const route = useRoute()
@@ -156,7 +172,9 @@ const sourceLabels: Record<ScanSource, string> = {
   paired: 'смартфон',
 }
 const title = (e: Entry) =>
-  e.result?.product?.name ?? (e.status === 'loading' ? 'Ищем…' : codeKindLabels[e.code.kind])
+  e.result?.product?.name ??
+  e.mark?.name ??
+  (e.status === 'loading' ? 'Ищем…' : codeKindLabels[e.code.kind])
 </script>
 
 <template>
@@ -348,6 +366,41 @@ const title = (e: Entry) =>
             смартфона.
           </template>
         </v-alert>
+
+        <div v-if="current.mark" class="mt-4" data-test="mark">
+          <div class="text-title-small mb-1">
+            Марка {{ markStatusLabels[current.mark.status].toLowerCase() }}:
+            {{ current.mark.locationName
+            }}<template v-if="current.mark.zoneKind"
+              >, {{ zoneLabels[current.mark.zoneKind].toLowerCase() }}</template
+            >
+          </div>
+          <div v-if="!current.result?.product" class="text-body-medium mb-2">
+            <span class="pk-code">{{ current.mark.article }}</span> · {{ current.mark.name }}
+          </div>
+          <ol class="pk-mark-events text-body-medium">
+            <li v-for="ev in current.mark.events" :key="ev.id">
+              {{ formatDateTime(ev.at) }} —
+              <router-link
+                v-if="ev.documentId"
+                :to="{ name: 'document', params: { id: ev.documentId } }"
+                >{{ ev.documentKind ? documentKindLabels[ev.documentKind] : 'Документ' }}
+                {{ ev.documentNumber }}</router-link
+              >: {{ markStatusLabels[ev.toStatus].toLowerCase()
+              }}<template v-if="ev.toZoneKind"
+                >, {{ zoneLabels[ev.toZoneKind].toLowerCase() }}</template
+              >
+              <span v-if="ev.userName" class="text-medium-emphasis"> · {{ ev.userName }}</span>
+            </li>
+          </ol>
+        </div>
+        <p
+          v-else-if="current.mark === null"
+          class="text-body-medium text-medium-emphasis mt-3"
+          data-test="mark-missing"
+        >
+          Марки нет в учёте сети.
+        </p>
       </v-card-text>
       <v-card-actions v-if="current.status !== 'loading'">
         <v-btn

@@ -1,4 +1,14 @@
-import type { LocationKind, ReceivingMode, Role, SaleScope, ZoneKind } from '@pikni/api'
+import type {
+  DocumentKind,
+  DocumentScanStatus,
+  DocumentStatus,
+  LocationKind,
+  MarkStatus,
+  ReceivingMode,
+  Role,
+  SaleScope,
+  ZoneKind,
+} from '@pikni/api'
 
 export const roleLabels: Record<Role, string> = {
   admin: 'Администратор',
@@ -15,6 +25,51 @@ export const networkRoles: ReadonlySet<Role> = new Set<Role>(['admin', 'manager'
 export const locationKindLabels: Record<LocationKind, string> = {
   warehouse: 'Склад',
   store: 'Магазин',
+}
+
+export const zoneLabels: Record<ZoneKind, string> = {
+  warehouse: 'Склад',
+  backroom: 'Склад магазина',
+  floor: 'Торговый зал',
+}
+
+export const documentKindLabels: Record<DocumentKind, string> = {
+  opening: 'Ввод начальных остатков',
+  floor_transfer: 'Передача в зал',
+}
+
+export const documentStatusLabels: Record<DocumentStatus, string> = {
+  draft: 'Черновик',
+  awaiting_egais: 'Ожидает ЕГАИС',
+  posted: 'Проведён',
+  egais_rejected: 'Отклонён ЕГАИС',
+  cancelled: 'Отменён',
+}
+
+export const documentStatusColors: Record<DocumentStatus, string> = {
+  draft: 'secondary',
+  awaiting_egais: 'warning',
+  posted: 'success',
+  egais_rejected: 'error',
+  cancelled: 'secondary',
+}
+
+export const scanStatusLabels: Record<DocumentScanStatus, string> = {
+  accepted: 'Засчитан',
+  selected: 'Выбран товар',
+  unknown: 'Не найден',
+  foreign: 'Чужая марка',
+  duplicate: 'Повтор',
+  rejected: 'Не засчитан',
+}
+
+export const markStatusLabels: Record<MarkStatus, string> = {
+  in_stock: 'На остатке',
+  in_transit: 'В пути',
+  reserved: 'Отложена для покупателя',
+  sold: 'Продана',
+  written_off: 'Списана',
+  returned: 'Возвращена поставщику',
 }
 
 // Зона соответствует регистру ЕГАИС, где учитывается продукция.

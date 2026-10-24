@@ -34,7 +34,7 @@ const bottomItems = computed(() => (items.value.length > 4 ? items.value.slice(0
 const moreItems = computed(() => items.value.slice(bottomItems.value.length))
 
 // Поиск из шапки ведёт в каталог; скан ручным сканером на любом экране открывает «Сканер»
-// с этим кодом. На самом «Сканере» и в полях ввода скан обрабатывают они сами.
+// с этим кодом. «Сканер», документы со сканированием и поля ввода обрабатывают скан сами.
 const query = ref('')
 function search() {
   const q = query.value.trim()
@@ -47,7 +47,7 @@ onMounted(() => {
   stopWedge = listenWedge({
     ignoreFields: true,
     onScan: (code) => {
-      if (route.name !== 'scan' && me.value) void router.push({ name: 'scan', query: { code } })
+      if (!route.meta.scans && me.value) void router.push({ name: 'scan', query: { code } })
     },
   })
 })
