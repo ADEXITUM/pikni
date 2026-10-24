@@ -1785,6 +1785,29 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /codes/resolve:
+    get:
+      operationId: resolveCode
+      summary: Что это за товар — разбор считанного кода
+      description: Штрихкод, GTIN, алкокод, скан марки ЕГАИС или код «Честного знака». Если код не найден, product и variant пустые.
+      tags: [catalog]
+      x-permission: refs.view
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Как понят код и что найдено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeResolution"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /ru-subjects:
     get:
       operationId: listRuSubjects
@@ -3018,6 +3041,16 @@ components:
           description: Если есть — параметр after для следующей страницы
         scan:
           $ref: "#/components/schemas/ScanResult"
+
+    CodeResolution:
+      type: object
+      properties:
+        scan:
+          $ref: "#/components/schemas/ScanResult"
+        product:
+          $ref: "#/components/schemas/Product"
+        variant:
+          $ref: "#/components/schemas/Variant"
 
     ScanKind:
       type: string
