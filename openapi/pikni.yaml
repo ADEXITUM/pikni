@@ -354,10 +354,10 @@ paths:
       operationId: listPosDevices
       summary: Кассы
       tags: [users]
-      x-permission: users.manage
+      x-permission: pos.devices
       responses:
         "200":
-          description: Зарегистрированные кассы всех точек
+          description: Кассы доступных пользователю точек (администратору — всех, управляющему — своего магазина)
           content:
             application/json:
               schema:
@@ -373,7 +373,7 @@ paths:
         Касса привязывается к магазину. Ключ кассы показывается один раз — его вводят в кассовой
         программе или сканируют QR-код. В базе хранится только хеш ключа.
       tags: [users]
-      x-permission: users.manage
+      x-permission: pos.devices
       requestBody:
         required: true
         content:
@@ -396,7 +396,7 @@ paths:
       summary: Отключить кассу
       description: Ключ перестаёт действовать сразу; потерянную или заменённую кассу регистрируют заново.
       tags: [users]
-      x-permission: users.manage
+      x-permission: pos.devices
       parameters:
         - name: id
           in: path
@@ -2446,6 +2446,7 @@ components:
         - transfer.edit
         - pos.view
         - pos.sell
+        - pos.devices
         - writeoff.create
         - docs.approve
         - stocktake.manage

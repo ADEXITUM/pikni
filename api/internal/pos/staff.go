@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/pos/store"
 )
 
@@ -21,10 +22,11 @@ func NewStaffHandler(svc *Service) *StaffHandler {
 }
 
 var staffProblems = map[error]*echo.HTTPError{
-	ErrNotFound:      echo.NewHTTPError(http.StatusNotFound, "Не найдено"),
-	ErrInvalidPIN:    echo.NewHTTPError(http.StatusUnprocessableEntity, "PIN — от 4 до 6 цифр"),
-	ErrNotStore:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Кассу можно зарегистрировать только в магазине"),
-	ErrInactivePoint: echo.NewHTTPError(http.StatusUnprocessableEntity, "Точка в архиве"),
+	ErrNotFound:       echo.NewHTTPError(http.StatusNotFound, "Не найдено"),
+	ErrInvalidPIN:     echo.NewHTTPError(http.StatusUnprocessableEntity, "PIN — от 4 до 6 цифр"),
+	ErrNotStore:       echo.NewHTTPError(http.StatusUnprocessableEntity, "Кассу можно зарегистрировать только в магазине"),
+	ErrInactivePoint:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Точка в архиве"),
+	auth.ErrForbidden: echo.NewHTTPError(http.StatusForbidden, "Кассы этого магазина регистрирует его управляющий или администратор"),
 }
 
 func staffProblem(err error) error {

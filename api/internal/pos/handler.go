@@ -240,6 +240,14 @@ func (h *Handler) PosCheck(ctx context.Context, req posspec.PosCheckRequestObjec
 	if c.Crpt != "" {
 		out.CrptCode = &c.Crpt
 	}
+	if c.Item != nil {
+		p := rubles(c.Price)
+		out.Price = &p
+	}
+	if c.MaxPrice != nil {
+		p := rubles(*c.MaxPrice)
+		out.MaxPrice = &p
+	}
 	return out, nil
 }
 

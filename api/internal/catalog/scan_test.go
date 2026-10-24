@@ -92,6 +92,13 @@ func TestScanUnits(t *testing.T) {
 			t.Errorf("ParseScan(%.24q…) = %+v, %v; want mark %q, unit %q", tt.raw, got, ok, tt.mark, tt.unit)
 		}
 	}
+	// Примеры из разбора формата: «AB0o» — 106 ₽, «ACW.» — 146,30 ₽.
+	for code, want := range map[string]int64{"AB0o": 10600, "ACW.": 14630} {
+		got, _ := ParseScan("04601234567893" + "aB3%x-1" + code + "7q=+")
+		if got.MaxPrice == nil || *got.MaxPrice != want {
+			t.Errorf("max price of %s = %v, want %d", code, got.MaxPrice, want)
+		}
+	}
 	if got, _ := ParseScan("PKN0000000000001"); got.Kind != apispec.ScanKindEgaisMarkNew {
 		t.Errorf("training mark kind = %s", got.Kind)
 	}

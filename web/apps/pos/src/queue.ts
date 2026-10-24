@@ -12,7 +12,7 @@ export interface Rejected {
 
 export type SendResult = 'sent' | 'offline' | { refused: string }
 
-// Очередь чеков, пробитых без связи (КС-7). Идентификатор чека задаёт касса, поэтому повторная
+// Очередь чеков, пробитых без связи (КС-4). Идентификатор чека задаёт касса, поэтому повторная
 // отправка безопасна: сервер вернёт уже принятый чек, а не проведёт продажу второй раз.
 export function createQueue(store: Store) {
   const pending = () => readJSON<PosNewReceipt[]>(store, KEY, [])

@@ -293,7 +293,7 @@ components:
         minPrice:
           type: number
           format: double
-          description: Минимальная розничная цена Минфина, ₽
+          description: Нижняя граница цены, ₽ — МРЦ Минфина для крепкого алкоголя, ЕМЦ для сигарет
 
     PosCatalog:
       type: object
@@ -415,7 +415,17 @@ components:
           type: string
         crptCode:
           type: string
-          description: GTIN и серийный номер кода «Честного знака»
+          description: Код «Честного знака», как он считан; касса присылает его в строке чека
+        price:
+          type: number
+          format: double
+          description: >
+            Цена строки, ₽: цена каталога, а для пачки сигарет — не дороже МРЦ с пачки
+            (если цена каталога выше или не назначена — МРЦ)
+        maxPrice:
+          type: number
+          format: double
+          description: МРЦ, записанная в коде сигаретной пачки, ₽
         refusals:
           type: array
           items:
@@ -438,6 +448,7 @@ components:
           type: string
         crptCode:
           type: string
+          description: Код «Честного знака» целиком — из него сервер берёт МРЦ пачки
 
     PosNewReceipt:
       type: object

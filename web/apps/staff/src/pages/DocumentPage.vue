@@ -27,7 +27,7 @@ import { useRoute } from 'vue-router'
 
 import ExchangeLog from '@/components/ExchangeLog.vue'
 import ReceiptPanel from '@/components/ReceiptPanel.vue'
-import ScanCamera from '@/components/ScanCamera.vue'
+import ScanCamera from '@pikni/ui/ScanCamera.vue'
 import { confirm } from '@/confirm'
 import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'

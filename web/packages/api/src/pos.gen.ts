@@ -190,7 +190,7 @@ export interface components {
             price: number;
             /**
              * Format: double
-             * @description Минимальная розничная цена Минфина, ₽
+             * @description Нижняя граница цены, ₽ — МРЦ Минфина для крепкого алкоголя, ЕМЦ для сигарет
              */
             minPrice?: number;
         };
@@ -255,8 +255,18 @@ export interface components {
         PosCheck: {
             item?: components["schemas"]["PosItem"];
             markCode?: string;
-            /** @description GTIN и серийный номер кода «Честного знака» */
+            /** @description Код «Честного знака», как он считан; касса присылает его в строке чека */
             crptCode?: string;
+            /**
+             * Format: double
+             * @description Цена строки, ₽: цена каталога, а для пачки сигарет — не дороже МРЦ с пачки (если цена каталога выше или не назначена — МРЦ)
+             */
+            price?: number;
+            /**
+             * Format: double
+             * @description МРЦ, записанная в коде сигаретной пачки, ₽
+             */
+            maxPrice?: number;
             refusals: components["schemas"]["PosRefusal"][];
         };
         PosNewLine: {
@@ -266,6 +276,7 @@ export interface components {
             /** Format: double */
             price: number;
             markCode?: string;
+            /** @description Код «Честного знака» целиком — из него сервер берёт МРЦ пачки */
             crptCode?: string;
         };
         PosNewReceipt: {

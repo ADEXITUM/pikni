@@ -7,12 +7,21 @@ import { computed, ref } from 'vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import PosDeviceKeyDialog from '@/components/PosDeviceKeyDialog.vue'
 import { formatDateTime } from '@/format'
+import { networkRoles } from '@/labels'
 import { locationsQuery } from '@/queries'
+import { useMe } from '@/session'
 
 const queryClient = useQueryClient()
+const { data: me } = useMe()
 const { data: locations } = useQuery(locationsQuery)
+// Управляющий регистрирует кассы только своего магазина; сервер всё равно проверит точку.
 const stores = computed(() =>
-  (locations.value ?? []).filter((l) => l.kind === 'store' && l.isActive),
+  (locations.value ?? []).filter(
+    (l) =>
+      l.kind === 'store' &&
+      l.isActive &&
+      (!me.value || networkRoles.has(me.value.role) || me.value.locationIds.includes(l.id)),
+  ),
 )
 
 const devicesKey = ['pos-devices']

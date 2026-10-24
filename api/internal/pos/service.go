@@ -89,8 +89,11 @@ type Device struct {
 }
 
 // RegisterDevice регистрирует кассу магазина (ПБ-4) и возвращает её ключ — он показывается один раз,
-// в базе хранится только хеш.
+// в базе хранится только хеш. Администратор регистрирует кассы любого магазина, управляющий — своего.
 func (s *Service) RegisterDevice(ctx context.Context, location uuid.UUID, name string) (store.ListDevicesRow, string, error) {
+	if err := auth.CheckLocation(ctx, apispec.PermissionPosDevices, location); err != nil {
+		return store.ListDevicesRow{}, "", err
+	}
 	prefix := strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(random(5)))
 	secret := base64.RawURLEncoding.EncodeToString(random(24))
 	name = strings.TrimSpace(name)
@@ -120,7 +123,7 @@ func (s *Service) RegisterDevice(ctx context.Context, location uuid.UUID, name s
 		if err != nil {
 			return err
 		}
-		rows, err := q.ListDevices(ctx, &id)
+		rows, err := q.ListDevices(ctx, store.ListDevicesParams{ID: &id})
 		if err != nil {
 			return err
 		}
@@ -134,12 +137,27 @@ func (s *Service) RegisterDevice(ctx context.Context, location uuid.UUID, name s
 }
 
 func (s *Service) Devices(ctx context.Context) ([]store.ListDevicesRow, error) {
-	return s.q.ListDevices(ctx, nil)
+	allowed, err := auth.AllowedLocations(ctx, apispec.PermissionPosDevices)
+	if err != nil {
+		return nil, err
+	}
+	return s.q.ListDevices(ctx, store.ListDevicesParams{LocationIDs: allowed})
 }
 
 func (s *Service) RevokeDevice(ctx context.Context, id uuid.UUID) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		name, err := s.q.WithTx(tx).RevokeDevice(ctx, id)
+		q := s.q.WithTx(tx)
+		location, err := q.DeviceLocationID(ctx, id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if err := auth.CheckLocation(ctx, apispec.PermissionPosDevices, location); err != nil {
+			return err
+		}
+		name, err := q.RevokeDevice(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}

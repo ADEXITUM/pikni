@@ -20,7 +20,22 @@ import {
 } from '@pikni/scanner'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
-import { load, save } from '@/preferences'
+// Выбранная камера запоминается на устройстве; без localStorage просто не запомнится.
+function load(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function save(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // не запомнится до следующего запуска
+  }
+}
 
 // flash — цвет исхода последнего скана: уголки рамки вспыхивают им, и результат виден, даже
 // когда взгляд на камере, а не на карточке.

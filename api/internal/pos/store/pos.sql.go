@@ -230,6 +230,17 @@ func (q *Queries) DeviceLocation(ctx context.Context, id uuid.UUID) (DeviceLocat
 	return i, err
 }
 
+const deviceLocationID = `-- name: DeviceLocationID :one
+select location_id from pos_devices where id = $1
+`
+
+func (q *Queries) DeviceLocationID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, deviceLocationID, id)
+	var location_id uuid.UUID
+	err := row.Scan(&location_id)
+	return location_id, err
+}
+
 const findReceipts = `-- name: FindReceipts :many
 select r.id
 from pos_receipts r
@@ -384,9 +395,15 @@ select d.id, d.location_id, l.code as location_code, l.name as location_name, d.
        d.last_seen_at, d.revoked_at
 from pos_devices d
 join locations l on l.id = d.location_id
-where $1::uuid is null or d.id = $1::uuid
+where ($1::uuid is null or d.id = $1::uuid)
+  and ($2::uuid[] is null or d.location_id = any($2::uuid[]))
 order by l.code, d.name
 `
+
+type ListDevicesParams struct {
+	ID          *uuid.UUID
+	LocationIDs []uuid.UUID
+}
 
 type ListDevicesRow struct {
 	ID           uuid.UUID
@@ -400,8 +417,8 @@ type ListDevicesRow struct {
 	RevokedAt    *time.Time
 }
 
-func (q *Queries) ListDevices(ctx context.Context, id *uuid.UUID) ([]ListDevicesRow, error) {
-	rows, err := q.db.Query(ctx, listDevices, id)
+func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]ListDevicesRow, error) {
+	rows, err := q.db.Query(ctx, listDevices, arg.ID, arg.LocationIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -505,6 +522,7 @@ const posCatalog = `-- name: PosCatalog :many
 select v.id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container, v.gift_pack, v.gtin, v.alcocode,
        k.egais_accounting, p.crpt_marked, p.abv, c.alcohol,
        (coalesce(gp.name, pc.name, c.name) = 'Табачная продукция')::boolean as tobacco,
+       (c.name in ('Сигареты', 'Папиросы'))::boolean as cigarettes,
        coalesce(array_agg(b.code order by b.code) filter (where b.code is not null), '{}')::text[] as barcodes,
        coalesce((select (pr.price * 100)::bigint from prices pr
                  where pr.variant_id = v.id and pr.kind = 'retail' and pr.valid_from <= now()
@@ -537,6 +555,7 @@ type PosCatalogRow struct {
 	Abv             *float64
 	Alcohol         bool
 	Tobacco         bool
+	Cigarettes      bool
 	Barcodes        []string
 	PriceKopecks    int64
 }
@@ -566,6 +585,7 @@ func (q *Queries) PosCatalog(ctx context.Context, variantID *uuid.UUID) ([]PosCa
 			&i.Abv,
 			&i.Alcohol,
 			&i.Tobacco,
+			&i.Cigarettes,
 			&i.Barcodes,
 			&i.PriceKopecks,
 		); err != nil {
@@ -801,6 +821,22 @@ func (q *Queries) ShiftTotals(ctx context.Context, shiftID uuid.UUID) (ShiftTota
 		&i.CardKopecks,
 	)
 	return i, err
+}
+
+const tobaccoMinPrice = `-- name: TobaccoMinPrice :one
+select (price * 100)::bigint as kopecks
+from tobacco_min_prices
+where valid_from <= ($1::timestamptz at time zone 'Europe/Moscow')::date
+order by valid_from desc
+limit 1
+`
+
+// ЕМЦ табачной продукции на дату по Москве: федеральная величина действует с начала суток по Москве.
+func (q *Queries) TobaccoMinPrice(ctx context.Context, at time.Time) (int64, error) {
+	row := q.db.QueryRow(ctx, tobaccoMinPrice, at)
+	var kopecks int64
+	err := row.Scan(&kopecks)
+	return kopecks, err
 }
 
 const touchDevice = `-- name: TouchDevice :exec

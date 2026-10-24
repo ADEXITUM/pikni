@@ -2,7 +2,7 @@ import { createPikniVuetify } from '@pikni/ui'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import ScanCamera from '../ScanCamera.vue'
+import ScanCamera from '@pikni/ui/ScanCamera.vue'
 
 const mediaDevices = (value: unknown) =>
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value })

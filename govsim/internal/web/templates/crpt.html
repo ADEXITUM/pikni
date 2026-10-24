@@ -13,6 +13,15 @@
   <div>Произведён {{.ProducedAt.Format "02.01.2006"}}, годен до {{.ExpiresAt.Format "02.01.2006"}}</div>
 </div>
 {{end}}
+<h2>Пачки сигарет</h2>
+<p class="lead">Табак приходит не по ЕГАИС, а по ЭДО, поэтому пачки выпускаются здесь сразу в оборот у точки. МРЦ записывается в код пачки — продать дороже нельзя.</p>
+<form class="inline card" method="post" action="/ui/crpt/packs">
+  <select name="owner">{{range .Points}}<option value="{{.FSRARID}}">{{.Name}}</option>{{end}}</select>
+  <input name="gtin" value="04601234567893" size="16" title="GTIN пачки">
+  <input name="mrp" value="219" size="6" title="МРЦ, ₽"> ₽
+  <input name="count" value="10" size="3" title="Сколько пачек"> шт.
+  <button>Выпустить</button>
+</form>
 <h2>Партии</h2>
 <p class="lead">Сценарии: отзыв партии — коды блокируются; просрочка — срок годности становится вчерашним. Касса «Пикни» не продаст такое пиво.</p>
 <table>
@@ -24,6 +33,6 @@
         <button name="action" value="block">Отозвать</button> <button name="action" value="expire">Просрочить</button>
       </form>
     </td></tr>
-  {{else}}<tr><td colspan="5">Кодов пока нет: они появляются с поставками пива</td></tr>{{end}}
+  {{else}}<tr><td colspan="5">Кодов пока нет: они появляются с поставками пива и выпуском пачек</td></tr>{{end}}
 </table>
 {{template "foot"}}

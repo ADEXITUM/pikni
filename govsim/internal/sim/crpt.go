@@ -3,6 +3,7 @@ package sim
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -116,4 +117,43 @@ func (s *Sim) BlockBatch(ctx context.Context, batch, reason string) error {
 func (s *Sim) ExpireBatch(ctx context.Context, batch string) error {
 	_, err := s.pool.Exec(ctx, `update crpt_codes set expires_at = current_date - 1 where batch = $1`, batch)
 	return err
+}
+
+// mrpAlphabet — 80 символов кодирования МРЦ в коде сигаретной пачки, старший разряд первый.
+const mrpAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"%&'*+-./_,:;=<>?"
+
+// encodeMRP записывает МРЦ в копейках четырьмя символами; больше 80⁴ копеек не бывает.
+func encodeMRP(kopecks int64) string {
+	b := []byte("AAAA")
+	for i := 3; i >= 0 && kopecks > 0; i-- {
+		b[i] = mrpAlphabet[kopecks%80]
+		kopecks /= 80
+	}
+	return string(b)
+}
+
+var ErrBadPacks = errors.New("gtin must be 14 digits, price and count positive")
+
+// CreatePacks выпускает коды сигаретных пачек для точки: 29 символов — GTIN, серийный номер (7),
+// МРЦ (4) и код проверки (4). В реестр ложится единица (GTIN и серийный номер), уже в обороте
+// у точки: табак приходит не по ЕГАИС, а по ЭДО, поэтому акта приёмки для него нет.
+func (s *Sim) CreatePacks(ctx context.Context, owner, gtin string, mrp int64, n int) ([]string, error) {
+	if len(gtin) != 14 || strings.Trim(gtin, "0123456789") != "" || mrp <= 0 || n <= 0 || n > 200 {
+		return nil, ErrBadPacks
+	}
+	batch := "ТБ-" + time.Now().Format("060102-150405")
+	codes := make([]string, n)
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		for i := range codes {
+			serial := randomString(alnum, 7)
+			codes[i] = gtin + serial + encodeMRP(mrp) + randomString(alnum, 4)
+			if _, err := tx.Exec(ctx, `insert into crpt_codes (code, gtin, serial, owner_fsrar, status, produced_at,
+				expires_at, batch) values ($1, $2, $3, $4, 'introduced', current_date, current_date + 730, $5)`,
+				gtin+serial, gtin, serial, owner, batch); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return codes, err
 }

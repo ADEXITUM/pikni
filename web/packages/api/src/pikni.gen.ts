@@ -1473,7 +1473,7 @@ export interface components {
          * @description Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
          * @enum {string}
          */
-        Permission: "users.manage" | "users.view" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "opening.post" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
+        Permission: "users.manage" | "users.view" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "pos.devices" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "opening.post" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
         /**
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
@@ -3192,7 +3192,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Зарегистрированные кассы всех точек */
+            /** @description Кассы доступных пользователю точек (администратору — всех, управляющему — своего магазина) */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -1,0 +1,12 @@
+{{template "head" .}}
+<h1 class="noprint">Пачки сигарет · МРЦ {{.MRP}} ₽</h1>
+<p class="lead noprint">Коды в обороте у точки <span class="code">{{.Owner}}</span>. В каждом коде записана МРЦ — касса «Пикни» не продаст пачку дороже. Распечатайте или сканируйте с экрана.</p>
+<div class="units">
+  {{range .Codes}}
+  <div class="unit">
+    <img src="{{datamatrix .}}" alt="код пачки" width="110" height="110">
+    <div class="code">{{.}}</div>
+  </div>
+  {{end}}
+</div>
+{{template "foot"}}

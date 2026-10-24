@@ -34,6 +34,7 @@ var networkRoles = map[apispec.Role]bool{
 var matrix = map[apispec.Role]map[apispec.Permission]scope{
 	apispec.RoleAdmin: {
 		apispec.PermissionUsersManage:      scopeAll,
+		apispec.PermissionPosDevices:       scopeAll,
 		apispec.PermissionUsersView:        scopeAll,
 		apispec.PermissionRefsView:         scopeAll,
 		apispec.PermissionRefsEdit:         scopeAll,
@@ -88,6 +89,7 @@ var matrix = map[apispec.Role]map[apispec.Permission]scope{
 		apispec.PermissionTransferEdit:       scopeOwn,
 		apispec.PermissionPosView:            scopeOwn,
 		apispec.PermissionPosSell:            scopeOwn,
+		apispec.PermissionPosDevices:         scopeOwn,
 		apispec.PermissionWriteoffCreate:     scopeOwn,
 		apispec.PermissionStocktakeManage:    scopeOwn,
 		apispec.PermissionStocktakeCount:     scopeOwn,

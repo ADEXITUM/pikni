@@ -125,7 +125,7 @@ const router = createRouter({
       path: '/pos-devices',
       name: 'pos-devices',
       component: () => import('@/pages/PosDevicesPage.vue'),
-      meta: { title: 'Кассы', permission: 'users.manage' },
+      meta: { title: 'Кассы', permission: 'pos.devices' },
     },
     {
       path: '/audit',
