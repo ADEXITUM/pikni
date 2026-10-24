@@ -1,4 +1,5 @@
 import {
+  type CodeKind,
   createDeduper,
   listenWedge,
   recognize,
@@ -8,6 +9,16 @@ import {
   type ScanSource,
 } from '@pikni/scanner'
 import { onBeforeUnmount, onMounted } from 'vue'
+
+export const codeKindLabels: Record<CodeKind, string> = {
+  excise_mark: 'Марка ЕГАИС',
+  crpt: 'Код «Честного знака»',
+  package: 'Короб или палета',
+  product: 'Штрихкод товара',
+  asset: 'Инвентарный номер',
+  service_qr: 'Служебный QR-код',
+  unknown: 'Неизвестный код',
+}
 
 export interface Scan {
   event: ScanEvent

@@ -1112,6 +1112,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codes/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Что это за товар — разбор считанного кода
+         * @description Штрихкод, GTIN, алкокод, скан марки ЕГАИС или код «Честного знака». Если код не найден, product и variant пустые.
+         */
+        get: operations["resolveCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ru-subjects": {
         parameters: {
             query?: never;
@@ -1727,6 +1747,11 @@ export interface components {
              */
             nextAfter?: string;
             scan?: components["schemas"]["ScanResult"];
+        };
+        CodeResolution: {
+            scan?: components["schemas"]["ScanResult"];
+            product?: components["schemas"]["Product"];
+            variant?: components["schemas"]["Variant"];
         };
         /**
          * @description Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
@@ -3967,6 +3992,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssortmentCopyResult"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    resolveCode: {
+        parameters: {
+            query: {
+                code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Как понят код и что найдено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeResolution"];
                 };
             };
             default: components["responses"]["Problem"];
