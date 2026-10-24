@@ -5,7 +5,13 @@ export interface Line {
   qty: number
   markCode?: string
   crptCode?: string
+  // Цена строки, если она не равна цене каталога: пачка сигарет продаётся не дороже МРЦ с пачки.
+  price?: number
+  // МРЦ из кода пачки, ₽ — показывается в строке чека.
+  maxPrice?: number
 }
+
+export const linePrice = (l: Line) => l.price ?? l.item.price
 
 export type Payment = PosNewReceipt['payment']
 
@@ -45,7 +51,7 @@ export function removeLine(lines: Line[], index: number): Line[] {
 
 // Сумма в копейках: в рублях с плавающей точкой 0,1 + 0,2 ≠ 0,3.
 export function totalKopecks(lines: Line[]): number {
-  return lines.reduce((sum, l) => sum + Math.round(l.item.price * 100) * l.qty, 0)
+  return lines.reduce((sum, l) => sum + Math.round(linePrice(l) * 100) * l.qty, 0)
 }
 
 export const needsAge = (lines: Line[]) =>
@@ -79,7 +85,7 @@ export function toReceipt(
     lines: lines.map((l) => ({
       variantId: l.item.variantId,
       qty: l.qty,
-      price: l.item.price,
+      price: linePrice(l),
       markCode: l.markCode,
       crptCode: l.crptCode,
     })),

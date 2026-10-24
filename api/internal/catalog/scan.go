@@ -19,6 +19,8 @@ type Scan struct {
 	Mark string
 	// Unit — код «Честного знака» без кода проверки (GTIN и серийный номер): одна единица товара.
 	Unit string
+	// MaxPrice — максимальная розничная цена с пачки сигарет, копейки.
+	MaxPrice *int64
 }
 
 // ParseScan распознаёт считанный код для модулей, которые принимают сканы в документы.
@@ -110,7 +112,11 @@ func parseScan(raw string) (Scan, bool) {
 	// максимальная розничная цена в закодированном виде (4) и код проверки (4).
 	if len(s) == 29 && digitsOnly.MatchString(s[:14]) && gs1Valid(s[:14]) &&
 		!strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r > '~' }) {
-		return Scan{Kind: apispec.ScanKindCrptCode, Code: s[:14], Unit: s[:21]}, true
+		sc := Scan{Kind: apispec.ScanKindCrptCode, Code: s[:14], Unit: s[:21]}
+		if p, ok := packPrice(s[21:25]); ok {
+			sc.MaxPrice = &p
+		}
+		return sc, true
 	}
 	if alcocodePattern.MatchString(s) {
 		return Scan{Kind: apispec.ScanKindAlcocode, Code: s}, true
@@ -145,4 +151,19 @@ func tsquery(q string) *string {
 func likePattern(q string) *string {
 	p := likeEscaper.Replace(q)
 	return &p
+}
+
+// mrpAlphabet — 80 символов, которыми в коде пачки записана МРЦ в копейках; старший разряд первый.
+const mrpAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"%&'*+-./_,:;=<>?"
+
+func packPrice(s string) (int64, bool) {
+	var v int64
+	for _, r := range s {
+		i := strings.IndexRune(mrpAlphabet, r)
+		if i < 0 {
+			return 0, false
+		}
+		v = v*80 + int64(i)
+	}
+	return v, v > 0
 }

@@ -81,7 +81,8 @@ type fixture struct {
 	key     string
 	cashier uuid.UUID
 
-	vodka, beer, snack uuid.UUID
+	vodka, beer, snack, cigarettes uuid.UUID
+	admin                          context.Context
 }
 
 func ean(body string) string {
@@ -122,6 +123,7 @@ func newFixture(t *testing.T) *fixture {
 	must(db.App.QueryRow(ctx, `select id from zones where location_id = $1 and kind = 'backroom'`, f.store).Scan(&backroom))
 
 	admin := f.session(t, "admin")
+	f.admin = admin
 	keeper := f.session(t, "storekeeper", f.store)
 	manager := f.session(t, "manager")
 
@@ -155,6 +157,8 @@ func newFixture(t *testing.T) *fixture {
 		catalog.VariantSpec{VolumeMl: ptr(int32(500)), Alcocode: ptr("0310000000000000132")}, ean("460000000002"), 6000, 11900)
 	f.snack = add(apispec.ProductFields{Name: "Сухарики", CategoryID: category("Снеки")},
 		catalog.VariantSpec{NetWeightG: ptr(int32(70))}, ean("460000000003"), 3000, 7900)
+	f.cigarettes = add(apispec.ProductFields{Name: "Северный ветер", CategoryID: category("Сигареты"), CrptMarked: true},
+		catalog.VariantSpec{GTIN: ptr("04601234567893")}, ean("460000000004"), 15000, 25000)
 	_, err = cat.CreateMinPriceRule(admin, catalog.MinPriceRuleSpec{
 		GroupCode: "vodka", ValidFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), AbvFrom: 0, Kopecks: 34900, VolumeMl: 500,
 		Source: "приказ Минфина",
@@ -296,7 +300,7 @@ func TestLogin(t *testing.T) {
 		t.Fatalf("cashier of another store: %v", err)
 	}
 
-	devices, err := f.svc.Devices(ctx)
+	devices, err := f.svc.Devices(f.admin)
 	if err != nil || len(devices) != 1 {
 		t.Fatalf("devices: %v %v", devices, err)
 	}
@@ -459,4 +463,90 @@ func TestSaleRefusals(t *testing.T) {
 		t.Fatalf("receipts %d %v", n, err)
 	}
 	f.integrity(t)
+}
+
+// pack — код сигаретной пачки с МРЦ в копейках, как его печатает имитатор.
+func pack(serial string, mrp int64) string {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"%&'*+-./_,:;=<>?"
+	b := []byte("AAAA")
+	for i := 3; i >= 0; i-- {
+		b[i] = alphabet[mrp%80]
+		mrp /= 80
+	}
+	return "04601234567893" + serial + string(b) + "tail"
+}
+
+func TestTobaccoPrice(t *testing.T) {
+	f := newFixture(t)
+	ctx := t.Context()
+	pc := f.till(t)
+
+	// В каталоге 250 ₽, на пачке МРЦ 219 ₽: пачка продаётся по МРЦ.
+	c, err := f.svc.Check(ctx, pc, pack("5AAAAA1", 21900))
+	if err != nil || c.Item == nil || c.Item.ID != f.cigarettes || len(c.Refusals) != 0 {
+		t.Fatalf("pack check: %+v %v", c, err)
+	}
+	if c.Price != 21900 || c.MaxPrice == nil || *c.MaxPrice != 21900 || c.Item.MinPrice == nil || *c.Item.MinPrice != 15300 {
+		t.Fatalf("price %d, max %v, min %v", c.Price, c.MaxPrice, c.Item.MinPrice)
+	}
+	line := func(code string, price int64) NewReceipt {
+		return NewReceipt{ID: uuid.New(), AgeConfirmed: true, CreatedAt: daytime,
+			Lines: []NewLine{{VariantID: f.cigarettes, Qty: 1, Price: price, Crpt: code}}}
+	}
+	if _, err := f.svc.CreateReceipt(ctx, pc, line(pack("5AAAAA2", 21900), 25000)); refusalCode(err) != "price.above_max" {
+		t.Fatalf("above pack MRP: %v", err)
+	}
+	if _, err := f.svc.CreateReceipt(ctx, pc, line(pack("5AAAAA3", 21900), 14000)); refusalCode(err) != "price.below_min" {
+		t.Fatalf("below ЕМЦ: %v", err)
+	}
+	r := line(pack("5AAAAA4", 21900), 21900)
+	if _, err := f.svc.CreateReceipt(ctx, pc, r); err != nil {
+		t.Fatal(err)
+	}
+	var stored string
+	if err := f.db.App.QueryRow(ctx, "select crpt_code from pos_receipt_lines where receipt_id = $1", r.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != "04601234567893"+"5AAAAA4" {
+		t.Fatalf("stored code %q: the unit, not the scanned pack code", stored)
+	}
+}
+
+func TestDevicePermissions(t *testing.T) {
+	f := newFixture(t)
+	other := uuid.New()
+	if _, err := f.db.App.Exec(t.Context(), `insert into locations (id, code, name, kind, city, timezone, subject_code)
+		values ($1, 'МГ-02', 'Магазин', 'store', 'Хабаровск', 'Asia/Vladivostok', '27')`, other); err != nil {
+		t.Fatal(err)
+	}
+	boss := f.session(t, "store_manager", f.store)
+	if _, _, err := f.svc.RegisterDevice(boss, f.store, "Касса 2"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.svc.RegisterDevice(boss, other, "Касса 1"); !errors.Is(err, auth.ErrForbidden) {
+		t.Fatalf("till in another store: %v", err)
+	}
+	if _, _, err := f.svc.RegisterDevice(f.admin, other, "Касса 1"); err != nil {
+		t.Fatal(err)
+	}
+	own, err := f.svc.Devices(boss)
+	if err != nil || len(own) != 2 {
+		t.Fatalf("store manager sees own tills only: %d %v", len(own), err)
+	}
+	all, _ := f.svc.Devices(f.admin)
+	if len(all) != 3 {
+		t.Fatalf("admin sees all tills: %d", len(all))
+	}
+	var foreign uuid.UUID
+	for _, d := range all {
+		if d.LocationID == other {
+			foreign = d.ID
+		}
+	}
+	if err := f.svc.RevokeDevice(boss, foreign); !errors.Is(err, auth.ErrForbidden) {
+		t.Fatalf("revoke a till of another store: %v", err)
+	}
+	if _, err := f.svc.Devices(f.session(t, "cashier", f.store)); !errors.Is(err, auth.ErrForbidden) {
+		t.Fatalf("cashier lists tills: %v", err)
+	}
 }

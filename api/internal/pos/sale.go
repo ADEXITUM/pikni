@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,10 +56,8 @@ func (s *Service) Catalog(ctx context.Context) ([]Item, error) {
 	now := s.now()
 	for i, r := range rows {
 		items[i] = Item{PosCatalogRow: r}
-		if r.Alcohol && r.Abv != nil {
-			if items[i].MinPrice, err = s.catalog.MinRetailPrice(ctx, r.ID, now); err != nil {
-				return nil, err
-			}
+		if items[i].MinPrice, err = s.minPrice(ctx, items[i], now); err != nil {
+			return nil, err
 		}
 	}
 	return items, nil
@@ -70,12 +69,41 @@ func (s *Service) item(ctx context.Context, variant uuid.UUID) (*Item, error) {
 		return nil, err
 	}
 	it := Item{PosCatalogRow: rows[0]}
-	if it.alcohol() {
-		if it.MinPrice, err = s.catalog.MinRetailPrice(ctx, variant, s.now()); err != nil {
-			return nil, err
+	it.MinPrice, err = s.minPrice(ctx, it, s.now())
+	return &it, err
+}
+
+// minPrice — нижняя граница цены: МРЦ Минфина для крепкого алкоголя, ЕМЦ для сигарет.
+func (s *Service) minPrice(ctx context.Context, it Item, at time.Time) (*int64, error) {
+	switch {
+	case it.alcohol():
+		return s.catalog.MinRetailPrice(ctx, it.ID, at)
+	case it.Cigarettes:
+		p, err := s.q.TobaccoMinPrice(ctx, at)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
 		}
+		return &p, err
 	}
-	return &it, nil
+	return nil, nil
+}
+
+// crptUnit — единица «Честного знака» (GTIN и серийный номер) из кода, который прислала касса,
+// и МРЦ, если это код сигаретной пачки. Уже выделенная единица возвращается как есть.
+func crptUnit(code string) (string, *int64) {
+	if sc, ok := catalog.ParseScan(code); ok && sc.Unit != "" {
+		return sc.Unit, sc.MaxPrice
+	}
+	return code, nil
+}
+
+// salePrice — цена строки: пачку нельзя продать дороже МРЦ с пачки, поэтому цена каталога выше
+// неё (или её отсутствие) заменяется МРЦ (НК РФ, ст. 187.1, п. 2).
+func salePrice(price int64, maxPrice *int64) int64 {
+	if maxPrice != nil && (price <= 0 || price > *maxPrice) {
+		return *maxPrice
+	}
+	return price
 }
 
 // Time — серверное время и окна продажи алкоголя в точке кассы сегодня. Касса не доверяет своим часам.
@@ -91,6 +119,8 @@ type Check struct {
 	Item     *Item
 	Mark     string
 	Crpt     string
+	Price    int64
+	MaxPrice *int64
 	Refusals []Refusal
 }
 
@@ -115,7 +145,11 @@ func (s *Service) Check(ctx context.Context, pc Context, raw string) (Check, err
 		if err != nil {
 			return c, err
 		}
-		variant, c.Crpt = v, scan.Unit
+		variant, c.MaxPrice = v, scan.MaxPrice
+		// Касса возвращает код целиком: из него сервер снова возьмёт МРЦ при приёме чека.
+		if scan.Unit != "" {
+			c.Crpt = strings.TrimSpace(raw)
+		}
 	default:
 		v, err := s.catalog.FindVariant(ctx, catalog.Scan{Code: raw})
 		if err != nil {
@@ -136,13 +170,15 @@ func (s *Service) Check(ctx context.Context, pc Context, raw string) (Check, err
 		return c, nil
 	}
 	c.Item = it
-	c.Refusals, err = s.refusals(ctx, pc, *it, c.Mark, c.Crpt, it.PriceKopecks, s.now(), false)
+	c.Price = salePrice(it.PriceKopecks, c.MaxPrice)
+	c.Refusals, err = s.refusals(ctx, pc, *it, c.Mark, c.Crpt, c.Price, s.now(), false)
 	return c, err
 }
 
 // refusals — проверки позиции. Их повторяет и приём чека: касса могла проверить устаревшие данные.
 func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code string, price int64, at time.Time, offline bool) ([]Refusal, error) {
 	var out []Refusal
+	code, maxPrice := crptUnit(code)
 	if it.alcohol() {
 		sc, err := s.locations.CheckSale(ctx, pc.Device.LocationID, at)
 		if err != nil {
@@ -203,11 +239,17 @@ func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code 
 	switch {
 	case price <= 0:
 		out = append(out, Refusal{"price.missing", "У товара нет розничной цены. Сообщите управляющему"})
+	case maxPrice != nil && price > *maxPrice:
+		out = append(out, Refusal{"price.above_max", "Цена выше МРЦ на пачке (" + money(*maxPrice) + "): дороже продавать нельзя"})
+	case it.MinPrice != nil && price < *it.MinPrice && it.Cigarettes:
+		out = append(out, Refusal{"price.below_min", "Цена ниже единой минимальной цены табачной продукции (" + money(*it.MinPrice) + ")"})
 	case it.MinPrice != nil && price < *it.MinPrice:
-		out = append(out, Refusal{"price.below_min", fmt.Sprintf("Цена ниже минимальной розничной (МРЦ %d,%02d ₽)", *it.MinPrice/100, *it.MinPrice%100)})
+		out = append(out, Refusal{"price.below_min", "Цена ниже минимальной розничной (МРЦ " + money(*it.MinPrice) + ")"})
 	}
 	return out, nil
 }
+
+func money(kopecks int64) string { return fmt.Sprintf("%d,%02d ₽", kopecks/100, kopecks%100) }
 
 func crptRefusal(reason string) Refusal {
 	messages := map[string]string{
@@ -379,7 +421,10 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 	needAge := false
 	var total int64
 	var marksList, codes []string
-	for _, l := range r.Lines {
+	for i := range r.Lines {
+		l := &r.Lines[i]
+		raw := l.Crpt
+		l.Crpt, _ = crptUnit(l.Crpt)
 		it, err := s.item(ctx, l.VariantID)
 		if err != nil {
 			return uuid.Nil, err
@@ -391,7 +436,7 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 			return uuid.Nil, &RefusalError{Refusal{"mark.required", "Каждую бутылку с маркой пробивают отдельно"}}
 		}
 		if !r.Refund {
-			refusals, err := s.refusals(ctx, pc, *it, l.Mark, l.Crpt, l.Price, at, r.Offline)
+			refusals, err := s.refusals(ctx, pc, *it, l.Mark, raw, l.Price, at, r.Offline)
 			if err != nil {
 				return uuid.Nil, err
 			}

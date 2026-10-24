@@ -13,8 +13,12 @@ select d.id, d.location_id, l.code as location_code, l.name as location_name, d.
        d.last_seen_at, d.revoked_at
 from pos_devices d
 join locations l on l.id = d.location_id
-where sqlc.narg(id)::uuid is null or d.id = sqlc.narg(id)::uuid
+where (sqlc.narg(id)::uuid is null or d.id = sqlc.narg(id)::uuid)
+  and (sqlc.narg(location_ids)::uuid[] is null or d.location_id = any(sqlc.narg(location_ids)::uuid[]))
 order by l.code, d.name;
+
+-- name: DeviceLocationID :one
+select location_id from pos_devices where id = @id;
 
 -- name: RevokeDevice :one
 update pos_devices set revoked_at = now() where id = @id and revoked_at is null returning name;
@@ -164,6 +168,7 @@ group by l.variant_id, l.mark_code;
 select v.id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container, v.gift_pack, v.gtin, v.alcocode,
        k.egais_accounting, p.crpt_marked, p.abv, c.alcohol,
        (coalesce(gp.name, pc.name, c.name) = 'Табачная продукция')::boolean as tobacco,
+       (c.name in ('Сигареты', 'Папиросы'))::boolean as cigarettes,
        coalesce(array_agg(b.code order by b.code) filter (where b.code is not null), '{}')::text[] as barcodes,
        coalesce((select (pr.price * 100)::bigint from prices pr
                  where pr.variant_id = v.id and pr.kind = 'retail' and pr.valid_from <= now()
@@ -179,3 +184,11 @@ where v.is_active and p.is_active
   and (sqlc.narg(variant_id)::uuid is null or v.id = sqlc.narg(variant_id)::uuid)
 group by v.id, p.id, k.egais_accounting, c.alcohol, pc.name, gp.name, c.name
 order by p.name, v.volume_ml;
+
+-- name: TobaccoMinPrice :one
+-- ЕМЦ табачной продукции на дату по Москве: федеральная величина действует с начала суток по Москве.
+select (price * 100)::bigint as kopecks
+from tobacco_min_prices
+where valid_from <= (sqlc.arg(at)::timestamptz at time zone 'Europe/Moscow')::date
+order by valid_from desc
+limit 1;
