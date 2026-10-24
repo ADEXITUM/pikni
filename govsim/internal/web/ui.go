@@ -1,10 +1,14 @@
 package web
 
 import (
+	"context"
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -64,7 +68,7 @@ func (s *Server) basicAuth(next http.HandlerFunc) http.HandlerFunc {
 var titles = map[string]string{
 	"index.html": "Участники и сценарии", "point.html": "Остатки точки", "mark.html": "Марка",
 	"journal.html": "Журнал документов", "shipments.html": "Поставки", "print.html": "Печать поставки",
-	"crpt.html": "«Честный знак»", "check.html": "Чек в ЕГАИС",
+	"crpt.html": "«Честный знак»", "check.html": "Чек в ЕГАИС", "packs.html": "Пачки сигарет",
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data map[string]any) {
@@ -88,6 +92,7 @@ func (s *Server) ui(mux *http.ServeMux) {
 	mux.HandleFunc("GET /ui/shipments/{id}/print", s.basicAuth(s.print))
 	mux.HandleFunc("GET /ui/crpt", s.basicAuth(s.crpt))
 	mux.HandleFunc("POST /ui/crpt/batches", s.basicAuth(s.batch))
+	mux.HandleFunc("POST /ui/crpt/packs", s.basicAuth(s.packs))
 }
 
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
@@ -257,6 +262,10 @@ func (s *Server) crpt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data["Batches"] = batches
+	if data["Points"], err = s.retailPoints(r.Context()); err != nil {
+		s.fail(w, err)
+		return
+	}
 	s.render(w, "crpt.html", data)
 }
 
@@ -273,4 +282,32 @@ func (s *Server) batch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/ui/crpt", http.StatusSeeOther)
+}
+
+func (s *Server) retailPoints(ctx context.Context) ([]sim.Participant, error) {
+	ps, err := s.sim.Participants(ctx)
+	out := ps[:0]
+	for _, p := range ps {
+		if p.Kind == "retail_point" {
+			out = append(out, p)
+		}
+	}
+	return out, err
+}
+
+// packs выпускает пачки сигарет для точки и показывает их коды для печати или скана с экрана.
+func (s *Server) packs(w http.ResponseWriter, r *http.Request) {
+	rub, _ := strconv.ParseFloat(strings.ReplaceAll(r.FormValue("mrp"), ",", "."), 64)
+	n, _ := strconv.Atoi(r.FormValue("count"))
+	mrp := int64(math.Round(rub * 100))
+	codes, err := s.sim.CreatePacks(r.Context(), r.FormValue("owner"), strings.TrimSpace(r.FormValue("gtin")), mrp, n)
+	if errors.Is(err, sim.ErrBadPacks) {
+		http.Error(w, "GTIN — 14 цифр, МРЦ и количество — больше нуля (не больше 200 пачек)", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	s.render(w, "packs.html", map[string]any{"Codes": codes, "MRP": fmt.Sprintf("%d,%02d", mrp/100, mrp%100), "Owner": r.FormValue("owner")})
 }

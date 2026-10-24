@@ -282,3 +282,26 @@ func TestChequeAndShopWriteOff(t *testing.T) {
 		t.Errorf("write-off: %+v", tk)
 	}
 }
+
+func TestCigarettePacks(t *testing.T) {
+	t.Parallel()
+	s := New(t)
+	ctx := t.Context()
+	if _, err := s.CreatePacks(ctx, Store, "4601234567893", 21900, 1); !errors.Is(err, sim.ErrBadPacks) {
+		t.Fatalf("13-digit GTIN: %v", err)
+	}
+	codes, err := s.CreatePacks(ctx, Store, "04601234567893", 21900, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 219 ₽ = 21900 коп. = 3·80² + 33·80 + 60 → «D», «h», «8» после ведущего «A».
+	for _, c := range codes {
+		if len(c) != 29 || c[21:25] != "ADh8" {
+			t.Fatalf("pack code %q", c)
+		}
+	}
+	v, err := s.CheckCodes(ctx, Store, []string{codes[0][:21]})
+	if err != nil || !v[0].Allowed {
+		t.Fatalf("pack is introduced at the store: %+v %v", v, err)
+	}
+}
