@@ -59,6 +59,7 @@ var importColumns = []importColumn{
 	{"region", "Регион происхождения", "Из справочника регионов", false, true},
 	{"attributes", "Характеристики", "Сырьё: пшеница; Фильтрация: угольная", false, true},
 	{"volume", "Объём, л", "Из справочника объёмов, например 0,5", false, false},
+	{"weight", "Масса нетто, г", "Для сопутствующих товаров вместо объёма, например 70", false, false},
 	{"container", "Тара", "стекло, ПЭТ или банка", false, false},
 	{"gift", "Подарочная упаковка", "да или нет", false, false},
 	{"alcocode", "Алкокод", "19 цифр", false, false},
@@ -69,7 +70,7 @@ var importColumns = []importColumn{
 }
 
 // variantColumns — если в строке заполнена хоть одна из них, строка добавляет вариант.
-var variantColumns = []string{"volume", "container", "gift", "alcocode", "gtin", "barcode", "price", "purchase"}
+var variantColumns = []string{"volume", "weight", "container", "gift", "alcocode", "gtin", "barcode", "price", "purchase"}
 
 type ImportError struct {
 	Row     int
@@ -491,6 +492,14 @@ func (g *groupImport) variant(ctx context.Context, productID uuid.UUID, r import
 		ml := int32(math.Round(*litres * 1000))
 		spec.VolumeMl = &ml
 	}
+	grams, err := decimal(v["weight"], "Масса нетто")
+	if err != nil {
+		return err
+	}
+	if grams != nil {
+		g := int32(math.Round(*grams))
+		spec.NetWeightG = &g
+	}
 	if v["container"] != "" {
 		c, ok := containerCodes[strings.ToLower(v["container"])]
 		if !ok {
@@ -654,9 +663,9 @@ func ImportTemplate() (*bytes.Buffer, error) {
 	}
 	example := [][]string{
 		{"Водка «Тайга» классическая", "Крепкий алкоголь / Водка", "200", "40", "нет", "ООО «Тайга»", "Тайга", "Тайга", "классическая", "643", "",
-			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,5", "стекло", "нет", "", "", "", "449,90", "310"},
+			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,5", "", "стекло", "нет", "", "", "", "449,90", "310"},
 		{"Водка «Тайга» классическая", "Крепкий алкоголь / Водка", "200", "40", "нет", "ООО «Тайга»", "Тайга", "Тайга", "классическая", "643", "",
-			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,7", "стекло", "нет", "", "", "", "629", "430"},
+			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,7", "", "стекло", "нет", "", "", "", "629", "430"},
 	}
 	last, _ := excelize.ColumnNumberToName(len(importColumns))
 	if err := f.SetColStyle(sheet, "A:"+last, text); err != nil {

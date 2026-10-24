@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { api, ApiError, type Category } from '@pikni/api'
 import { useMutation } from '@tanstack/vue-query'
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
 // Без category — новая категория внутри parent (без parent — верхнего уровня).
@@ -9,18 +9,24 @@ const props = defineProps<{ category?: Category; parent?: Category; nextSort: nu
 const open = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ saved: [category: Category] }>()
 
-const form = reactive({ name: '', sort: 0, isActive: true })
+const form = reactive({ name: '', sort: 0, isActive: true, alcohol: false })
+// Признак алкоголя задаётся у категории верхнего уровня, подкатегории его наследуют.
+const isRoot = computed(() => (props.category ? !props.category.parentId : !props.parent))
+const inheritedAlcohol = computed(() => props.category?.alcohol ?? props.parent?.alcohol ?? false)
 const required = (v: string) => v.trim() !== '' || 'Обязательное поле'
 
 const { mutate, isPending, error, reset } = useMutation({
   mutationFn: async () => {
     const fields = { name: form.name.trim(), sort: Number(form.sort) }
+    const alcohol = isRoot.value ? form.alcohol : undefined
     const { data, error } = props.category
       ? await api.PUT('/categories/{id}', {
           params: { path: { id: props.category.id } },
-          body: { ...fields, isActive: form.isActive },
+          body: { ...fields, isActive: form.isActive, alcohol },
         })
-      : await api.POST('/categories', { body: { ...fields, parentId: props.parent?.id } })
+      : await api.POST('/categories', {
+          body: { ...fields, parentId: props.parent?.id, alcohol },
+        })
     if (error) throw new ApiError(error)
     return data
   },
@@ -38,6 +44,7 @@ watch(open, (isOpen) => {
     name: c?.name ?? '',
     sort: c?.sort ?? props.nextSort,
     isActive: c?.isActive ?? true,
+    alcohol: c?.alcohol ?? false,
   })
 })
 
@@ -69,6 +76,19 @@ async function submit(event: SubmitEventPromise) {
             persistent-hint
             class="mb-3"
           />
+          <v-switch
+            v-if="isRoot"
+            v-model="form.alcohol"
+            label="Алкогольная продукция"
+            hint="У позиций есть вид продукции ЕГАИС, крепость, алкокод и МРЦ. Действует на все подкатегории"
+            persistent-hint
+            class="mb-3"
+            data-test="category-alcohol"
+          />
+          <p v-else class="text-body-medium text-medium-emphasis mb-3">
+            {{ inheritedAlcohol ? 'Алкогольная продукция' : 'Не алкогольная продукция' }} — как у
+            категории верхнего уровня.
+          </p>
           <v-switch
             v-if="category"
             v-model="form.isActive"

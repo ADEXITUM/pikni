@@ -97,6 +97,7 @@ const fieldLabels: Record<string, string> = {
   phone: 'Телефон',
   email: 'Эл. почта',
   minQty: 'Мин. остаток',
+  alcohol: 'Алкогольная продукция',
 }
 
 const refEntities: Record<string, string> = {

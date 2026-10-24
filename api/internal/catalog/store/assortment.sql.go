@@ -123,7 +123,7 @@ func (q *Queries) GetLocationCode(ctx context.Context, id uuid.UUID) (string, er
 }
 
 const listAssortment = `-- name: ListAssortment :many
-select a.variant_id, v.product_id, v.article, p.name, v.volume_ml, v.container, v.gift_pack,
+select a.variant_id, v.product_id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container, v.gift_pack,
        (v.is_active and p.is_active)::boolean as is_active, a.min_qty
 from assortment_matrix a
 join variants v on v.id = a.variant_id
@@ -157,15 +157,16 @@ type ListAssortmentParams struct {
 }
 
 type ListAssortmentRow struct {
-	VariantID uuid.UUID
-	ProductID uuid.UUID
-	Article   string
-	Name      string
-	VolumeMl  *int32
-	Container *string
-	GiftPack  bool
-	IsActive  bool
-	MinQty    int32
+	VariantID  uuid.UUID
+	ProductID  uuid.UUID
+	Article    string
+	Name       string
+	VolumeMl   *int32
+	NetWeightG *int32
+	Container  *string
+	GiftPack   bool
+	IsActive   bool
+	MinQty     int32
 }
 
 // В магазине тысячи вариантов, поэтому матрица отдаётся страницами по (наименование, объём, id)
@@ -195,6 +196,7 @@ func (q *Queries) ListAssortment(ctx context.Context, arg ListAssortmentParams) 
 			&i.Article,
 			&i.Name,
 			&i.VolumeMl,
+			&i.NetWeightG,
 			&i.Container,
 			&i.GiftPack,
 			&i.IsActive,

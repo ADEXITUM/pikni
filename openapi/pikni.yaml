@@ -2769,6 +2769,9 @@ components:
               format: uuid
               x-go-name: ParentID
               description: Родитель; без него — категория верхнего уровня. После создания не меняется.
+            alcohol:
+              type: boolean
+              description: Алкогольная продукция; задаётся только у категории верхнего уровня, подкатегории наследуют
 
     CategoryUpdate:
       allOf:
@@ -2778,12 +2781,15 @@ components:
           properties:
             isActive:
               type: boolean
+            alcohol:
+              type: boolean
+              description: Меняется только у категории верхнего уровня — вместе со всеми подкатегориями
 
     Category:
       allOf:
         - $ref: "#/components/schemas/CategoryFields"
         - type: object
-          required: [id, depth, isActive]
+          required: [id, depth, isActive, alcohol]
           properties:
             id:
               type: string
@@ -2792,6 +2798,9 @@ components:
               type: string
               format: uuid
               x-go-name: ParentID
+            alcohol:
+              type: boolean
+              description: Алкогольная продукция — есть вид продукции ЕГАИС, крепость, алкокод и МРЦ
             depth:
               type: integer
               format: int32
@@ -3137,6 +3146,13 @@ components:
               format: int32
               description: Объём из справочника; обязателен для продукции в ЕГАИС
               example: 500
+            netWeightG:
+              type: integer
+              format: int32
+              minimum: 1
+              maximum: 100000
+              description: Масса нетто в граммах — фасовка сопутствующих товаров; вместе с объёмом не указывается
+              example: 70
             container:
               $ref: "#/components/schemas/Container"
             giftPack:
@@ -3471,6 +3487,9 @@ components:
         name:
           type: string
         volumeMl:
+          type: integer
+          format: int32
+        netWeightG:
           type: integer
           format: int32
         container:

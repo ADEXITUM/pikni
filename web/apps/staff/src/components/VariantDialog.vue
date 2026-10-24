@@ -21,8 +21,12 @@ const volumeItems = computed(() =>
 )
 const containerItems = Object.entries(containerLabels).map(([value, title]) => ({ value, title }))
 
+// Фасовка сопутствующих товаров — объём (вода) или масса нетто (снеки); у продукции в ЕГАИС
+// всегда объём.
 const form = reactive({
+  packaging: 'volume' as 'volume' | 'weight',
   volumeMl: null as number | null,
+  netWeightG: '' as string | number,
   container: null as Container | null,
   giftPack: false,
   alcocode: '',
@@ -32,6 +36,12 @@ const form = reactive({
 
 const volumeRule = (v: number | null) =>
   !props.isEgais || v !== null || 'Для продукции в ЕГАИС укажите объём'
+const weightRule = (v: string | number) => {
+  const s = String(v ?? '').trim()
+  if (s === '') return true
+  const n = Number(s)
+  return (Number.isInteger(n) && n >= 1 && n <= 100000) || 'Масса — целое число граммов, до 100 кг'
+}
 const alcocodeRule = (v: string) =>
   v.trim() === '' || /^\d{19}$/.test(v.trim()) || 'Алкокод — 19 цифр'
 
@@ -50,7 +60,11 @@ const { mutate, isPending, error, reset } = useMutation({
           params: { path: { id: props.productId } },
           body: {
             ...codes,
-            volumeMl: form.volumeMl ?? undefined,
+            volumeMl: form.packaging === 'volume' ? (form.volumeMl ?? undefined) : undefined,
+            netWeightG:
+              form.packaging === 'weight' && String(form.netWeightG).trim() !== ''
+                ? Number(form.netWeightG)
+                : undefined,
             container: form.container ?? undefined,
             giftPack: form.giftPack,
           },
@@ -68,7 +82,9 @@ watch(open, (isOpen) => {
   reset()
   const v = props.variant
   Object.assign(form, {
+    packaging: v?.netWeightG ? 'weight' : 'volume',
     volumeMl: v?.volumeMl ?? null,
+    netWeightG: v?.netWeightG ?? '',
     container: v?.container ?? null,
     giftPack: v?.giftPack ?? false,
     alcocode: v?.alcocode ?? '',
@@ -91,8 +107,29 @@ async function submit(event: SubmitEventPromise) {
       <v-form @submit.prevent="submit">
         <v-card-text>
           <template v-if="!variant">
+            <v-btn-toggle
+              v-if="!isEgais"
+              v-model="form.packaging"
+              mandatory
+              density="comfortable"
+              class="mb-4"
+              data-test="variant-packaging"
+            >
+              <v-btn value="volume">Объём</v-btn>
+              <v-btn value="weight">Масса нетто</v-btn>
+            </v-btn-toggle>
             <v-row density="compact">
-              <v-col cols="6">
+              <v-col v-if="form.packaging === 'weight'" cols="6">
+                <v-text-field
+                  v-model="form.netWeightG"
+                  label="Масса нетто"
+                  suffix="г"
+                  inputmode="numeric"
+                  :rules="[weightRule]"
+                  data-test="variant-weight"
+                />
+              </v-col>
+              <v-col v-else cols="6">
                 <v-select
                   v-model="form.volumeMl"
                   :items="volumeItems"
@@ -114,7 +151,7 @@ async function submit(event: SubmitEventPromise) {
             </v-row>
             <v-switch v-model="form.giftPack" label="Подарочная упаковка" hide-details />
             <p class="text-body-small text-medium-emphasis mb-3">
-              Объём, тара и упаковка задают вариант и после создания не меняются.
+              Фасовка, тара и упаковка задают вариант и после создания не меняются.
             </p>
           </template>
           <v-text-field

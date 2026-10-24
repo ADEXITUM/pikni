@@ -19,7 +19,7 @@ func toVariant(ctx context.Context, v Variant) apispec.Variant {
 		barcodes[i] = toBarcode(b)
 	}
 	out := apispec.Variant{
-		ID: v.ID, ProductID: v.ProductID, Article: v.Article, VolumeMl: v.VolumeMl, Container: (*apispec.Container)(v.Container),
+		ID: v.ID, ProductID: v.ProductID, Article: v.Article, VolumeMl: v.VolumeMl, NetWeightG: v.NetWeightG, Container: (*apispec.Container)(v.Container),
 		GiftPack: v.GiftPack, Alcocode: v.Alcocode, Gtin: v.Gtin, IsActive: v.IsActive, Barcodes: barcodes,
 	}
 	out.RetailPrice, out.MinPrice = toRubles(v.RetailPrice), toRubles(v.MinPrice)
@@ -48,7 +48,7 @@ func (h *Handler) ListProductVariants(ctx context.Context, req apispec.ListProdu
 func (h *Handler) CreateVariant(ctx context.Context, req apispec.CreateVariantRequestObject) (apispec.CreateVariantResponseObject, error) {
 	b := req.Body
 	v, err := h.svc.CreateVariant(ctx, req.ID, VariantSpec{
-		VolumeMl: b.VolumeMl, Container: (*string)(b.Container), GiftPack: b.GiftPack, Alcocode: b.Alcocode, GTIN: b.Gtin,
+		VolumeMl: b.VolumeMl, NetWeightG: b.NetWeightG, Container: (*string)(b.Container), GiftPack: b.GiftPack, Alcocode: b.Alcocode, GTIN: b.Gtin,
 	})
 	if err != nil {
 		return nil, problem(err)

@@ -69,6 +69,12 @@ func parseScan(raw string) (Scan, bool) {
 	if len(s) >= 18 && strings.HasPrefix(s, "01") && s[16:18] == "21" && gs1Valid(s[2:16]) {
 		return Scan{Kind: apispec.ScanKindCrptCode, Code: s[2:16]}, true
 	}
+	// Код сигаретной пачки — 29 символов без разделителей: GTIN (14 цифр), серийный номер (7),
+	// максимальная розничная цена в закодированном виде (4) и код проверки (4).
+	if len(s) == 29 && digitsOnly.MatchString(s[:14]) && gs1Valid(s[:14]) &&
+		!strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r > '~' }) {
+		return Scan{Kind: apispec.ScanKindCrptCode, Code: s[:14]}, true
+	}
 	if alcocodePattern.MatchString(s) {
 		return Scan{Kind: apispec.ScanKindAlcocode, Code: s}, true
 	}

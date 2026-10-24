@@ -4,10 +4,10 @@ from products
 where id = @id;
 
 -- name: ListProductVariants :many
-select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article
+select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g
 from variants
 where product_id = @product_id
-order by volume_ml nulls first, container nulls first, gift_pack;
+order by volume_ml nulls first, net_weight_g nulls first, container nulls first, gift_pack;
 
 -- name: ListProductBarcodes :many
 select b.code, b.variant_id, b.kind, b.created_at
@@ -17,21 +17,21 @@ where v.product_id = @product_id
 order by b.created_at, b.code;
 
 -- name: GetVariant :one
-select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article
+select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g
 from variants
 where id = @id
 for update;
 
 -- name: CreateVariant :one
-insert into variants (product_id, volume_ml, container, gift_pack, alcocode, gtin)
-values (@product_id, sqlc.narg(volume_ml), sqlc.narg(container), @gift_pack, sqlc.narg(alcocode), sqlc.narg(gtin))
-returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article;
+insert into variants (product_id, volume_ml, net_weight_g, container, gift_pack, alcocode, gtin)
+values (@product_id, sqlc.narg(volume_ml), sqlc.narg(net_weight_g), sqlc.narg(container), @gift_pack, sqlc.narg(alcocode), sqlc.narg(gtin))
+returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g;
 
 -- name: UpdateVariant :one
 update variants
 set alcocode = sqlc.narg(alcocode), gtin = sqlc.narg(gtin), is_active = @is_active
 where id = @id
-returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article;
+returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g;
 
 -- name: CreateBarcode :one
 insert into barcodes (code, variant_id, kind)

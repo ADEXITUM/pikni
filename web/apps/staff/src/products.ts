@@ -31,12 +31,19 @@ export const containerLabels: Record<Container, string> = {
   can: 'банка',
 }
 
-export function variantLabel(v: Pick<Variant, 'volumeMl' | 'container' | 'giftPack'>): string {
+export function formatWeight(grams: number): string {
+  return grams >= 1000 ? `${String(grams / 1000).replace('.', ',')} кг` : `${grams} г`
+}
+
+export function variantLabel(
+  v: Pick<Variant, 'volumeMl' | 'netWeightG' | 'container' | 'giftPack'>,
+): string {
   const parts: string[] = []
   if (v.volumeMl) parts.push(formatVolume(v.volumeMl))
+  if (v.netWeightG) parts.push(formatWeight(v.netWeightG))
   if (v.container) parts.push(containerLabels[v.container])
   if (v.giftPack) parts.push('подарочная упаковка')
-  return parts.join(', ') || 'без объёма и тары'
+  return parts.join(', ') || 'без фасовки'
 }
 
 export const isEmpty = (v: unknown) => v === '' || v === null || v === undefined

@@ -1580,15 +1580,21 @@ export interface components {
              * @description Родитель; без него — категория верхнего уровня. После создания не меняется.
              */
             parentId?: string;
+            /** @description Алкогольная продукция; задаётся только у категории верхнего уровня, подкатегории наследуют */
+            alcohol?: boolean;
         };
         CategoryUpdate: components["schemas"]["CategoryFields"] & {
             isActive: boolean;
+            /** @description Меняется только у категории верхнего уровня — вместе со всеми подкатегориями */
+            alcohol?: boolean;
         };
         Category: components["schemas"]["CategoryFields"] & {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             parentId?: string;
+            /** @description Алкогольная продукция — есть вид продукции ЕГАИС, крепость, алкокод и МРЦ */
+            alcohol: boolean;
             /** Format: int32 */
             depth: number;
             isActive: boolean;
@@ -1801,6 +1807,12 @@ export interface components {
              * @example 500
              */
             volumeMl?: number;
+            /**
+             * Format: int32
+             * @description Масса нетто в граммах — фасовка сопутствующих товаров; вместе с объёмом не указывается
+             * @example 70
+             */
+            netWeightG?: number;
             container?: components["schemas"]["Container"];
             giftPack: boolean;
         };
@@ -2001,6 +2013,8 @@ export interface components {
             name: string;
             /** Format: int32 */
             volumeMl?: number;
+            /** Format: int32 */
+            netWeightG?: number;
             container?: components["schemas"]["Container"];
             giftPack: boolean;
             /** @description false — позиция или вариант в архиве */

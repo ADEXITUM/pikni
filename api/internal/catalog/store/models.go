@@ -31,6 +31,7 @@ type Category struct {
 	Depth    int16
 	Sort     int32
 	IsActive bool
+	Alcohol  bool
 }
 
 type CategoryAttribute struct {
@@ -119,16 +120,17 @@ type Supplier struct {
 }
 
 type Variant struct {
-	ID        uuid.UUID
-	ProductID uuid.UUID
-	VolumeMl  *int32
-	Container *string
-	GiftPack  bool
-	Alcocode  *string
-	Gtin      *string
-	IsActive  bool
-	CreatedAt time.Time
-	Article   string
+	ID         uuid.UUID
+	ProductID  uuid.UUID
+	VolumeMl   *int32
+	Container  *string
+	GiftPack   bool
+	Alcocode   *string
+	Gtin       *string
+	IsActive   bool
+	CreatedAt  time.Time
+	Article    string
+	NetWeightG *int32
 }
 
 type Volume struct {

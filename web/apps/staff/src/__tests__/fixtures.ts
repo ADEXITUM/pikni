@@ -1,7 +1,7 @@
 import type { Category, CategoryAttribute, Location, Me } from '@pikni/api'
 
 export function makeCategory(c: Partial<Category> & Pick<Category, 'id' | 'name'>): Category {
-  return { depth: 1, sort: 10, isActive: true, ...c }
+  return { depth: 1, sort: 10, isActive: true, alcohol: true, ...c }
 }
 
 export function makeAttribute(

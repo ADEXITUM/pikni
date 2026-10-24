@@ -21,6 +21,7 @@ var (
 	ErrConflict         = errors.New("record was changed by someone else")
 	ErrInvalidAbv       = errors.New("ABV must be from 0 to 100")
 	ErrAbvRequired      = errors.New("alcohol needs ABV")
+	ErrNotAlcoholic     = errors.New("kind and ABV are only for alcohol categories")
 	ErrInactiveCategory = errors.New("category is archived")
 	ErrLineNeedsBrand   = errors.New("product line needs a brand")
 	ErrBrandMismatch    = errors.New("brand belongs to another producer")
@@ -206,6 +207,15 @@ func productParams(ctx context.Context, q *store.Queries, f apispec.ProductField
 		}
 		if !active {
 			return p, nil, ErrInactiveCategory
+		}
+	}
+	if kind != nil || abv != nil {
+		alcohol, err := q.IsAlcoholCategory(ctx, f.CategoryID)
+		if err != nil {
+			return p, nil, err
+		}
+		if !alcohol {
+			return p, nil, ErrNotAlcoholic
 		}
 	}
 	schema, err := q.CategorySchema(ctx, f.CategoryID)

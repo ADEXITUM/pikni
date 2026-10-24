@@ -164,11 +164,20 @@ const visibleSchema = computed(() =>
   schema.value.filter((a) => a.isActive || !isEmpty(form.attributes[a.code])),
 )
 
+// Вид продукции и крепость есть только у алкогольных категорий: в табаке и снеках их нет.
+const isAlcohol = computed(
+  () => categories.value.find((c) => c.id === form.categoryId)?.alcohol ?? true,
+)
+
 function changeCategory(next: string | null) {
   const fitted = fitAttributes(form.attributes, schema.value, schemaFor(next))
   form.categoryId = next
   form.attributes = fitted.values
   dropped.value = fitted.dropped
+  if (!isAlcohol.value) {
+    form.kindCode = null
+    form.abv = ''
+  }
 }
 
 const optionItems = (a: CategoryAttribute) =>
@@ -293,7 +302,7 @@ async function submit(event: SubmitEventPromise) {
                 @update:model-value="changeCategory"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col v-if="isAlcohol" cols="12" md="6">
               <v-autocomplete
                 v-model="form.kindCode"
                 :items="kindOptions"
@@ -304,7 +313,7 @@ async function submit(event: SubmitEventPromise) {
                 data-test="kind"
               />
             </v-col>
-            <v-col cols="12" sm="4" md="3">
+            <v-col v-if="isAlcohol" cols="12" sm="4" md="3">
               <v-text-field
                 v-model="form.abv"
                 label="Крепость"

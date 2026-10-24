@@ -27,6 +27,7 @@ const tree: CategoryTree = {
     makeCategory({ id: 'strong', name: 'Крепкий алкоголь' }),
     makeCategory({ id: 'vodka', name: 'Водка', parentId: 'strong', depth: 2 }),
     makeCategory({ id: 'whisky', name: 'Виски', parentId: 'strong', depth: 2, sort: 20 }),
+    makeCategory({ id: 'tobacco', name: 'Табачная продукция', alcohol: false, sort: 30 }),
   ],
   attributes: [
     makeAttribute({
@@ -146,6 +147,22 @@ describe('ProductPage', () => {
         abv: 40,
         version: 3,
       }),
+    })
+  })
+
+  it('в неалкогольной категории нет вида продукции и крепости, и они не уходят на сервер', async () => {
+    vi.mocked(api.PUT).mockResolvedValue({ data: product, response: new Response() } as never)
+    const { wrapper } = await mountAt('/products/p1')
+    expect(wrapper.find('[data-test="abv"]').exists()).toBe(true)
+
+    await choose(wrapper, 'category', 'tobacco')
+    expect(wrapper.find('[data-test="abv"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="kind"]').exists()).toBe(false)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.PUT).toHaveBeenCalledWith('/products/{id}', {
+      params: { path: { id: 'p1' } },
+      body: expect.objectContaining({ categoryId: 'tobacco', kindCode: undefined, abv: undefined }),
     })
   })
 

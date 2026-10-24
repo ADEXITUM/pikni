@@ -37,6 +37,7 @@ func TestParseScan(t *testing.T) {
 		{"0177207000002463655", apispec.ScanKindAlcocode, "0177207000002463655"},
 		{" 4006381333931 ", apispec.ScanKindBarcode, "4006381333931"},
 		{"PK-BOX-0001", apispec.ScanKindBarcode, "PK-BOX-0001"},
+		{"04601234567893" + "aB3%x-1" + "AbC1" + "7q=+", apispec.ScanKindCrptCode, "04601234567893"},
 		{"ЧК-000001", apispec.ScanKindArticle, "ЧК-000001"},
 		{"чк12", apispec.ScanKindArticle, "ЧК-000012"},
 		{"xr-7", apispec.ScanKindArticle, "ЧК-000007"},

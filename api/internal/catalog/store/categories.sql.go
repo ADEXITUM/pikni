@@ -44,20 +44,44 @@ func (q *Queries) AttributeCodeTaken(ctx context.Context, arg AttributeCodeTaken
 	return exists, err
 }
 
+const categoryTreeHasAlcoholProducts = `-- name: CategoryTreeHasAlcoholProducts :one
+with recursive tree as (
+    select c.id from categories c where c.id = $1::uuid
+    union all
+    select c.id from categories c join tree t on c.parent_id = t.id
+)
+select exists (select 1 from products p
+               where p.category_id in (select id from tree) and (p.kind_code is not null or p.abv is not null))
+`
+
+func (q *Queries) CategoryTreeHasAlcoholProducts(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, categoryTreeHasAlcoholProducts, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createCategory = `-- name: CreateCategory :one
-insert into categories (parent_id, name, sort)
-values ($1, $2, $3)
-returning id, parent_id, name, depth, sort, is_active
+insert into categories (parent_id, name, sort, alcohol)
+values ($1, $2, $3, $4)
+returning id, parent_id, name, depth, sort, is_active, alcohol
 `
 
 type CreateCategoryParams struct {
 	ParentID *uuid.UUID
 	Name     string
 	Sort     int32
+	Alcohol  bool
 }
 
+// У подкатегории признак алкоголя всё равно берёт триггер от родителя.
 func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
-	row := q.db.QueryRow(ctx, createCategory, arg.ParentID, arg.Name, arg.Sort)
+	row := q.db.QueryRow(ctx, createCategory,
+		arg.ParentID,
+		arg.Name,
+		arg.Sort,
+		arg.Alcohol,
+	)
 	var i Category
 	err := row.Scan(
 		&i.ID,
@@ -66,6 +90,7 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 		&i.Depth,
 		&i.Sort,
 		&i.IsActive,
+		&i.Alcohol,
 	)
 	return i, err
 }
@@ -118,7 +143,7 @@ func (q *Queries) CreateCategoryAttribute(ctx context.Context, arg CreateCategor
 }
 
 const getCategory = `-- name: GetCategory :one
-select id, parent_id, name, depth, sort, is_active
+select id, parent_id, name, depth, sort, is_active, alcohol
 from categories
 where id = $1
 for update
@@ -134,6 +159,7 @@ func (q *Queries) GetCategory(ctx context.Context, id uuid.UUID) (Category, erro
 		&i.Depth,
 		&i.Sort,
 		&i.IsActive,
+		&i.Alcohol,
 	)
 	return i, err
 }
@@ -175,8 +201,19 @@ func (q *Queries) HasActiveSubcategories(ctx context.Context, id uuid.UUID) (boo
 	return exists, err
 }
 
+const isAlcoholCategory = `-- name: IsAlcoholCategory :one
+select alcohol from categories where id = $1
+`
+
+func (q *Queries) IsAlcoholCategory(ctx context.Context, id uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, isAlcoholCategory, id)
+	var alcohol bool
+	err := row.Scan(&alcohol)
+	return alcohol, err
+}
+
 const listCategories = `-- name: ListCategories :many
-select id, parent_id, name, depth, sort, is_active
+select id, parent_id, name, depth, sort, is_active, alcohol
 from categories
 order by depth, sort, name
 `
@@ -197,6 +234,7 @@ func (q *Queries) ListCategories(ctx context.Context) ([]Category, error) {
 			&i.Depth,
 			&i.Sort,
 			&i.IsActive,
+			&i.Alcohol,
 		); err != nil {
 			return nil, err
 		}
@@ -246,11 +284,31 @@ func (q *Queries) ListCategoryAttributes(ctx context.Context) ([]CategoryAttribu
 	return items, nil
 }
 
+const setCategoryTreeAlcohol = `-- name: SetCategoryTreeAlcohol :exec
+with recursive tree as (
+    select c.id from categories c where c.id = $2::uuid
+    union all
+    select c.id from categories c join tree t on c.parent_id = t.id
+)
+update categories set alcohol = $1 where id in (select id from tree)
+`
+
+type SetCategoryTreeAlcoholParams struct {
+	Alcohol bool
+	ID      uuid.UUID
+}
+
+// Признак алкоголя меняется у категории верхнего уровня и сразу у всех её подкатегорий.
+func (q *Queries) SetCategoryTreeAlcohol(ctx context.Context, arg SetCategoryTreeAlcoholParams) error {
+	_, err := q.db.Exec(ctx, setCategoryTreeAlcohol, arg.Alcohol, arg.ID)
+	return err
+}
+
 const updateCategory = `-- name: UpdateCategory :one
 update categories
 set name = $1, sort = $2, is_active = $3
 where id = $4
-returning id, parent_id, name, depth, sort, is_active
+returning id, parent_id, name, depth, sort, is_active, alcohol
 `
 
 type UpdateCategoryParams struct {
@@ -275,6 +333,7 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 		&i.Depth,
 		&i.Sort,
 		&i.IsActive,
+		&i.Alcohol,
 	)
 	return i, err
 }

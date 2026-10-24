@@ -1,24 +1,46 @@
 -- name: ListCategories :many
-select id, parent_id, name, depth, sort, is_active
+select id, parent_id, name, depth, sort, is_active, alcohol
 from categories
 order by depth, sort, name;
 
 -- name: GetCategory :one
-select id, parent_id, name, depth, sort, is_active
+select id, parent_id, name, depth, sort, is_active, alcohol
 from categories
 where id = @id
 for update;
 
 -- name: CreateCategory :one
-insert into categories (parent_id, name, sort)
-values (sqlc.narg(parent_id), @name, @sort)
-returning id, parent_id, name, depth, sort, is_active;
+-- У подкатегории признак алкоголя всё равно берёт триггер от родителя.
+insert into categories (parent_id, name, sort, alcohol)
+values (sqlc.narg(parent_id), @name, @sort, @alcohol)
+returning id, parent_id, name, depth, sort, is_active, alcohol;
 
 -- name: UpdateCategory :one
 update categories
 set name = @name, sort = @sort, is_active = @is_active
 where id = @id
-returning id, parent_id, name, depth, sort, is_active;
+returning id, parent_id, name, depth, sort, is_active, alcohol;
+
+-- name: SetCategoryTreeAlcohol :exec
+-- Признак алкоголя меняется у категории верхнего уровня и сразу у всех её подкатегорий.
+with recursive tree as (
+    select c.id from categories c where c.id = @id::uuid
+    union all
+    select c.id from categories c join tree t on c.parent_id = t.id
+)
+update categories set alcohol = @alcohol where id in (select id from tree);
+
+-- name: CategoryTreeHasAlcoholProducts :one
+with recursive tree as (
+    select c.id from categories c where c.id = @id::uuid
+    union all
+    select c.id from categories c join tree t on c.parent_id = t.id
+)
+select exists (select 1 from products p
+               where p.category_id in (select id from tree) and (p.kind_code is not null or p.abv is not null));
+
+-- name: IsAlcoholCategory :one
+select alcohol from categories where id = @id;
 
 -- name: HasActiveSubcategories :one
 select exists (select 1 from categories where parent_id = @id::uuid and is_active);
