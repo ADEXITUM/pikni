@@ -45,3 +45,13 @@ returning code, variant_id, kind, created_at;
 
 -- name: NextInternalBarcode :one
 select nextval('internal_barcode_seq')::bigint;
+
+-- name: FindVariantByCode :one
+-- Вариант по штрихкоду, GTIN или алкокоду — что из этого считал сканер.
+select v.id, v.product_id
+from variants v
+left join barcodes b on b.variant_id = v.id and b.code = sqlc.narg(code)::text
+where v.alcocode = sqlc.narg(alcocode)::text
+   or v.gtin = sqlc.narg(gtin)::text
+   or b.code is not null
+limit 1;

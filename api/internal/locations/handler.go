@@ -74,7 +74,7 @@ func (h *Handler) CreateLocation(ctx context.Context, req apispec.CreateLocation
 		Name: b.Name, City: b.City, Timezone: b.Timezone, SubjectCode: b.SubjectCode,
 		Address: b.Address, Lat: b.Lat, Lon: b.Lon, FSRARID: b.FSRARID, KPP: b.KPP,
 		LicenseNo: b.LicenseNo, LicenseValidTo: fromDate(b.LicenseValidTo),
-		OpeningHours: b.OpeningHours, IsPublic: b.IsPublic,
+		OpeningHours: b.OpeningHours,
 	}
 	card, err := h.svc.Create(ctx, b.Code, b.Kind, f)
 	if err != nil {
@@ -89,7 +89,7 @@ func (h *Handler) UpdateLocation(ctx context.Context, req apispec.UpdateLocation
 		Name: b.Name, City: b.City, Timezone: b.Timezone, SubjectCode: b.SubjectCode,
 		Address: b.Address, Lat: b.Lat, Lon: b.Lon, FSRARID: b.FSRARID, KPP: b.KPP,
 		LicenseNo: b.LicenseNo, LicenseValidTo: fromDate(b.LicenseValidTo),
-		OpeningHours: b.OpeningHours, IsPublic: b.IsPublic,
+		OpeningHours: b.OpeningHours,
 	}
 	card, err := h.svc.Update(ctx, req.ID, f, b.IsActive, b.Version)
 	if err != nil {
@@ -123,7 +123,7 @@ func toAPI(c Card) apispec.Location {
 		ID: c.ID, Code: c.Code, Name: c.Name, Kind: apispec.LocationKind(c.Kind), City: c.City,
 		Timezone: c.Timezone, SubjectCode: c.SubjectCode, Address: c.Address, Lat: c.Lat, Lon: c.Lon,
 		FSRARID: c.FSRARID, KPP: c.KPP, LicenseNo: c.LicenseNo, OpeningHours: hours,
-		IsPublic: c.IsPublic, IsActive: c.IsActive, Version: c.Version, Zones: zones,
+		IsActive: c.IsActive, Version: c.Version, Zones: zones,
 	}
 	if c.LicenseValidTo != nil {
 		l.LicenseValidTo = &openapi_types.Date{Time: *c.LicenseValidTo}

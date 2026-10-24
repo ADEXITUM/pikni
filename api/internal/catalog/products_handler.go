@@ -121,3 +121,23 @@ func (h *Handler) UpdateProductLine(ctx context.Context, req apispec.UpdateProdu
 	}
 	return apispec.UpdateProductLine200JSONResponse(toProductLine(l)), nil
 }
+
+func (h *Handler) ResolveCode(ctx context.Context, req apispec.ResolveCodeRequestObject) (apispec.ResolveCodeResponseObject, error) {
+	r, err := h.svc.Resolve(ctx, req.Params.Code)
+	if err != nil {
+		return nil, err
+	}
+	var out apispec.CodeResolution
+	if r.Scan != nil {
+		out.Scan = &apispec.ScanResult{Kind: r.Scan.Kind, Code: r.Scan.Code}
+	}
+	if r.Product != nil {
+		p := toProduct(*r.Product)
+		out.Product = &p
+	}
+	if r.Variant != nil {
+		v := toVariant(ctx, *r.Variant)
+		out.Variant = &v
+	}
+	return apispec.ResolveCode200JSONResponse(out), nil
+}

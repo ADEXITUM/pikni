@@ -23,7 +23,6 @@ func store() locations.Fields {
 			Mon: &apispec.DayHours{Open: "09:00", Close: "23:00"},
 			Sun: &apispec.DayHours{Open: "10:00", Close: "24:00"},
 		},
-		IsPublic: true,
 	}
 }
 

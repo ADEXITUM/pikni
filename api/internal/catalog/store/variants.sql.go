@@ -92,6 +92,35 @@ func (q *Queries) DeleteBarcode(ctx context.Context, code string) (Barcode, erro
 	return i, err
 }
 
+const findVariantByCode = `-- name: FindVariantByCode :one
+select v.id, v.product_id
+from variants v
+left join barcodes b on b.variant_id = v.id and b.code = $1::text
+where v.alcocode = $2::text
+   or v.gtin = $3::text
+   or b.code is not null
+limit 1
+`
+
+type FindVariantByCodeParams struct {
+	Code     *string
+	Alcocode *string
+	Gtin     *string
+}
+
+type FindVariantByCodeRow struct {
+	ID        uuid.UUID
+	ProductID uuid.UUID
+}
+
+// Вариант по штрихкоду, GTIN или алкокоду — что из этого считал сканер.
+func (q *Queries) FindVariantByCode(ctx context.Context, arg FindVariantByCodeParams) (FindVariantByCodeRow, error) {
+	row := q.db.QueryRow(ctx, findVariantByCode, arg.Code, arg.Alcocode, arg.Gtin)
+	var i FindVariantByCodeRow
+	err := row.Scan(&i.ID, &i.ProductID)
+	return i, err
+}
+
 const getVariant = `-- name: GetVariant :one
 select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at
 from variants

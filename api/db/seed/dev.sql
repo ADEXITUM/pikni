@@ -1,47 +1,46 @@
 -- Точки учебной сети «Чекушка» для локальной разработки. Повторный запуск обновляет их, не дублируя.
 -- ФСРАР ID, КПП и лицензии вымышленные.
 insert into locations (code, name, kind, city, timezone, subject_code, address, lat, lon,
-                       fsrar_id, kpp, license_no, license_valid_to, opening_hours, is_public) values
+                       fsrar_id, kpp, license_no, license_valid_to, opening_hours) values
     ('СК-01', 'Центральный склад', 'warehouse', 'Благовещенск', 'Asia/Yakutsk', '28',
      'ул. Мухина, 150', 50.296100, 127.505300, '030000100001', '280101001', '28РПО0000101', '2029-03-01',
      '{"mon": {"open": "08:00", "close": "20:00"}, "tue": {"open": "08:00", "close": "20:00"},
        "wed": {"open": "08:00", "close": "20:00"}, "thu": {"open": "08:00", "close": "20:00"},
-       "fri": {"open": "08:00", "close": "20:00"}}', false),
+       "fri": {"open": "08:00", "close": "20:00"}}'),
     ('СК-02', 'Региональный склад', 'warehouse', 'Хабаровск', 'Asia/Vladivostok', '27',
      'ул. Промышленная, 21', 48.452300, 135.103800, '030000100002', '272401001', '27РПО0000102', '2028-11-15',
      '{"mon": {"open": "08:00", "close": "20:00"}, "tue": {"open": "08:00", "close": "20:00"},
        "wed": {"open": "08:00", "close": "20:00"}, "thu": {"open": "08:00", "close": "20:00"},
-       "fri": {"open": "08:00", "close": "20:00"}}', false),
+       "fri": {"open": "08:00", "close": "20:00"}}'),
     ('МГ-01', 'Магазин на ул. Ленина', 'store', 'Благовещенск', 'Asia/Yakutsk', '28',
      'ул. Ленина, 112', 50.257600, 127.535500, '030000100011', '280101002', '28РПО0000111', '2028-06-30',
      '{"mon": {"open": "09:00", "close": "23:00"}, "tue": {"open": "09:00", "close": "23:00"},
        "wed": {"open": "09:00", "close": "23:00"}, "thu": {"open": "09:00", "close": "23:00"},
        "fri": {"open": "09:00", "close": "23:00"}, "sat": {"open": "10:00", "close": "23:00"},
-       "sun": {"open": "10:00", "close": "22:00"}}', true),
+       "sun": {"open": "10:00", "close": "22:00"}}'),
     ('МГ-02', 'Магазин на ул. 50 лет Октября', 'store', 'Благовещенск', 'Asia/Yakutsk', '28',
      'ул. 50 лет Октября, 65', 50.268400, 127.523900, '030000100012', '280101003', '28РПО0000112', '2027-12-31',
      '{"mon": {"open": "10:00", "close": "22:00"}, "tue": {"open": "10:00", "close": "22:00"},
        "wed": {"open": "10:00", "close": "22:00"}, "thu": {"open": "10:00", "close": "22:00"},
        "fri": {"open": "10:00", "close": "22:00"}, "sat": {"open": "10:00", "close": "22:00"},
-       "sun": {"open": "10:00", "close": "22:00"}}', true),
+       "sun": {"open": "10:00", "close": "22:00"}}'),
     ('МГ-03', 'Магазин на ул. Муравьёва-Амурского', 'store', 'Хабаровск', 'Asia/Vladivostok', '27',
      'ул. Муравьёва-Амурского, 18', 48.480200, 135.071700, '030000100013', '272401002', '27РПО0000113', '2028-04-20',
      '{"mon": {"open": "08:00", "close": "23:00"}, "tue": {"open": "08:00", "close": "23:00"},
        "wed": {"open": "08:00", "close": "23:00"}, "thu": {"open": "08:00", "close": "23:00"},
        "fri": {"open": "08:00", "close": "23:00"}, "sat": {"open": "08:00", "close": "23:00"},
-       "sun": {"open": "08:00", "close": "23:00"}}', true),
+       "sun": {"open": "08:00", "close": "23:00"}}'),
     ('МГ-04', 'Магазин на ул. Светланской', 'store', 'Владивосток', 'Asia/Vladivostok', '25',
      'ул. Светланская, 33', 43.116300, 131.885600, '030000100014', '254001001', '25РПО0000114', '2029-01-10',
      '{"mon": {"open": "10:00", "close": "22:00"}, "tue": {"open": "10:00", "close": "22:00"},
        "wed": {"open": "10:00", "close": "22:00"}, "thu": {"open": "10:00", "close": "22:00"},
        "fri": {"open": "10:00", "close": "22:00"}, "sat": {"open": "10:00", "close": "22:00"},
-       "sun": {"open": "11:00", "close": "21:00"}}', true)
+       "sun": {"open": "11:00", "close": "21:00"}}')
 on conflict (code) do update set
     name = excluded.name, city = excluded.city, timezone = excluded.timezone,
     subject_code = excluded.subject_code, address = excluded.address, lat = excluded.lat, lon = excluded.lon,
     fsrar_id = excluded.fsrar_id, kpp = excluded.kpp, license_no = excluded.license_no,
-    license_valid_to = excluded.license_valid_to, opening_hours = excluded.opening_hours,
-    is_public = excluded.is_public;
+    license_valid_to = excluded.license_valid_to, opening_hours = excluded.opening_hours;
 
 -- Регионы происхождения для демо-каталога (catalog.csv ссылается на них по названию).
 insert into origin_regions (country_code, name) values

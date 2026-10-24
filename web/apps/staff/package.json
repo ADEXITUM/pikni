@@ -19,6 +19,7 @@
   "dependencies": {
     "@mdi/js": "^7.4.47",
     "@pikni/api": "^0.0.0",
+    "@pikni/scanner": "^0.0.0",
     "@pikni/ui": "^0.0.0",
     "@tanstack/vue-query": "^5.104.5",
     "pinia": "^4.0.3",

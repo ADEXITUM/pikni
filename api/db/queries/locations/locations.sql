@@ -1,28 +1,28 @@
 -- name: ListLocations :many
 select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-       license_no, license_valid_to, opening_hours, is_public, is_active, version
+       license_no, license_valid_to, opening_hours, is_active, version
 from locations
 order by code;
 
 -- name: GetLocation :one
 select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-       license_no, license_valid_to, opening_hours, is_public, is_active, version
+       license_no, license_valid_to, opening_hours, is_active, version
 from locations
 where id = @id;
 
 -- name: LockLocation :one
 select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-       license_no, license_valid_to, opening_hours, is_public, is_active, version
+       license_no, license_valid_to, opening_hours, is_active, version
 from locations
 where id = @id
 for update;
 
 -- name: CreateLocation :one
 insert into locations (code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-                       license_no, license_valid_to, opening_hours, is_public)
+                       license_no, license_valid_to, opening_hours)
 values (@code, @name, @kind, @city, @timezone, @subject_code, sqlc.narg(address), sqlc.narg(lat), sqlc.narg(lon),
         sqlc.narg(fsrar_id), sqlc.narg(kpp), sqlc.narg(license_no), sqlc.narg(license_valid_to),
-        @opening_hours, @is_public)
+        @opening_hours)
 returning id;
 
 -- name: UpdateLocation :exec
@@ -39,7 +39,6 @@ set name             = @name,
     license_no       = sqlc.narg(license_no),
     license_valid_to = sqlc.narg(license_valid_to),
     opening_hours    = @opening_hours,
-    is_public        = @is_public,
     is_active        = @is_active,
     version          = version + 1,
     updated_at       = now()

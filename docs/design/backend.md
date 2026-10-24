@@ -24,7 +24,6 @@ flowchart LR
   subgraph Клиенты
     WEB[Приложение сотрудников: PWA]
     POS[Приложение кассы: PWA]
-    PUB[Публичная страница 18+]
   end
   C[Caddy: HTTPS, статика, прокси]
   subgraph Пикни
@@ -37,7 +36,7 @@ flowchart LR
     GS[govsim: ЕГАИС с УТМ точек, ГИС МТ, поставщик]
     GDB[(PostgreSQL: база govsim)]
   end
-  WEB & PUB -->|/api/v1| C
+  WEB -->|/api/v1| C
   POS -->|/api/pos/v1| C
   C --> API
   API <--> DB
@@ -98,13 +97,13 @@ api/
     reports/              отчёты, журнал учёта продаж, витрины, экспорт XLSX/PDF
     notifications/        центр уведомлений
     audit/                журнал действий
-    integration/          ключи API, справочный API наличия
+    integration/          ключи API для внешних систем (ИН-2)
   db/
     migrations/           SQL-миграции goose
     queries/<модуль>/     SQL-запросы для sqlc
 govsim/                   имитатор: отдельный модуль Go, см. govsim.md
 openapi/
-  pikni.yaml              API приложения сотрудников и публичной страницы
+  pikni.yaml              API приложения сотрудников
   pos.yaml                кассовый API
 ```
 
@@ -154,7 +153,7 @@ openapi/
 
 | Таблица | Ключевые поля |
 |---|---|
-| `locations` | `code` (уник.), `name`, `kind` (warehouse, store), `city`, `address`, `lat`, `lon`, `timezone`, `fsrar_id`, `kpp`, `license_no`, `license_valid_to`, `subject_code` (код субъекта РФ: 28 — Амурская область, 27 — Хабаровский край, 25 — Приморский край), `opening_hours` jsonb, `is_public`, `is_active` |
+| `locations` | `code` (уник.), `name`, `kind` (warehouse, store), `city`, `address`, `lat`, `lon`, `timezone`, `fsrar_id`, `kpp`, `license_no`, `license_valid_to`, `subject_code` (код субъекта РФ: 28 — Амурская область, 27 — Хабаровский край, 25 — Приморский край), `opening_hours` jsonb, `is_active` |
 | `alcohol_sale_rules` | `subject_code`, `valid_from`, `sale_from`, `sale_to` (местное время), `scope` (all — вся алкогольная продукция, strong — крепче 15 %), `source` (закон-основание). Несколько правил на регион — разные `scope` или новые редакции закона; действует правило с наибольшей `valid_from` не позже текущей даты |
 | `alcohol_sale_bans` | `subject_code`, `date` или `month_day` (ежегодно), `name` («День знаний»), `scope` — дни полного запрета |
 | `zones` | `location_id`, `kind` (warehouse, backroom, floor), `name`. У склада одна зона, у магазина две: склад магазина и торговый зал |
@@ -520,7 +519,7 @@ sequenceDiagram
 
 ### 6.2 Соглашения REST
 
-- **Адреса:** `/api/v1` — приложение сотрудников; `/api/pos/v1` — касса; `/api/v1/public/…` — справочная страница, без сессии, с ограничением частоты; `/healthz`, `/readyz` — служебные.
+- **Адреса:** `/api/v1` — приложение сотрудников; `/api/pos/v1` — касса; `/healthz`, `/readyz` — служебные.
 - **Ошибки** — в формате RFC 9457 (`application/problem+json`) с машинным кодом и списком нарушений по полям или строкам.
 - **Списки:** для таблиц интерфейса — `?page=&per_page=&sort=&filter…` с общим числом строк; для журналов (движения, чеки, аудит) — курсор `?cursor=&limit=`.
 - **Повтор запросов.** Создающие запросы принимают `Idempotency-Key`; изменение сущностей требует `version` (иначе 409).
@@ -531,16 +530,15 @@ sequenceDiagram
 |---|---|
 | auth | `POST /auth/login`, `/auth/mfa`, `/auth/logout`, `GET /auth/me`, `POST /auth/qr`, `/auth/qr/consume`, `GET/DELETE /auth/sessions` |
 | users, locations, pos-devices | CRUD, сброс пароля и PIN, блокировка, зоны точки, регистрация и отзыв касс |
-| catalog | позиции, варианты, штрихкоды, справочники, МРЦ, матрица; поиск `GET /products?q=` (НСИ-8): слова наименования, часть артикула, штрихкод, алкокод, GTIN, скан марки ЕГАИС старого образца (алкокод из символов 8–19 по основанию 36) и кода «Честного знака» (GTIN после AI 01); импорт номенклатуры (НСИ-7): `GET /catalog/import/template`, `POST /catalog/import/preview` и `POST /catalog/import` — XLSX или CSV; предпросмотр выполняет весь импорт в транзакции и откатывает её, загрузка фиксирует, только если ошибок нет; каждая позиция — в своей точке сохранения, поэтому ошибки собираются по всем строкам сразу; `GET /codes/resolve?code=` |
+| catalog | позиции, варианты, штрихкоды, справочники, МРЦ, матрица; поиск `GET /products?q=` (НСИ-8): слова наименования, часть артикула, штрихкод, алкокод, GTIN, скан марки ЕГАИС старого образца (алкокод из символов 8–19 по основанию 36) и кода «Честного знака» (GTIN после AI 01); импорт номенклатуры (НСИ-7): `GET /catalog/import/template`, `POST /catalog/import/preview` и `POST /catalog/import` — XLSX или CSV; предпросмотр выполняет весь импорт в транзакции и откатывает её, загрузка фиксирует, только если ошибок нет; каждая позиция — в своей точке сохранения, поэтому ошибки собираются по всем строкам сразу; `GET /codes/resolve?code=` — что это за товар: тот же разбор сканов, что у поиска, и вариант с позицией и ценами (СК-9) |
 | documents | `GET /documents?kind=&status=&location=`, `POST /documents`, `GET/PATCH /documents/{id}`; действия `/post`, `/approve`, `/reject`, `/reverse`; приёмка: `/start?mode=`, `/packages/{code}/open`; перемещение: `/approve-request`, `/ship`, `/receive`; ревизия: `/start`, `/zones`, `/reconcile`; `GET /documents/{id}/egais` — журнал обмена |
 | marks | `GET /marks/{code}` — статус, место и история марки |
 | scans, pairings | `POST /documents/{id}/scans`, `POST /scans/{id}/undo`, `POST /pairings`, `/pairings/join`, `PATCH /pairings/{id}` |
 | egais | `POST /egais/reconcile?location=`, `GET /egais/reconciliations/{id}`, `GET /egais/status` |
-| availability | `GET /availability/search`, `GET /availability/products/{id}`, `GET /availability/products/{id}/similar?location=` — похожие товары (НЛ-7): варианты позиции, другие разновидности линейки, аналоги того же вида и объёма с ценой ±15 % и совпадающими характеристиками, отмеченными `used_for_analogs`, в наличии в точке |
+| availability | `GET /availability/search`, `GET /availability/products/{id}`, `GET /availability/products/{id}/similar?location=` — похожие товары (НЛ-6): варианты позиции, другие разновидности линейки, аналоги того же вида и объёма с ценой ±15 % и совпадающими характеристиками, отмеченными `used_for_analogs`, в наличии в точке |
 | reservations, assets, labels | CRUD и действия; `POST /labels/pdf` |
 | reports | `GET /reports`, `POST /reports/{code}/run`, `GET /report-runs/{id}`, `GET /report-runs/{id}/file`, `GET /dashboard` |
 | notifications, audit, api-keys | списки, отметка о прочтении, выборки, выпуск и отзыв ключей |
-| public | `GET /public/availability/search`, `GET /public/availability/products/{id}`, `GET /public/stores` |
 
 ### 6.3 События реального времени
 

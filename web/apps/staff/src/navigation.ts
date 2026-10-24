@@ -1,5 +1,6 @@
 import {
   mdiAccountGroupOutline,
+  mdiBarcodeScan,
   mdiBookshelf,
   mdiBottleWineOutline,
   mdiClockAlertOutline,
@@ -11,9 +12,10 @@ import {
 // Разделы меню по порядку. Право берётся из meta.permission маршрута, поэтому раздел
 // сам появляется только у тех, кому он доступен.
 export const navItems = [
+  { title: 'Сканер', icon: mdiBarcodeScan, route: 'scan' },
+  { title: 'Товары', icon: mdiBottleWineOutline, route: 'products' },
   { title: 'Точки сети', icon: mdiStorefrontOutline, route: 'locations' },
   { title: 'Правила продажи', icon: mdiClockAlertOutline, route: 'sale-rules' },
-  { title: 'Товары', icon: mdiBottleWineOutline, route: 'products' },
   { title: 'Категории', icon: mdiFileTreeOutline, route: 'categories' },
   { title: 'Справочники', icon: mdiBookshelf, route: 'refs' },
   { title: 'Сотрудники', icon: mdiAccountGroupOutline, route: 'users' },

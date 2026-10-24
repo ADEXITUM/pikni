@@ -1,26 +1,26 @@
 import type { ThemeDefinition, VuetifyOptions } from 'vuetify'
 
 export const brand = {
-  kraft: '#F3EDE3',
-  paper: '#FFFDF8',
-  kraft200: '#EAE1D2',
-  ink: '#221D17',
+  blank: '#EEF1F5',
+  paper: '#FFFFFF',
+  blank200: '#E2E7EE',
+  ink: '#1A2029',
   stamp: '#2D3A8C',
   wax: '#A3302B',
   wood: '#E6BF88',
   woodDark: '#7A4A1F',
-  night: '#14110D',
+  night: '#0E1218',
 } as const
 
 const light: ThemeDefinition = {
   dark: false,
   colors: {
-    background: brand.kraft,
+    background: brand.blank,
     surface: brand.paper,
     'surface-bright': '#FFFFFF',
-    'surface-light': brand.kraft200,
-    'surface-variant': '#3A332A',
-    'on-surface-variant': brand.kraft,
+    'surface-light': brand.blank200,
+    'surface-variant': '#2A313C',
+    'on-surface-variant': brand.blank,
     'on-background': brand.ink,
     'on-surface': brand.ink,
     primary: brand.stamp,
@@ -40,7 +40,7 @@ const light: ThemeDefinition = {
     'on-wood': brand.ink,
   },
   variables: {
-    'border-color': '#4A3B26',
+    'border-color': '#2E3A4A',
     'border-opacity': 0.2,
     'high-emphasis-opacity': 0.92,
     'medium-emphasis-opacity': 0.74,
@@ -50,9 +50,9 @@ const light: ThemeDefinition = {
     'selected-opacity': 0.1,
     'activated-opacity': 0.12,
     'pressed-opacity': 0.16,
-    'theme-code': brand.kraft200,
+    'theme-code': brand.blank200,
     'theme-on-code': brand.ink,
-    'shadow-color': '#2B2116',
+    'shadow-color': '#1A2029',
   },
 }
 
@@ -60,13 +60,13 @@ const dark: ThemeDefinition = {
   dark: true,
   colors: {
     background: brand.night,
-    surface: '#1D1914',
-    'surface-bright': '#3A332A',
-    'surface-light': '#29231C',
-    'surface-variant': '#E9E1D3',
-    'on-surface-variant': '#1D1914',
-    'on-background': '#F1E9DC',
-    'on-surface': '#F1E9DC',
+    surface: '#161B23',
+    'surface-bright': '#2A313C',
+    'surface-light': '#1F2630',
+    'surface-variant': '#E4E8EE',
+    'on-surface-variant': '#161B23',
+    'on-background': '#E8ECF1',
+    'on-surface': '#E8ECF1',
     primary: '#AEB8FF',
     'primary-darken-1': '#8F9BF0',
     'on-primary': '#12174A',
@@ -84,7 +84,7 @@ const dark: ThemeDefinition = {
     'on-wood': brand.ink,
   },
   variables: {
-    'border-color': '#F1E9DC',
+    'border-color': '#E8ECF1',
     'border-opacity': 0.18,
     'high-emphasis-opacity': 0.96,
     'medium-emphasis-opacity': 0.76,
@@ -94,8 +94,8 @@ const dark: ThemeDefinition = {
     'selected-opacity': 0.12,
     'activated-opacity': 0.16,
     'pressed-opacity': 0.2,
-    'theme-code': '#29231C',
-    'theme-on-code': '#F1E9DC',
+    'theme-code': '#1F2630',
+    'theme-on-code': '#E8ECF1',
     'shadow-color': '#000000',
   },
 }

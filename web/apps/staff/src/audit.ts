@@ -71,7 +71,6 @@ const fieldLabels: Record<string, string> = {
   licenseNo: 'Лицензия',
   licenseValidTo: 'Лицензия до',
   openingHours: 'Режим работы',
-  isPublic: 'На публичной странице',
   isActive: 'Действует',
   sort: 'Порядок',
   unit: 'Единица',
