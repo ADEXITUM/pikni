@@ -8,5 +8,8 @@
   },
   "scripts": {
     "test:unit": "vitest"
+  },
+  "dependencies": {
+    "zxing-wasm": "3.1.5"
   }
 }

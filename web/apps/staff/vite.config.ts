@@ -17,6 +17,10 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['vuetify'],
   },
+  // Распознавание кодов работает в модульном потоке (Web Worker) пакета сканера.
+  worker: {
+    format: 'es',
+  },
   server: {
     proxy: {
       '/api': process.env.PIKNI_API_URL ?? 'http://localhost:8080',
