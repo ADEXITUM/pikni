@@ -52,7 +52,7 @@ async function submit(event: SubmitEventPromise) {
     :title="me?.mustChangePassword ? 'Придумайте пароль' : 'Смена пароля'"
     :mascot="mascotIdle"
   >
-    <p v-if="me?.mustChangePassword" class="text-body-2 text-medium-emphasis mb-4">
+    <p v-if="me?.mustChangePassword" class="text-body-medium text-medium-emphasis mb-4">
       Вы вошли по временному паролю. Придумайте свой, чтобы продолжить.
     </p>
 

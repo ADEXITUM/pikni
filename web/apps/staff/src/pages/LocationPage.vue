@@ -188,7 +188,7 @@ async function submit(event: SubmitEventPromise) {
         :to="{ name: 'locations' }"
         title="К списку точек"
       />
-      <h1 class="text-h5">{{ title }}</h1>
+      <h1 class="text-headline-small">{{ title }}</h1>
       <v-chip v-if="location && !location.isActive" color="error" size="small">Не действует</v-chip>
     </div>
 

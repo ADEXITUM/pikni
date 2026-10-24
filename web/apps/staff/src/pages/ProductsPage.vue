@@ -90,7 +90,7 @@ function open(_: Event, { item }: { item: Product }) {
 <template>
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
-      <h1 class="text-h5 flex-grow-1">Товары</h1>
+      <h1 class="text-headline-small flex-grow-1">Товары</h1>
       <v-btn
         v-if="canEdit"
         variant="tonal"
@@ -154,7 +154,7 @@ function open(_: Event, { item }: { item: Product }) {
       Марка нового образца {{ scan.code }} не содержит алкокода. Товар по ней найдётся после
       приёмки, когда марка попадёт в систему из документов ЕГАИС.
     </v-alert>
-    <p v-else-if="scan" class="text-body-2 text-medium-emphasis mb-3" data-test="scan">
+    <p v-else-if="scan" class="text-body-medium text-medium-emphasis mb-3" data-test="scan">
       Поиск по коду: {{ scanLabels[scan.kind] }} {{ scan.code }}
     </p>
 
@@ -183,7 +183,7 @@ function open(_: Event, { item }: { item: Product }) {
           <span class="text-no-wrap">{{ value === undefined ? '' : formatAbv(value) }}</span>
         </template>
         <template #[`item.egaisAccounting`]="{ item }">
-          <span class="text-no-wrap text-body-2">
+          <span class="text-no-wrap text-body-medium">
             {{ item.egaisAccounting ? accountingLabels[item.egaisAccounting] : '—' }}
           </span>
         </template>

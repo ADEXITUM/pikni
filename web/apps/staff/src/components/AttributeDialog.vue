@@ -163,7 +163,7 @@ async function submit(event: SubmitEventPromise) {
           />
 
           <template v-if="form.type === 'enum'">
-            <div class="text-subtitle-2 mt-4 mb-2">Значения списка</div>
+            <div class="text-title-small mt-4 mb-2">Значения списка</div>
             <div class="d-flex flex-wrap ga-2 mb-3">
               <v-chip
                 v-for="(o, i) in form.options"

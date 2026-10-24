@@ -260,7 +260,7 @@ async function submit(event: SubmitEventPromise) {
         :to="{ name: 'products' }"
         title="К списку товаров"
       />
-      <h1 class="text-h5">{{ title }}</h1>
+      <h1 class="text-headline-small">{{ title }}</h1>
     </div>
     <div class="d-flex flex-wrap ga-2 mb-4">
       <v-chip size="small" data-test="accounting">{{ accounting }}</v-chip>
@@ -402,10 +402,10 @@ async function submit(event: SubmitEventPromise) {
             У новой категории нет характеристик: {{ dropped.join(', ') }}. Их значения будут убраны
             при сохранении.
           </v-alert>
-          <p v-if="!form.categoryId" class="text-body-2 text-medium-emphasis">
+          <p v-if="!form.categoryId" class="text-body-medium text-medium-emphasis">
             Набор характеристик зависит от категории
           </p>
-          <p v-else-if="!visibleSchema.length" class="text-body-2 text-medium-emphasis">
+          <p v-else-if="!visibleSchema.length" class="text-body-medium text-medium-emphasis">
             У категории нет характеристик
           </p>
           <v-row v-else density="compact">
@@ -464,7 +464,7 @@ async function submit(event: SubmitEventPromise) {
       :show-cost="showCost"
       class="mt-4"
     />
-    <p v-else-if="isNew" class="text-body-2 text-medium-emphasis mt-4">
+    <p v-else-if="isNew" class="text-body-medium text-medium-emphasis mt-4">
       Варианты — объёмы и тару — можно добавить после сохранения позиции.
     </p>
   </v-container>

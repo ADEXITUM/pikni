@@ -94,7 +94,7 @@ async function submit(event: SubmitEventPromise) {
       <v-card-text>
         <p
           v-if="kind === 'retail' && variant?.minPrice"
-          class="text-body-2 mb-3"
+          class="text-body-medium mb-3"
           data-test="min-price"
         >
           МРЦ сейчас: {{ formatPrice(variant.minPrice) }}. Дешевле продавать нельзя.
@@ -133,7 +133,7 @@ async function submit(event: SubmitEventPromise) {
           {{ failure instanceof ApiError ? failure.message : 'Нет связи с сервером' }}
         </v-alert>
 
-        <div class="text-subtitle-2 mt-4 mb-1">История</div>
+        <div class="text-title-small mt-4 mb-1">История</div>
         <v-list v-if="history?.length" density="compact" data-test="price-history">
           <v-list-item
             v-for="p in history"
@@ -154,7 +154,7 @@ async function submit(event: SubmitEventPromise) {
             </template>
           </v-list-item>
         </v-list>
-        <p v-else class="text-body-2 text-medium-emphasis">Цен ещё не было</p>
+        <p v-else class="text-body-medium text-medium-emphasis">Цен ещё не было</p>
       </v-card-text>
       <v-card-actions>
         <v-spacer />

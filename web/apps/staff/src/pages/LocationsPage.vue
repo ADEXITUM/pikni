@@ -32,7 +32,7 @@ function open(_: Event, { item }: { item: Location }) {
 <template>
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
-      <h1 class="text-h5 flex-grow-1">Точки сети</h1>
+      <h1 class="text-headline-small flex-grow-1">Точки сети</h1>
       <v-btn
         v-if="canEdit"
         color="primary"
@@ -79,7 +79,7 @@ function open(_: Event, { item }: { item: Location }) {
           </v-chip>
         </template>
         <template #[`item.openingHours`]="{ item }">
-          <span class="text-body-2">{{ formatHours(item.openingHours) }}</span>
+          <span class="text-body-medium">{{ formatHours(item.openingHours) }}</span>
         </template>
       </v-data-table>
     </v-card>

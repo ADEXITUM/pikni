@@ -39,7 +39,7 @@ const tab = ref(refs[0]!.key)
 
 <template>
   <v-container>
-    <h1 class="text-h5 mb-4">Справочники</h1>
+    <h1 class="text-headline-small mb-4">Справочники</h1>
 
     <v-tabs v-model="tab" show-arrows class="mb-4">
       <v-tab v-for="r in refs" :key="r.key" :value="r.key" :data-test="`tab-${r.key}`">{{

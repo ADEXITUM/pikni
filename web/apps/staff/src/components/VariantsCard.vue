@@ -111,7 +111,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
       </v-alert>
 
       <v-progress-linear v-if="isPending" indeterminate />
-      <p v-else-if="!variants?.length" class="text-body-2 text-medium-emphasis">
+      <p v-else-if="!variants?.length" class="text-body-medium text-medium-emphasis">
         Вариантов пока нет. Без варианта позицию нельзя принять на склад и продать.
       </p>
       <v-table v-else density="comfortable">
@@ -174,7 +174,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
                       : '—'
                 }}
               </v-btn>
-              <div v-if="belowMin(v)" class="text-caption text-error" data-test="below-min">
+              <div v-if="belowMin(v)" class="text-body-small text-error" data-test="below-min">
                 ниже МРЦ {{ formatPrice(v.minPrice!) }}
               </div>
             </td>

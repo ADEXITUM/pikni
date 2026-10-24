@@ -113,7 +113,7 @@ async function submit(event: SubmitEventPromise) {
               </v-col>
             </v-row>
             <v-switch v-model="form.giftPack" label="Подарочная упаковка" hide-details />
-            <p class="text-caption text-medium-emphasis mb-3">
+            <p class="text-body-small text-medium-emphasis mb-3">
               Объём, тара и упаковка задают вариант и после создания не меняются.
             </p>
           </template>

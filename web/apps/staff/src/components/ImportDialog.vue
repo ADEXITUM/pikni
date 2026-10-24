@@ -87,7 +87,7 @@ const created = (r: ImportReport) =>
           </v-alert>
         </template>
         <template v-else>
-          <p class="text-body-2 mb-3">
+          <p class="text-body-medium mb-3">
             Заполните шаблон: одна строка — позиция с одним вариантом. Перед загрузкой система
             проверит каждую строку. Если хоть в одной ошибка, не загрузится ничего.
           </p>
@@ -118,7 +118,7 @@ const created = (r: ImportReport) =>
               <v-chip size="small">позиций: {{ preview.products }}</v-chip>
               <v-chip size="small">вариантов: {{ preview.variants }}</v-chip>
             </div>
-            <p v-if="created(preview).length" class="text-body-2 mb-3">
+            <p v-if="created(preview).length" class="text-body-medium mb-3">
               Будут созданы — {{ created(preview).join('; ') }}. Проверьте, нет ли опечаток.
             </p>
             <template v-if="preview.errors.length">

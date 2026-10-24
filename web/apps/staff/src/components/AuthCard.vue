@@ -10,7 +10,7 @@ defineProps<{ title: string; mascot: string }>()
       <img :src="mascot" alt="" class="pk-auth__mascot" data-test="mascot" />
       <v-card class="pa-6">
         <PikniLogo :height="28" class="mb-6" />
-        <h1 class="text-h6 mb-4">{{ title }}</h1>
+        <h1 class="text-title-large mb-4">{{ title }}</h1>
         <slot />
       </v-card>
     </div>

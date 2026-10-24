@@ -38,7 +38,7 @@ const samples: { event: SoundEvent; label: string }[] = [
         hint="На iPhone вибрации нет — остаются звук и цвет"
         persistent-hint
       />
-      <div class="text-body-2 text-medium-emphasis mt-4 mb-2">Послушать сигналы</div>
+      <div class="text-body-medium text-medium-emphasis mt-4 mb-2">Послушать сигналы</div>
       <div class="d-flex flex-wrap ga-2">
         <v-btn
           v-for="s in samples"

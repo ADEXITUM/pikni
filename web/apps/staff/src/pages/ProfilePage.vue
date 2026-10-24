@@ -65,7 +65,7 @@ const actionError = computed(() => endError.value ?? endOthersError.value)
 
 <template>
   <v-container class="pk-profile">
-    <h1 class="text-h5 mb-4">Профиль</h1>
+    <h1 class="text-headline-small mb-4">Профиль</h1>
 
     <v-card v-if="me" class="mb-4">
       <v-card-item :title="me.fullName" :subtitle="`${me.login} · ${roleLabels[me.role]}`" />

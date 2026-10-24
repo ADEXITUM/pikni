@@ -43,11 +43,11 @@ watch(open, (isOpen) => {
   <v-dialog v-model="open" max-width="560">
     <v-card title="Варианты по списку">
       <v-card-text>
-        <div class="text-subtitle-2 mb-2">Объёмы</div>
+        <div class="text-title-small mb-2">Объёмы</div>
         <v-chip-group v-model="form.volumes" multiple column filter data-test="generate-volumes">
           <v-chip v-for="v in activeVolumes" :key="v.ml" :value="v.ml" :text="formatVolume(v.ml)" />
         </v-chip-group>
-        <div class="text-subtitle-2 mt-3 mb-2">Тара</div>
+        <div class="text-title-small mt-3 mb-2">Тара</div>
         <v-chip-group
           v-model="form.containers"
           multiple
@@ -63,7 +63,7 @@ watch(open, (isOpen) => {
           />
         </v-chip-group>
         <v-switch v-model="form.giftPack" label="Подарочная упаковка" hide-details />
-        <p class="text-body-2 text-medium-emphasis">
+        <p class="text-body-medium text-medium-emphasis">
           <template v-if="total">
             Будет создано до {{ total }}: каждый объём в каждой таре. Уже заведённые сочетания
             пропускаются.

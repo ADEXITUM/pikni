@@ -115,8 +115,8 @@ const failure = computed(() => setError.value ?? removeError.value)
     >
       {{ location ? `${location.code} · ${location.name}` : 'К точке' }}
     </v-btn>
-    <h1 class="text-h5 mb-1">Ассортиментная матрица</h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <h1 class="text-headline-small mb-1">Ассортиментная матрица</h1>
+    <p class="text-body-medium text-medium-emphasis mb-4">
       Что точка должна держать в наличии и минимальный остаток: ниже него товар попадёт в отчёт
       «Товары к пополнению».
     </p>
@@ -133,7 +133,7 @@ const failure = computed(() => setError.value ?? removeError.value)
         data-test="assortment-search"
         @keydown.enter="applySearch"
       />
-      <span class="text-body-2 text-medium-emphasis" data-test="assortment-total">
+      <span class="text-body-medium text-medium-emphasis" data-test="assortment-total">
         {{ search ? 'Найдено' : 'Вариантов' }}: {{ total }}
       </span>
       <v-spacer />
@@ -171,7 +171,7 @@ const failure = computed(() => setError.value ?? removeError.value)
 
     <v-card>
       <v-progress-linear v-if="isPending" indeterminate />
-      <p v-else-if="!items.length" class="text-body-2 text-medium-emphasis pa-4">
+      <p v-else-if="!items.length" class="text-body-medium text-medium-emphasis pa-4">
         {{
           search
             ? 'Ничего не найдено.'
@@ -201,7 +201,7 @@ const failure = computed(() => setError.value ?? removeError.value)
                 {{ a.name }}
               </router-link>
               <v-chip v-if="!a.isActive" size="x-small" class="ml-1">в архиве</v-chip>
-              <div class="d-sm-none text-body-2 text-medium-emphasis">{{ a.article }}</div>
+              <div class="d-sm-none text-body-medium text-medium-emphasis">{{ a.article }}</div>
             </td>
             <td class="text-no-wrap">{{ variantLabel(a) }}</td>
             <td class="text-end">

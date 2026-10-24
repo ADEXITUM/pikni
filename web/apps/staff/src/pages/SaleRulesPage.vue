@@ -91,7 +91,7 @@ const date = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('ru')
 <template>
   <v-container class="pk-rules">
     <div class="d-flex flex-wrap align-center ga-3 mb-2">
-      <h1 class="text-h5 flex-grow-1">Правила продажи алкоголя</h1>
+      <h1 class="text-headline-small flex-grow-1">Правила продажи алкоголя</h1>
       <template v-if="canEdit">
         <v-btn :prepend-icon="mdiPlus" color="primary" @click="ruleOpen = true"
           >Новая редакция</v-btn
@@ -101,7 +101,7 @@ const date = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('ru')
         </v-btn>
       </template>
     </div>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <p class="text-body-medium text-medium-emphasis mb-4">
       Продавать можно только когда разрешают все действующие правила сразу: федеральное и
       региональное, общее и для крепкого. Время — местное время точки.
     </p>
@@ -136,7 +136,7 @@ const date = (iso: string) => new Date(`${iso}T00:00`).toLocaleDateString('ru')
                 {{ statusChip[statuses.get(r.id) ?? 'past'].text }}
               </v-chip>
             </td>
-            <td class="text-body-2">{{ r.source }}</td>
+            <td class="text-body-medium">{{ r.source }}</td>
             <td v-if="canEdit" class="text-end">
               <v-btn
                 v-if="statuses.get(r.id) === 'planned'"

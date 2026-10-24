@@ -146,7 +146,7 @@ function unblock(u: User) {
 <template>
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
-      <h1 class="text-h5 flex-grow-1">Сотрудники</h1>
+      <h1 class="text-headline-small flex-grow-1">Сотрудники</h1>
       <v-text-field
         v-model="search"
         :prepend-inner-icon="mdiMagnify"

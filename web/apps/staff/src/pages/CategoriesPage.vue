@@ -90,7 +90,7 @@ const values = (a: CategoryAttribute) =>
 <template>
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-2">
-      <h1 class="text-h5 flex-grow-1">Категории товаров</h1>
+      <h1 class="text-headline-small flex-grow-1">Категории товаров</h1>
       <v-btn
         v-if="canEdit"
         color="primary"
@@ -101,7 +101,7 @@ const values = (a: CategoryAttribute) =>
         Категория
       </v-btn>
     </div>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+    <p class="text-body-medium text-medium-emphasis mb-4">
       Не больше трёх уровней. Подкатегория получает характеристики всех категорий выше: у игристого
       есть цвет и содержание сахара из «Вина».
     </p>
@@ -161,7 +161,7 @@ const values = (a: CategoryAttribute) =>
 
           <v-card-text>
             <div class="d-flex align-center mb-2">
-              <div class="text-subtitle-1 flex-grow-1">Характеристики</div>
+              <div class="text-title-medium flex-grow-1">Характеристики</div>
               <v-btn
                 v-if="canEdit"
                 size="small"
@@ -198,7 +198,7 @@ const values = (a: CategoryAttribute) =>
                     <v-chip v-if="!row.attribute.isActive" size="x-small" class="ml-1">
                       в архиве
                     </v-chip>
-                    <div class="text-caption text-no-wrap">
+                    <div class="text-body-small text-no-wrap">
                       {{ row.attribute.code }}
                       <template v-if="row.from">
                         · из
@@ -212,7 +212,7 @@ const values = (a: CategoryAttribute) =>
                     {{ attributeTypeLabels[row.attribute.type]
                     }}<template v-if="row.attribute.unit">, {{ row.attribute.unit }}</template>
                   </td>
-                  <td class="text-body-2">{{ values(row.attribute) }}</td>
+                  <td class="text-body-medium">{{ values(row.attribute) }}</td>
                   <td class="text-no-wrap">
                     <v-chip v-if="row.attribute.filterable" size="x-small" class="mr-1">
                       фильтр
@@ -222,7 +222,7 @@ const values = (a: CategoryAttribute) =>
                 </tr>
               </tbody>
             </v-table>
-            <p v-else class="text-body-2 text-medium-emphasis">Характеристик нет</p>
+            <p v-else class="text-body-medium text-medium-emphasis">Характеристик нет</p>
           </v-card-text>
         </v-card>
       </v-col>

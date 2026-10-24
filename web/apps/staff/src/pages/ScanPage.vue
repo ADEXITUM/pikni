@@ -147,8 +147,11 @@ const title = (e: Entry) =>
 
 <template>
   <v-container class="pk-scan">
-    <h1 class="text-h5 mb-2">Сканер</h1>
-    <p class="text-body-2 text-medium-emphasis mb-4" :class="{ 'd-none d-sm-block': cameraOn }">
+    <h1 class="text-headline-small mb-2">Сканер</h1>
+    <p
+      class="text-body-medium text-medium-emphasis mb-4"
+      :class="{ 'd-none d-sm-block': cameraOn }"
+    >
       Наведите камеру на штрихкод, марку ЕГАИС или код «Честного знака». Ручной сканер работает без
       нажатия на поле. Повреждённый код можно ввести вручную.
     </p>
@@ -211,8 +214,10 @@ const title = (e: Entry) =>
             />
           </div>
         </template>
-        <div class="pk-code text-body-1 text-break" data-test="raw">{{ short(current.raw) }}</div>
-        <div class="text-body-2 text-medium-emphasis" data-test="kind">
+        <div class="pk-code text-body-large text-break" data-test="raw">
+          {{ short(current.raw) }}
+        </div>
+        <div class="text-body-medium text-medium-emphasis" data-test="kind">
           {{ codeKindLabels[current.code.kind] }} · {{ sourceLabels[current.source] }}
         </div>
       </v-card-item>

@@ -54,7 +54,7 @@ const label = computed(() => {
       />
     </v-list>
   </v-menu>
-  <div v-else class="d-flex align-center text-body-2 px-2" data-test="location-picker">
+  <div v-else class="d-flex align-center text-body-medium px-2" data-test="location-picker">
     <v-icon :icon="mdiMapMarkerOutline" size="small" class="mr-1" />
     <span class="pk-location__label">{{ label }}</span>
   </div>

@@ -69,7 +69,7 @@ async function submit(event: SubmitEventPromise) {
     <v-card title="Новая редакция правила">
       <v-form @submit.prevent="submit">
         <v-card-text>
-          <p class="text-body-2 text-medium-emphasis mb-4">
+          <p class="text-body-medium text-medium-emphasis mb-4">
             Прежние редакции не меняются: на дату продажи действует последняя наступившая.
           </p>
           <v-select v-model="form.subject" label="Регион" :items="subjectItems()" class="mb-3" />
