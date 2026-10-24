@@ -50,6 +50,9 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionAssortmentSet:       "Изменение ассортиментной матрицы",
 	apispec.AuditActionAssortmentRemoved:   "Удаление из ассортиментной матрицы",
 	apispec.AuditActionAssortmentCopied:    "Копирование ассортиментной матрицы",
+	apispec.AuditActionDocumentCreated:     "Создание документа",
+	apispec.AuditActionDocumentPosted:      "Проведение документа",
+	apispec.AuditActionDocumentCancelled:   "Отмена черновика документа",
 }
 
 var errTooManyRows = echo.NewHTTPError(http.StatusUnprocessableEntity,

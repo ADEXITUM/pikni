@@ -59,7 +59,7 @@ const router = createRouter({
       path: '/scan',
       name: 'scan',
       component: () => import('@/pages/ScanPage.vue'),
-      meta: { title: 'Сканер', permission: 'refs.view' },
+      meta: { title: 'Сканер', permission: 'refs.view', scans: true },
     },
     {
       path: '/products',
@@ -78,6 +78,30 @@ const router = createRouter({
       name: 'product',
       component: () => import('@/pages/ProductPage.vue'),
       meta: { title: 'Позиция', permission: 'refs.view' },
+    },
+    {
+      path: '/documents',
+      name: 'documents',
+      component: () => import('@/pages/DocumentsPage.vue'),
+      meta: { title: 'Документы', permission: 'availability.view' },
+    },
+    {
+      path: '/documents/:id',
+      name: 'document',
+      component: () => import('@/pages/DocumentPage.vue'),
+      meta: { title: 'Документ', permission: 'availability.view', scans: true },
+    },
+    {
+      path: '/stock',
+      name: 'stock',
+      component: () => import('@/pages/StockPage.vue'),
+      meta: { title: 'Остатки', permission: 'availability.view' },
+    },
+    {
+      path: '/stock/moves',
+      name: 'stock-moves',
+      component: () => import('@/pages/StockMovesPage.vue'),
+      meta: { title: 'Карточка движения', permission: 'availability.view' },
     },
     {
       path: '/categories',

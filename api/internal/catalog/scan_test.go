@@ -70,3 +70,29 @@ func TestTsquery(t *testing.T) {
 		t.Errorf("tsquery of numbers = %q, want nil", *got)
 	}
 }
+
+// Документы учитывают марку по её тексту, а код «Честного знака» — по GTIN и серийному номеру:
+// второй скан той же бутылки или пачки не должен засчитываться.
+func TestScanUnits(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		raw        string
+		mark, unit string
+	}{
+		{oldMark, oldMark, ""},
+		{"PKN0000000000001", "PKN0000000000001", ""},
+		{beerCode, "", "04602124002104" + "5i.7D(U"},
+		{strings.ReplaceAll(beerCode, "\x1d", ""), "", "04602124002104" + "5i.7D(U"},
+		{"04601234567893" + "aB3%x-1" + "AbC1" + "7q=+", "", "04601234567893" + "aB3%x-1"},
+		{" 4006381333931 ", "", ""},
+	}
+	for _, tt := range tests {
+		got, ok := ParseScan(tt.raw)
+		if !ok || got.Mark != tt.mark || got.Unit != tt.unit {
+			t.Errorf("ParseScan(%.24q…) = %+v, %v; want mark %q, unit %q", tt.raw, got, ok, tt.mark, tt.unit)
+		}
+	}
+	if got, _ := ParseScan("PKN0000000000001"); got.Kind != apispec.ScanKindEgaisMarkNew {
+		t.Errorf("training mark kind = %s", got.Kind)
+	}
+}

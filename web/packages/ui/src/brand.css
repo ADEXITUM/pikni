@@ -32,6 +32,12 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Ссылки в тексте и таблицах — цветом бренда, подчёркивание оставлено: ссылку видно не только по цвету. */
+.v-main a:not(.v-btn, .v-list-item, .v-chip) {
+  color: rgb(var(--v-theme-primary));
+  text-underline-offset: 2px;
+}
+
 .pk-btn {
   font-weight: 700;
   letter-spacing: 0;

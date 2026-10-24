@@ -100,3 +100,43 @@ sql:
             go_type:
               type: float64
               pointer: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/stock
+    gen:
+      go:
+        package: store
+        out: internal/stock/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/marks
+    gen:
+      go:
+        package: store
+        out: internal/marks/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/documents
+    gen:
+      go:
+        package: store
+        out: internal/documents/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/egais
+    gen:
+      go:
+        package: store
+        out: internal/egais/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true

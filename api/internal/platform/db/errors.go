@@ -29,3 +29,7 @@ func hasCode(err error, code string) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == code
 }
+
+func IsCheckViolation(err error) bool {
+	return hasCode(err, "23514")
+}

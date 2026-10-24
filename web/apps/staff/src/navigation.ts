@@ -4,8 +4,10 @@ import {
   mdiBookshelf,
   mdiBottleWineOutline,
   mdiClockAlertOutline,
+  mdiFileDocumentMultipleOutline,
   mdiFileTreeOutline,
   mdiHistory,
+  mdiPackageVariantClosed,
   mdiStorefrontOutline,
 } from '@mdi/js'
 
@@ -15,6 +17,8 @@ import {
 export const navItems: { title: string; icon: string; route: string; forEditors?: true }[] = [
   { title: 'Сканер', icon: mdiBarcodeScan, route: 'scan' },
   { title: 'Товары', icon: mdiBottleWineOutline, route: 'products' },
+  { title: 'Остатки', icon: mdiPackageVariantClosed, route: 'stock' },
+  { title: 'Документы', icon: mdiFileDocumentMultipleOutline, route: 'documents' },
   { title: 'Точки сети', icon: mdiStorefrontOutline, route: 'locations' },
   { title: 'Правила продажи', icon: mdiClockAlertOutline, route: 'sale-rules', forEditors: true },
   { title: 'Категории', icon: mdiFileTreeOutline, route: 'categories', forEditors: true },

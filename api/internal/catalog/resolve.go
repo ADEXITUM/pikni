@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
@@ -72,4 +74,45 @@ func (s *Service) Resolve(ctx context.Context, raw string) (Resolution, error) {
 		}
 	}
 	return r, nil
+}
+
+// FindVariant находит вариант по разобранному коду: по алкокоду марки, GTIN кода «Честного знака»,
+// штрихкоду или артикулу. Марка нового образца алкокода не содержит — для неё результат пустой.
+func (s *Service) FindVariant(ctx context.Context, scan Scan) (*uuid.UUID, error) {
+	var params store.FindVariantByCodeParams
+	switch scan.Kind {
+	case apispec.ScanKindEgaisMarkNew:
+		return nil, nil
+	case apispec.ScanKindArticle:
+		params.Article = &scan.Code
+	case apispec.ScanKindEgaisMark, apispec.ScanKindAlcocode:
+		params.Alcocode = &scan.Code
+	case apispec.ScanKindCrptCode:
+		params.Gtin = &scan.Code
+	default:
+		params.Code = &scan.Code
+		params.Gtin, _ = normalizeGTIN(&scan.Code)
+	}
+	found, err := s.q.FindVariantByCode(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &found.ID, nil
+}
+
+// PurchasePrices — справочные закупочные цены вариантов на момент at, в копейках.
+// Вариантов без закупочной цены в ответе нет.
+func (s *Service) PurchasePrices(ctx context.Context, variantIDs []uuid.UUID, at time.Time) (map[uuid.UUID]int64, error) {
+	rows, err := s.q.CurrentPurchasePrices(ctx, store.CurrentPurchasePricesParams{VariantIds: variantIDs, At: at})
+	if err != nil {
+		return nil, err
+	}
+	prices := make(map[uuid.UUID]int64, len(rows))
+	for _, r := range rows {
+		prices[r.VariantID] = r.Kopecks
+	}
+	return prices, nil
 }

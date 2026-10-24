@@ -88,16 +88,19 @@ describe('ScanPage', () => {
     vi.mocked(playFeedback).mockClear()
     vi.mocked(api.GET).mockClear()
     vi.mocked(api.GET).mockImplementation(((
-      _: string,
-      init: { params: { query: { code: string } } },
-    ) =>
-      Promise.resolve({
-        data:
-          init.params.query.code === '2900000000025'
-            ? found
-            : { scan: { kind: 'barcode', code: init.params.query.code } },
+      path: string,
+      init: { params: { query?: { code: string } } },
+    ) => {
+      // Марок в учёте нет: история марки отвечает 404.
+      if (path === '/marks/{code}') {
+        return Promise.resolve({ data: undefined, response: new Response(null, { status: 404 }) })
+      }
+      const code = init.params.query!.code
+      return Promise.resolve({
+        data: code === '2900000000025' ? found : { scan: { kind: 'barcode', code } },
         response: new Response(),
-      })) as never)
+      })
+    }) as never)
   })
 
   it('скан ручным сканером без фокуса показывает позицию, вариант и цену', async () => {
@@ -129,10 +132,15 @@ describe('ScanPage', () => {
 
     await manual('10110026167968' + '0118001' + 'A'.repeat(129))
     expect(wrapper.find('[data-test="local"]').text()).toContain('нет алкокода')
+    // Марку нового образца каталог не ищет, но её история в учёте запрашивается.
+    expect(wrapper.find('[data-test="mark-missing"]').exists()).toBe(true)
 
     await manual('00046000000000000015')
     expect(wrapper.find('[data-test="local"]').text()).toContain('SSCC')
-    expect(api.GET).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(api.GET).mock.calls.map((c) => c[0])).toEqual([
+      '/codes/resolve',
+      '/marks/{code}',
+    ])
     expect(wrapper.find('[data-test="recent"]').findAll('.v-list-item')).toHaveLength(3)
     wrapper.unmount()
   })
