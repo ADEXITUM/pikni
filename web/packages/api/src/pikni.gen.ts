@@ -1727,8 +1727,6 @@ export interface components {
         Product: components["schemas"]["ProductFields"] & {
             /** Format: uuid */
             id: string;
-            /** @example ЧК-000001 */
-            article: string;
             categoryName: string;
             producerName: string;
             brandName?: string;
@@ -1755,7 +1753,7 @@ export interface components {
             variant?: components["schemas"]["Variant"];
         };
         /**
-         * @description Как сервер понял поисковую строку: article — артикул позиции (ЧК-000001), barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
+         * @description Как сервер понял поисковую строку: article — артикул варианта (ЧК-000001), barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
          * @enum {string}
          */
         ScanKind: "barcode" | "alcocode" | "egais_mark" | "egais_mark_new" | "crpt_code" | "article";
@@ -1814,6 +1812,11 @@ export interface components {
             id: string;
             /** Format: uuid */
             productId: string;
+            /**
+             * @description Артикул присваивает сервер; у каждого варианта свой
+             * @example ЧК-000001
+             */
+            article: string;
             isActive: boolean;
             barcodes: components["schemas"]["Barcode"][];
             /**

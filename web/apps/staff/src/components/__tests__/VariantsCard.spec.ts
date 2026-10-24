@@ -29,6 +29,7 @@ const DialogStub = defineComponent({
 const half: Variant = {
   id: 'v1',
   productId: 'p1',
+  article: 'ЧК-000002',
   volumeMl: 500,
   container: 'glass',
   giftPack: false,

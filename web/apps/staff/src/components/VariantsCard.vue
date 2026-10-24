@@ -117,6 +117,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
       <v-table v-else density="comfortable">
         <thead>
           <tr>
+            <th>Артикул</th>
             <th>Вариант</th>
             <th v-if="isEgais">Алкокод</th>
             <th>GTIN</th>
@@ -133,6 +134,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
             :class="{ 'text-disabled': !v.isActive }"
             :data-test="`variant-${v.id}`"
           >
+            <td class="text-no-wrap">{{ v.article }}</td>
             <td class="pk-variant">
               {{ variantLabel(v) }}
               <v-chip v-if="!v.isActive" size="x-small" class="ml-1">в архиве</v-chip>

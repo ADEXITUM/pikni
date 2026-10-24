@@ -40,7 +40,7 @@ join variants v on v.id = a.variant_id
 join products p on p.id = v.product_id
 where a.location_id = $1
   and (not $2::boolean
-       or p.article ilike '%' || $3::text || '%'
+       or v.article ilike '%' || $3::text || '%'
        or p.search @@ to_tsquery('russian', $4::text)
        or v.alcocode = $5::text
        or v.gtin = $6::text
@@ -123,14 +123,14 @@ func (q *Queries) GetLocationCode(ctx context.Context, id uuid.UUID) (string, er
 }
 
 const listAssortment = `-- name: ListAssortment :many
-select a.variant_id, v.product_id, p.article, p.name, v.volume_ml, v.container, v.gift_pack,
+select a.variant_id, v.product_id, v.article, p.name, v.volume_ml, v.container, v.gift_pack,
        (v.is_active and p.is_active)::boolean as is_active, a.min_qty
 from assortment_matrix a
 join variants v on v.id = a.variant_id
 join products p on p.id = v.product_id
 where a.location_id = $1
   and (not $2::boolean
-       or p.article ilike '%' || $3::text || '%'
+       or v.article ilike '%' || $3::text || '%'
        or p.search @@ to_tsquery('russian', $4::text)
        or v.alcocode = $5::text
        or v.gtin = $6::text

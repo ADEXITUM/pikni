@@ -75,7 +75,6 @@ function clearFilters() {
 
 // Порядок задаёт сервер (по названию) и подгрузка страниц, поэтому без сортировки.
 const headers = [
-  { title: 'Артикул', key: 'article', sortable: false },
   { title: 'Наименование', key: 'name', sortable: false },
   { title: 'Категория', key: 'categoryName', sortable: false },
   { title: 'Бренд', key: 'brandName', sortable: false },
@@ -176,9 +175,6 @@ function open(_: Event, { item }: { item: Product }) {
         no-data-text="Позиций нет"
         @click:row="open"
       >
-        <template #[`item.article`]="{ value }">
-          <span class="text-no-wrap">{{ value }}</span>
-        </template>
         <template #[`item.name`]="{ item }">
           {{ item.name }}
           <v-chip v-if="!item.isActive" size="x-small" class="ml-1">в архиве</v-chip>

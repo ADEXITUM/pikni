@@ -136,21 +136,8 @@ func (q *Queries) CreateProductLine(ctx context.Context, arg CreateProductLinePa
 	return i, err
 }
 
-const findProductByArticle = `-- name: FindProductByArticle :one
-select id
-from products
-where article = $1
-`
-
-func (q *Queries) FindProductByArticle(ctx context.Context, article string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, findProductByArticle, article)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
-}
-
 const getProduct = `-- name: GetProduct :one
-select id, article, name, category_id, category_name, kind_code, egais_accounting, abv, crpt_marked, producer_id, producer_name, brand_id, brand_name, product_line_id, line_name, variety, country_code, country_name, origin_region_id, region_name, attributes, is_active, version
+select id, name, category_id, category_name, kind_code, egais_accounting, abv, crpt_marked, producer_id, producer_name, brand_id, brand_name, product_line_id, line_name, variety, country_code, country_name, origin_region_id, region_name, attributes, is_active, version
 from product_cards
 where id = $1
 `
@@ -160,7 +147,6 @@ func (q *Queries) GetProduct(ctx context.Context, id uuid.UUID) (ProductCard, er
 	var i ProductCard
 	err := row.Scan(
 		&i.ID,
-		&i.Article,
 		&i.Name,
 		&i.CategoryID,
 		&i.CategoryName,
@@ -242,12 +228,12 @@ with recursive subtree as (
     union all
     select c.id from categories c join subtree s on c.parent_id = s.id
 )
-select p.id, p.article, p.name, p.category_id, p.category_name, p.kind_code, p.egais_accounting, p.abv, p.crpt_marked, p.producer_id, p.producer_name, p.brand_id, p.brand_name, p.product_line_id, p.line_name, p.variety, p.country_code, p.country_name, p.origin_region_id, p.region_name, p.attributes, p.is_active, p.version
+select p.id, p.name, p.category_id, p.category_name, p.kind_code, p.egais_accounting, p.abv, p.crpt_marked, p.producer_id, p.producer_name, p.brand_id, p.brand_name, p.product_line_id, p.line_name, p.variety, p.country_code, p.country_name, p.origin_region_id, p.region_name, p.attributes, p.is_active, p.version
 from product_cards p
 where ($1::uuid is null
        or (p.name, p.id) > (select a.name, a.id from products a where a.id = $1::uuid))
   and (not $2::boolean
-       or p.article ilike '%' || $3::text || '%'
+       or p.id in (select v.product_id from variants v where v.article ilike '%' || $3::text || '%')
        or p.id in (select x.id from products x where x.search @@ to_tsquery('russian', $4::text))
        or p.id in (select v.product_id from variants v
                    where v.alcocode = $5::text or v.gtin = $6::text)
@@ -273,7 +259,7 @@ type ListProductsParams struct {
 }
 
 // Пустой фильтр (null) не ограничивает выборку. Страницы идут по (name, id) после позиции after.
-// При поиске позиция подходит, если совпало хоть что-то: часть артикула, слова наименования,
+// При поиске позиция подходит, если совпало хоть что-то: слова наименования или часть артикула,
 // алкокод, GTIN или штрихкод одного из вариантов.
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ProductCard, error) {
 	rows, err := q.db.Query(ctx, listProducts,
@@ -297,7 +283,6 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 		var i ProductCard
 		if err := rows.Scan(
 			&i.ID,
-			&i.Article,
 			&i.Name,
 			&i.CategoryID,
 			&i.CategoryName,

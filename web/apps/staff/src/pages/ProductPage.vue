@@ -243,11 +243,7 @@ async function reload() {
 }
 
 const title = computed(() =>
-  isNew.value
-    ? 'Новая позиция'
-    : product.value
-      ? `${product.value.article} · ${product.value.name}`
-      : '',
+  isNew.value ? 'Новая позиция' : product.value ? product.value.name : '',
 )
 
 async function submit(event: SubmitEventPromise) {

@@ -126,7 +126,9 @@ export function auditObject(e: AuditEntry): string {
   if (e.entityType === 'user') return login ?? e.entityId ?? ''
   if (e.entityType === 'session') return 'сеанс'
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
-  if (e.entityType === 'product') return `${e.data.article} «${e.data.name}»`
+  // Записи до решения 0031 хранят артикул позиции, новые — только наименование.
+  if (e.entityType === 'product')
+    return [e.data.article, `«${String(e.data.name)}»`].filter(Boolean).join(' ')
   if (e.entityType === 'variant') return `${e.data.article} «${e.data.name}», ${e.data.variant}`
   if (e.entityType === 'assortment') return 'матрица ' + String(e.data.location)
   if (e.entityType === 'min_price') return 'МРЦ: ' + String(e.data.group)

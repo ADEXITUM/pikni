@@ -25,6 +25,10 @@ func TestGenerateVariants(t *testing.T) {
 	if err != nil || len(created) != 2 {
 		t.Fatalf("first generation: %d variants, %v", len(created), err)
 	}
+	// У каждого варианта свой артикул: это то, что стоит на полке и пробивается на кассе.
+	if created[0].Article != "ЧК-000001" || created[1].Article != "ЧК-000002" {
+		t.Errorf("articles = %s, %s", created[0].Article, created[1].Article)
+	}
 	created, err = f.svc.GenerateVariants(ctx, vodka.ID, []int32{500, 1000}, []string{"glass", "pet"}, false)
 	if err != nil || len(created) != 3 {
 		t.Fatalf("second generation creates only missing 0,5 ПЭТ, 1 стекло, 1 ПЭТ: %d, %v", len(created), err)

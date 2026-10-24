@@ -154,7 +154,7 @@ func (s *Service) createVariants(ctx context.Context, productID uuid.UUID, specs
 			created = append(created, Variant{Variant: v, Barcodes: []store.Barcode{}})
 			err = audit.Record(ctx, tx, audit.Event{
 				Action: apispec.AuditActionVariantCreated, EntityType: audit.EntityVariant, EntityID: v.ID.String(),
-				Data: map[string]any{"article": p.Article, "name": p.Name, "variant": variantLabel(v)},
+				Data: map[string]any{"article": v.Article, "name": p.Name, "variant": variantLabel(v)},
 			})
 			if err != nil {
 				return err
@@ -262,7 +262,7 @@ func (s *Service) UpdateVariant(ctx context.Context, id uuid.UUID, alcocode, gti
 		if changes := audit.Changes(fields(old), fields(v)); len(changes) > 0 {
 			err = audit.Record(ctx, tx, audit.Event{
 				Action: apispec.AuditActionVariantUpdated, EntityType: audit.EntityVariant, EntityID: id.String(),
-				Data: map[string]any{"article": p.Article, "name": p.Name, "variant": variantLabel(v), "changes": changes},
+				Data: map[string]any{"article": v.Article, "name": p.Name, "variant": variantLabel(v), "changes": changes},
 			})
 			if err != nil {
 				return err
@@ -318,7 +318,7 @@ func (s *Service) AddBarcode(ctx context.Context, variantID uuid.UUID, code *str
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionBarcodeCreated, EntityType: audit.EntityVariant, EntityID: variantID.String(),
-			Data: map[string]any{"article": p.Article, "name": p.Name, "variant": variantLabel(v), "code": saved.Code},
+			Data: map[string]any{"article": v.Article, "name": p.Name, "variant": variantLabel(v), "code": saved.Code},
 		})
 	})
 	return saved, err
@@ -359,7 +359,7 @@ func (s *Service) DeleteBarcode(ctx context.Context, code string) error {
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionBarcodeDeleted, EntityType: audit.EntityVariant, EntityID: v.ID.String(),
-			Data: map[string]any{"article": p.Article, "name": p.Name, "variant": variantLabel(v), "code": b.Code},
+			Data: map[string]any{"article": v.Article, "name": p.Name, "variant": variantLabel(v), "code": b.Code},
 		})
 	})
 }
