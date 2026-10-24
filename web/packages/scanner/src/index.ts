@@ -14,3 +14,4 @@ export {
   type ScanFormat,
   type ScanSource,
 } from './events'
+export { createWedgeDetector, listenWedge, type WedgeOptions } from './wedge'

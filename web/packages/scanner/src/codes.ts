@@ -32,7 +32,7 @@ export function fixLayout(s: string): string {
 export function normalizeScan(raw: string): string {
   let s = raw.trim()
   if (/^\][A-Za-z][0-9A-Za-z]/.test(s)) s = s.slice(3)
-  return s.replace(/^[\xe8\u001d]+/, '').replaceAll('\u241d', GS)
+  return s.replace(/^[\xe8\u001d]+/, '').split('\u241d').join(GS)
 }
 
 // gs1Valid проверяет контрольную цифру EAN, UPC, GTIN и SSCC: веса 3 и 1 справа налево.
