@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,15 +37,21 @@ func New(pool *pgxpool.Pool) *Sim {
 	return &Sim{pool: pool}
 }
 
-// Migrate применяет схему имитатора.
+// Migrate применяет схему имитатора. Провайдер goose без глобальных настроек: тесты мигрируют
+// свои базы параллельно.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	db := stdlib.OpenDBFromPool(pool)
 	defer func(db *sql.DB) { _ = db.Close() }(db)
-	goose.SetBaseFS(migrations)
-	if err := goose.SetDialect("postgres"); err != nil {
+	dir, err := fs.Sub(migrations, "migrations")
+	if err != nil {
 		return err
 	}
-	return goose.UpContext(ctx, db, "migrations")
+	provider, err := goose.NewProvider(goose.DialectPostgres, db, dir)
+	if err != nil {
+		return err
+	}
+	_, err = provider.Up(ctx)
+	return err
 }
 
 // Participant — учебный участник ЕГАИС и состояние его УТМ.
