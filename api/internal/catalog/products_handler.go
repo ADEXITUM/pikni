@@ -24,7 +24,7 @@ func toProduct(p store.ProductCard) apispec.Product {
 		accounting = &a
 	}
 	return apispec.Product{
-		ID: p.ID, Article: p.Article, Name: p.Name, CategoryID: p.CategoryID, CategoryName: p.CategoryName,
+		ID: p.ID, Name: p.Name, CategoryID: p.CategoryID, CategoryName: p.CategoryName,
 		KindCode: p.KindCode, EgaisAccounting: accounting, Abv: p.Abv, CrptMarked: p.CrptMarked,
 		ProducerID: p.ProducerID, ProducerName: p.ProducerName, BrandID: p.BrandID, BrandName: p.BrandName,
 		ProductLineID: p.ProductLineID, LineName: p.LineName, Variety: p.Variety, CountryCode: p.CountryCode,

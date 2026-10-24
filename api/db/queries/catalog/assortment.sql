@@ -6,14 +6,14 @@ where id = @id;
 -- name: ListAssortment :many
 -- В магазине тысячи вариантов, поэтому матрица отдаётся страницами по (наименование, объём, id)
 -- после варианта after. Поиск — как в каталоге: часть артикула, слова наименования или код варианта.
-select a.variant_id, v.product_id, p.article, p.name, v.volume_ml, v.container, v.gift_pack,
+select a.variant_id, v.product_id, v.article, p.name, v.volume_ml, v.container, v.gift_pack,
        (v.is_active and p.is_active)::boolean as is_active, a.min_qty
 from assortment_matrix a
 join variants v on v.id = a.variant_id
 join products p on p.id = v.product_id
 where a.location_id = @location_id
   and (not @searching::boolean
-       or p.article ilike '%' || sqlc.narg(article)::text || '%'
+       or v.article ilike '%' || sqlc.narg(article)::text || '%'
        or p.search @@ to_tsquery('russian', sqlc.narg(words)::text)
        or v.alcocode = sqlc.narg(alcocode)::text
        or v.gtin = sqlc.narg(gtin)::text
@@ -33,7 +33,7 @@ join variants v on v.id = a.variant_id
 join products p on p.id = v.product_id
 where a.location_id = @location_id
   and (not @searching::boolean
-       or p.article ilike '%' || sqlc.narg(article)::text || '%'
+       or v.article ilike '%' || sqlc.narg(article)::text || '%'
        or p.search @@ to_tsquery('russian', sqlc.narg(words)::text)
        or v.alcocode = sqlc.narg(alcocode)::text
        or v.gtin = sqlc.narg(gtin)::text

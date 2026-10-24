@@ -75,7 +75,6 @@ type Producer struct {
 
 type ProductCard struct {
 	ID              uuid.UUID
-	Article         string
 	Name            string
 	CategoryID      uuid.UUID
 	CategoryName    string
@@ -129,6 +128,7 @@ type Variant struct {
 	Gtin      *string
 	IsActive  bool
 	CreatedAt time.Time
+	Article   string
 }
 
 type Volume struct {

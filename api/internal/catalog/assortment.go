@@ -100,7 +100,7 @@ func (s *Service) SetAssortmentItem(ctx context.Context, locationID, variantID u
 }
 
 func assortmentAuditData(code string, p store.GetVariantProductRow, v store.Variant) map[string]any {
-	return map[string]any{"location": code, "article": p.Article, "name": p.Name, "variant": variantLabel(v)}
+	return map[string]any{"location": code, "article": v.Article, "name": p.Name, "variant": variantLabel(v)}
 }
 
 func (s *Service) RemoveAssortmentItem(ctx context.Context, locationID, variantID uuid.UUID) error {

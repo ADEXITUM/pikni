@@ -1,11 +1,13 @@
-import { api, type CodeResolution } from '@pikni/api'
+import { api, type CodeResolution, type Permission } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { makeMe } from '@/__tests__/fixtures'
 import { playFeedback } from '@/feedback'
+import { meQuery } from '@/session'
 
 import ScanPage from '../ScanPage.vue'
 
@@ -22,7 +24,6 @@ const found: CodeResolution = {
   scan: { kind: 'barcode', code: '2900000000025' },
   product: {
     id: 'p1',
-    article: 'ЧК-000001',
     name: 'Водка «Тайга» классическая',
     categoryId: 'vodka',
     categoryName: 'Водка',
@@ -38,6 +39,7 @@ const found: CodeResolution = {
   variant: {
     id: 'v1',
     productId: 'p1',
+    article: 'ЧК-000002',
     volumeMl: 500,
     container: 'glass',
     giftPack: false,
@@ -54,7 +56,9 @@ const CameraStub = {
   emits: ['scan', 'close'],
 }
 
-async function mountPage() {
+async function mountPage(permissions: Permission[] = ['refs.view', 'refs.edit']) {
+  const queryClient = new QueryClient()
+  queryClient.setQueryData(meQuery.queryKey, makeMe({ permissions }))
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -64,7 +68,7 @@ async function mountPage() {
   })
   const wrapper = mount(ScanPage, {
     global: {
-      plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient: new QueryClient() }]],
+      plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient }]],
       stubs: { ScanCamera: CameraStub },
     },
     attachTo: document.body,
@@ -194,6 +198,25 @@ describe('ScanPage', () => {
     expect(card.find('[data-test="raw"]').text()).toBe('чк-1')
     expect(card.find('[data-test="kind"]').text()).toContain('Артикул')
     expect(card.find('[data-test="missing"]').text()).toContain('ЧК-000001')
+    wrapper.unmount()
+  })
+
+  it('продавцу — артикул варианта и данные товара без перехода в каталог; поле ввода над результатом', async () => {
+    const wrapper = await mountPage(['refs.view'])
+    scanWithWedge('2900000000025')
+    await flushPromises()
+
+    const html = wrapper.html()
+    expect(html.indexOf('data-test="manual"')).toBeLessThan(html.indexOf('data-test="result"'))
+    const found = wrapper.find('[data-test="found"]').text()
+    expect(found).toContain('ЧК-000002')
+    expect(found).toContain('ООО «Тайга», Российская Федерация')
+    expect(wrapper.find('[data-test="edit-product"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="manual"] input').setValue('4006381333931')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.find('[data-test="missing"]').text()).toContain('Сообщите руководителю')
     wrapper.unmount()
   })
 })

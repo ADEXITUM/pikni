@@ -22,7 +22,7 @@ returning id, brand_id, name, is_active;
 
 -- name: ListProducts :many
 -- Пустой фильтр (null) не ограничивает выборку. Страницы идут по (name, id) после позиции after.
--- При поиске позиция подходит, если совпало хоть что-то: часть артикула, слова наименования,
+-- При поиске позиция подходит, если совпало хоть что-то: слова наименования или часть артикула,
 -- алкокод, GTIN или штрихкод одного из вариантов.
 with recursive subtree as (
     select c.id from categories c where c.id = sqlc.narg(category_id)::uuid
@@ -34,7 +34,7 @@ from product_cards p
 where (sqlc.narg(after)::uuid is null
        or (p.name, p.id) > (select a.name, a.id from products a where a.id = sqlc.narg(after)::uuid))
   and (not @searching::boolean
-       or p.article ilike '%' || sqlc.narg(article)::text || '%'
+       or p.id in (select v.product_id from variants v where v.article ilike '%' || sqlc.narg(article)::text || '%')
        or p.id in (select x.id from products x where x.search @@ to_tsquery('russian', sqlc.narg(words)::text))
        or p.id in (select v.product_id from variants v
                    where v.alcocode = sqlc.narg(alcocode)::text or v.gtin = sqlc.narg(gtin)::text)
@@ -44,11 +44,6 @@ where (sqlc.narg(after)::uuid is null
   and (sqlc.narg(brand_id)::uuid is null or p.brand_id = sqlc.narg(brand_id)::uuid)
 order by p.name, p.id
 limit @max_rows;
-
--- name: FindProductByArticle :one
-select id
-from products
-where article = @article;
 
 -- name: GetProduct :one
 select *

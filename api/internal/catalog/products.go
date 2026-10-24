@@ -117,7 +117,7 @@ func (s *Service) CreateProduct(ctx context.Context, f apispec.ProductFields) (s
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionProductCreated, EntityType: audit.EntityProduct, EntityID: id.String(),
-			Data: map[string]any{"article": card.Article, "name": card.Name, "category": card.CategoryName},
+			Data: map[string]any{"name": card.Name, "category": card.CategoryName},
 		})
 	})
 	return card, err
@@ -165,7 +165,7 @@ func (s *Service) UpdateProduct(ctx context.Context, id uuid.UUID, f apispec.Pro
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionProductUpdated, EntityType: audit.EntityProduct, EntityID: id.String(),
-			Data: map[string]any{"article": card.Article, "name": card.Name, "changes": changes},
+			Data: map[string]any{"name": card.Name, "changes": changes},
 		})
 	})
 	return card, err

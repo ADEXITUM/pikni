@@ -172,6 +172,7 @@ func object(r store.ListEntriesRow) string {
 	var d struct {
 		Login    string `json:"login"`
 		Article  string `json:"article"`
+		Name     string `json:"name"`
 		Location string `json:"location"`
 	}
 	_ = json.Unmarshal(r.Data, &d)
@@ -184,8 +185,10 @@ func object(r store.ListEntriesRow) string {
 		return "сотрудник " + deref(r.EntityID)
 	case EntitySession:
 		return "сеанс"
-	case EntityProduct, EntityVariant:
-		return "позиция " + d.Article
+	case EntityProduct:
+		return "позиция «" + d.Name + "»"
+	case EntityVariant:
+		return "вариант " + d.Article + " «" + d.Name + "»"
 	case EntityAssortment:
 		return "матрица точки " + d.Location
 	case EntityLocation:

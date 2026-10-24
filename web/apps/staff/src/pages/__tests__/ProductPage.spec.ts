@@ -53,7 +53,6 @@ const tree: CategoryTree = {
 
 const product: Product = {
   id: 'p1',
-  article: 'ЧК-000001',
   name: 'Тайга',
   categoryId: 'vodka',
   categoryName: 'Водка',
@@ -124,7 +123,7 @@ describe('ProductPage', () => {
   it('карточка: способ учёта из вида продукции, архивное значение у позиции сохраняется', async () => {
     const { wrapper } = await mountAt('/products/p1')
 
-    expect(wrapper.text()).toContain('ЧК-000001 · Тайга')
+    expect(wrapper.find('h1').text()).toBe('Тайга')
     expect(wrapper.find('[data-test="accounting"]').text()).toBe('помарочный учёт ЕГАИС')
     expect(wrapper.find('[data-test="attr-raw_material"]').text()).toContain('пшеница (в архиве)')
   })

@@ -3016,14 +3016,11 @@ components:
       allOf:
         - $ref: "#/components/schemas/ProductFields"
         - type: object
-          required: [id, article, categoryName, producerName, countryName, isActive, version]
+          required: [id, categoryName, producerName, countryName, isActive, version]
           properties:
             id:
               type: string
               format: uuid
-            article:
-              type: string
-              example: ЧК-000001
             categoryName:
               type: string
             producerName:
@@ -3073,7 +3070,7 @@ components:
       type: string
       enum: [barcode, alcocode, egais_mark, egais_mark_new, crpt_code, article]
       description: >
-        Как сервер понял поисковую строку: article — артикул позиции (ЧК-000001),
+        Как сервер понял поисковую строку: article — артикул варианта (ЧК-000001),
         barcode — штрихкод или GTIN, alcocode — алкокод,
         egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод),
         egais_mark_new — марка нового образца (150 символов, алкокода в ней нет),
@@ -3158,7 +3155,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/NewVariant"
         - type: object
-          required: [id, productId, isActive, barcodes]
+          required: [id, productId, article, isActive, barcodes]
           properties:
             id:
               type: string
@@ -3166,6 +3163,10 @@ components:
             productId:
               type: string
               format: uuid
+            article:
+              type: string
+              description: Артикул присваивает сервер; у каждого варианта свой
+              example: ЧК-000001
             isActive:
               type: boolean
             barcodes:

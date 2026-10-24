@@ -34,7 +34,7 @@ const { data: found, isFetching: searching } = useQuery({
   enabled: computed(() => open.value && query.value.length >= 2),
 })
 const productItems = computed(() =>
-  (found.value ?? []).map((p) => ({ value: p.id, title: `${p.article} · ${p.name}` })),
+  (found.value ?? []).map((p) => ({ value: p.id, title: p.name })),
 )
 
 const productId = ref<string | null>(null)
@@ -52,7 +52,7 @@ const { data: variants } = useQuery({
 const variantItems = computed(() =>
   (variants.value ?? [])
     .filter((v) => v.isActive)
-    .map((v) => ({ value: v.id, title: variantLabel(v) })),
+    .map((v) => ({ value: v.id, title: `${v.article} · ${variantLabel(v)}` })),
 )
 
 const variantId = ref<string | null>(null)

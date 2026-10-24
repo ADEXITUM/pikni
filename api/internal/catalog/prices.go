@@ -84,7 +84,7 @@ func (s *Service) SetPrice(ctx context.Context, variantID uuid.UUID, kind apispe
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionPriceCreated, EntityType: audit.EntityVariant, EntityID: variantID.String(),
 			Data: map[string]any{
-				"article": p.Article, "name": p.Name, "variant": variantLabel(v),
+				"article": v.Article, "name": p.Name, "variant": variantLabel(v),
 				"kind": kind, "price": rubles(kopecks), "validFrom": from,
 			},
 		})
@@ -116,7 +116,7 @@ func (s *Service) DeletePrice(ctx context.Context, id uuid.UUID) error {
 		return audit.Record(ctx, tx, audit.Event{
 			Action: apispec.AuditActionPriceDeleted, EntityType: audit.EntityVariant, EntityID: v.ID.String(),
 			Data: map[string]any{
-				"article": p.Article, "name": p.Name, "variant": variantLabel(v),
+				"article": v.Article, "name": p.Name, "variant": variantLabel(v),
 				"kind": price.Kind, "price": rubles(price.Kopecks), "validFrom": price.ValidFrom,
 			},
 		})

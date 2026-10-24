@@ -18,7 +18,8 @@ import ScanCamera from '@/components/ScanCamera.vue'
 import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'
 import { load, save } from '@/preferences'
-import { formatPrice, variantLabel } from '@/products'
+import { useMe } from '@/session'
+import { formatAbv, formatPrice, variantLabel } from '@/products'
 import { codeKindLabels, useScanner } from '@/scanning'
 
 type Outcome = 'found' | 'missing' | 'local' | 'unrecognized' | 'error'
@@ -54,6 +55,10 @@ interface Entry {
   result?: CodeResolution
   error?: string
 }
+
+// Править каталог — привязать штрихкод, сменить цену — может руководитель или администратор.
+const { data: me } = useMe()
+const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? false)
 
 const recent = ref<Entry[]>([])
 const selectedId = ref<string>()
@@ -166,6 +171,19 @@ const title = (e: Entry) =>
       Включить камеру
     </v-btn>
 
+    <!-- Поле ввода стоит над результатом: карточка растёт вниз и не сдвигает его. -->
+    <v-form class="mb-4" @submit.prevent="submitManual">
+      <v-text-field
+        v-model="manual"
+        :prepend-inner-icon="mdiBarcodeScan"
+        label="Код вручную"
+        :append-inner-icon="mdiMagnify"
+        hide-details
+        data-test="manual"
+        @click:append-inner="submitManual"
+      />
+    </v-form>
+
     <v-card
       v-if="current"
       class="pk-result mb-4"
@@ -227,11 +245,9 @@ const title = (e: Entry) =>
           class="pk-facts"
           data-test="found"
         >
-          <dt>Артикул</dt>
-          <dd class="pk-code">{{ current.result.product.article }}</dd>
-          <dt>Категория</dt>
-          <dd>{{ current.result.product.categoryName }}</dd>
           <template v-if="current.result.variant">
+            <dt>Артикул</dt>
+            <dd class="pk-code">{{ current.result.variant.article }}</dd>
             <dt>Вариант</dt>
             <dd>{{ variantLabel(current.result.variant) }}</dd>
             <dt>Цена</dt>
@@ -246,10 +262,16 @@ const title = (e: Entry) =>
               </span>
             </dd>
           </template>
-          <template v-else>
-            <dt>Вариант</dt>
-            <dd class="text-medium-emphasis">несколько — выберите в карточке позиции</dd>
+          <dt>Категория</dt>
+          <dd>{{ current.result.product.categoryName }}</dd>
+          <template v-if="current.result.product.abv !== undefined">
+            <dt>Крепость</dt>
+            <dd>{{ formatAbv(current.result.product.abv) }}</dd>
           </template>
+          <dt>Производитель</dt>
+          <dd>
+            {{ current.result.product.producerName }}, {{ current.result.product.countryName }}
+          </dd>
         </dl>
 
         <v-alert
@@ -259,11 +281,15 @@ const title = (e: Entry) =>
           data-test="missing"
         >
           <template v-if="current.code.kind === 'article'">
-            Позиции с артикулом {{ current.code.code }} в каталоге нет.
+            Артикула {{ current.code.code }} в каталоге нет.
           </template>
-          <template v-else>
+          <template v-else-if="canEdit">
             Такого кода нет в каталоге. Привязать штрихкод к товару можно в карточке позиции, в
             блоке «Варианты».
+          </template>
+          <template v-else>
+            Такого кода нет в каталоге. Сообщите руководителю: штрихкод к товару привязывают в
+            каталоге.
           </template>
         </v-alert>
         <v-alert v-else-if="current.status === 'error'" type="error">{{ current.error }}</v-alert>
@@ -306,11 +332,12 @@ const title = (e: Entry) =>
       </v-card-text>
       <v-card-actions v-if="current.status !== 'loading'">
         <v-btn
-          v-if="current.status === 'found' && current.result?.product"
+          v-if="canEdit && current.status === 'found' && current.result?.product"
           :to="{ name: 'product', params: { id: current.result.product.id } }"
           variant="tonal"
+          data-test="edit-product"
         >
-          Открыть карточку
+          Изменить в каталоге
         </v-btn>
         <v-spacer />
         <v-btn :prepend-icon="mdiUndoVariant" data-test="undo" @click="undo(current)">
@@ -318,18 +345,6 @@ const title = (e: Entry) =>
         </v-btn>
       </v-card-actions>
     </v-card>
-
-    <v-form class="mb-4" @submit.prevent="submitManual">
-      <v-text-field
-        v-model="manual"
-        :prepend-inner-icon="mdiBarcodeScan"
-        label="Код вручную"
-        :append-inner-icon="mdiMagnify"
-        hide-details
-        data-test="manual"
-        @click:append-inner="submitManual"
-      />
-    </v-form>
 
     <v-card v-if="recent.length > 1" title="Последние сканы">
       <v-list density="compact" data-test="recent">

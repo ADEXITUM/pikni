@@ -56,7 +56,7 @@ func TestSearchProducts(t *testing.T) {
 		{"морфология", "водки пшеница", taiga, ""},
 		{"начало слова", "тайг", taiga, ""},
 		{"процент не шаблон", "%", "", ""},
-		{"часть артикула", "000002", "Водка «Белуга» 100%", ""},
+		{"часть артикула варианта", "000001", taiga, ""},
 		{"штрихкод", "4006381333931", taiga, apispec.ScanKindBarcode},
 		{"GTIN как EAN-13", "4602124002104", taiga, apispec.ScanKindBarcode},
 		{"алкокод", "0177207000002463655", taiga, apispec.ScanKindAlcocode},

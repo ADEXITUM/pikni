@@ -19,7 +19,6 @@ vi.mock('@pikni/api', async (importOriginal) => ({
 
 const taiga: Product = {
   id: 'p1',
-  article: 'ЧК-000001',
   name: 'Тайга',
   categoryId: 'vodka',
   categoryName: 'Водка',
@@ -74,7 +73,7 @@ describe('ProductsPage', () => {
     const { wrapper, router } = await mountPage()
 
     const row = wrapper.find('tbody tr')
-    expect(row.text()).toContain('ЧК-000001')
+    expect(row.text()).toContain('Тайга')
     expect(row.text()).toContain('40 %')
     expect(row.text()).toContain('помарочный учёт ЕГАИС')
     expect(wrapper.text()).toContain('Показать ещё')
@@ -116,6 +115,6 @@ describe('ProductsPage', () => {
     expect(wrapper.find('[data-test="scan"]').text()).toBe(
       'Поиск по коду: марка ЕГАИС, алкокод 0177207000002463655',
     )
-    expect(wrapper.find('tbody tr').text()).toContain('ЧК-000001')
+    expect(wrapper.find('tbody tr').text()).toContain('Тайга')
   })
 })

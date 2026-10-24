@@ -80,8 +80,8 @@ func TestAssortment(t *testing.T) {
 	if len(next) != 1 || next[0].VariantID != bottle {
 		t.Errorf("second page = %+v", next)
 	}
-	byArticle, total, _ := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Search: vodka.Article, Limit: 50})
-	if len(byArticle) != 2 || total != 2 {
+	byArticle, total, _ := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Search: variants[1].Article, Limit: 50})
+	if len(byArticle) != 1 || total != 1 || byArticle[0].VariantID != bottle {
 		t.Errorf("search by article = %+v, total %d", byArticle, total)
 	}
 	none, total, _ := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Search: "коньяк", Limit: 50})

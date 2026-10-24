@@ -19,7 +19,7 @@ func toVariant(ctx context.Context, v Variant) apispec.Variant {
 		barcodes[i] = toBarcode(b)
 	}
 	out := apispec.Variant{
-		ID: v.ID, ProductID: v.ProductID, VolumeMl: v.VolumeMl, Container: (*apispec.Container)(v.Container),
+		ID: v.ID, ProductID: v.ProductID, Article: v.Article, VolumeMl: v.VolumeMl, Container: (*apispec.Container)(v.Container),
 		GiftPack: v.GiftPack, Alcocode: v.Alcocode, Gtin: v.Gtin, IsActive: v.IsActive, Barcodes: barcodes,
 	}
 	out.RetailPrice, out.MinPrice = toRubles(v.RetailPrice), toRubles(v.MinPrice)

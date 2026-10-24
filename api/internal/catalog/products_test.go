@@ -69,7 +69,7 @@ func TestCreateProduct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vodka.Article != "ЧК-000001" || vodka.Name != "Тайга на пшенице" || vodka.EgaisAccounting == nil ||
+	if vodka.Name != "Тайга на пшенице" || vodka.EgaisAccounting == nil ||
 		*vodka.EgaisAccounting != "marked" || vodka.CategoryName != "Водка" || *vodka.LineName != "Тайга" {
 		t.Errorf("vodka = %+v", vodka)
 	}
@@ -81,7 +81,7 @@ func TestCreateProduct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if chips.Article != "ЧК-000002" || chips.EgaisAccounting != nil || string(chips.Attributes) != `{"flavor": "сыр"}` {
+	if chips.EgaisAccounting != nil || string(chips.Attributes) != `{"flavor": "сыр"}` {
 		t.Errorf("chips = %+v, attributes %s", chips, chips.Attributes)
 	}
 
@@ -234,6 +234,14 @@ func TestListProducts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	beluga, _, _ := f.svc.Products(ctx, catalog.ProductFilter{Search: "белуга", Limit: 1})
+	if len(beluga) != 1 {
+		t.Fatal("beluga not found")
+	}
+	belugaVariants, err := f.svc.GenerateVariants(ctx, beluga[0].ID, []int32{500, 700}, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := f.svc.CreateProduct(ctx, apispec.ProductFields{
 		Name: "Чипсы", CategoryID: f.categories["Снеки"].ID, ProducerID: f.other.ID, CountryCode: "643", Attributes: map[string]any{},
 	}); err != nil {
@@ -263,7 +271,8 @@ func TestListProducts(t *testing.T) {
 	if got := names(catalog.ProductFilter{Search: "тай"}); got != "Тайга" {
 		t.Errorf("search by name = %s", got)
 	}
-	if got := names(catalog.ProductFilter{Search: "000004"}); got != "Чипсы" {
+	// Артикул у варианта: по нему находится позиция, к которой вариант относится.
+	if got := names(catalog.ProductFilter{Search: strings.TrimPrefix(belugaVariants[1].Article, "ЧК-")}); got != "Белуга" {
 		t.Errorf("search by article = %s", got)
 	}
 	if got := names(catalog.ProductFilter{BrandID: &f.brand.ID}); got != "Арктика,Белуга,Тайга" {
