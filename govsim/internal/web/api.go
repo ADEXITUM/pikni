@@ -15,13 +15,15 @@ import (
 )
 
 type Server struct {
-	sim      *sim.Sim
-	log      *slog.Logger
-	password string
+	sim       *sim.Sim
+	log       *slog.Logger
+	password  string
+	publicURL string
 }
 
-func New(s *sim.Sim, log *slog.Logger, password string) *Server {
-	return &Server{sim: s, log: log, password: password}
+// New собирает сервер. publicURL — адрес имитатора для ссылок в QR-кодах чеков.
+func New(s *sim.Sim, log *slog.Logger, password, publicURL string) *Server {
+	return &Server{sim: s, log: log, password: password, publicURL: publicURL}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -33,6 +35,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /utm/{fsrar}/opt/out", s.utmOut)
 	mux.HandleFunc("GET /utm/{fsrar}/opt/out/{id}", s.utmMessage)
 	mux.HandleFunc("DELETE /utm/{fsrar}/opt/out/{id}", s.utmAck)
+	mux.HandleFunc("POST /utm/{fsrar}/cheque", s.cheque)
+	mux.HandleFunc("GET /check/{receipt}", s.checkPage)
 
 	mux.HandleFunc("POST /crpt/codes/check", s.crptCheck)
 	mux.HandleFunc("POST /crpt/sales", s.crptSales)
@@ -196,4 +200,27 @@ func (s *Server) shipment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"id": sh.ID.String(), "ttn_id": sh.TTNID.String(), "number": sh.Number})
+}
+
+func (s *Server) cheque(w http.ResponseWriter, r *http.Request) {
+	req, ok := decode[sim.ChequeRequest](w, r)
+	if !ok {
+		return
+	}
+	reply, err := s.sim.Cheque(r.Context(), r.PathValue("fsrar"), s.publicURL, req)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, reply)
+}
+
+// checkPage — страница по QR-коду чека: покупатель видит, что продажа зафиксирована в ЕГАИС.
+func (s *Server) checkPage(w http.ResponseWriter, r *http.Request) {
+	fsrar, kind, marks, at, err := s.sim.ChequeInfo(r.Context(), r.PathValue("receipt"))
+	if err != nil {
+		http.Error(w, "Чек не найден в ЕГАИС имитатора", http.StatusNotFound)
+		return
+	}
+	s.render(w, "check.html", map[string]any{"FSRAR": fsrar, "Return": kind == "return", "Marks": marks, "At": at})
 }

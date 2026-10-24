@@ -64,7 +64,7 @@ func (s *Server) basicAuth(next http.HandlerFunc) http.HandlerFunc {
 var titles = map[string]string{
 	"index.html": "Участники и сценарии", "point.html": "Остатки точки", "mark.html": "Марка",
 	"journal.html": "Журнал документов", "shipments.html": "Поставки", "print.html": "Печать поставки",
-	"crpt.html": "«Честный знак»",
+	"crpt.html": "«Честный знак»", "check.html": "Чек в ЕГАИС",
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data map[string]any) {
