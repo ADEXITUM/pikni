@@ -157,6 +157,9 @@ const zones = (d: (typeof items.value)[number]) =>
         <v-list-item-title class="text-title-medium">
           {{ documentKindLabels[d.kind] }} <span class="pk-code">{{ d.number }}</span>
         </v-list-item-title>
+        <v-list-item-subtitle v-if="d.kind === 'receipt'">
+          {{ d.ttnNumber }} · {{ d.supplierName ?? 'поставщик не найден' }}
+        </v-list-item-subtitle>
         <v-list-item-subtitle>
           <v-icon :icon="mdiStorefrontOutline" size="16" /> {{ d.locationName }} · {{ zones(d) }}
         </v-list-item-subtitle>

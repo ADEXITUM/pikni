@@ -36,6 +36,7 @@ export const zoneLabels: Record<ZoneKind, string> = {
 export const documentKindLabels: Record<DocumentKind, string> = {
   opening: 'Ввод начальных остатков',
   floor_transfer: 'Передача в зал',
+  receipt: 'Поступление',
 }
 
 export const documentStatusLabels: Record<DocumentStatus, string> = {

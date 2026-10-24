@@ -25,6 +25,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import ExchangeLog from '@/components/ExchangeLog.vue'
+import ReceiptPanel from '@/components/ReceiptPanel.vue'
 import ScanCamera from '@/components/ScanCamera.vue'
 import { confirm } from '@/confirm'
 import { playFeedback } from '@/feedback'
@@ -109,6 +111,8 @@ const { submit, forget } = useScanner(async ({ event }) => {
     }
     apply(data)
     playFeedback(outcome[data.scan.status].sound)
+    // В поступлении скан короба меняет факт сразу нескольких строк и состояние коробов.
+    if (doc.value?.kind === 'receipt') void queryClient.invalidateQueries({ queryKey: key.value })
   } catch (e) {
     scanError.value = e instanceof ApiError ? e.message : 'Нет связи с сервером'
     playFeedback('unknown')
@@ -125,6 +129,7 @@ const { mutate: undo } = useMutation({
   },
   onSuccess: (data, scan) => {
     apply(data)
+    if (doc.value?.kind === 'receipt') void queryClient.invalidateQueries({ queryKey: key.value })
     forget(scan.raw)
     if (last.value?.id === scan.id) last.value = undefined
     playFeedback('undone')
@@ -177,6 +182,12 @@ const zonesText = computed(() => {
     ? `${zoneLabels[d.zoneKind]} → ${zoneLabels[d.destZoneKind]}`
     : zoneLabels[d.zoneKind]
 })
+// В поступлении количество — факт приёмки, он считается по сканам и коробам.
+const totalQty = computed(() =>
+  doc.value?.kind === 'receipt'
+    ? doc.value.lines.reduce((n, l) => n + (l.qtyFact ?? l.qty), 0)
+    : (doc.value?.totalQty ?? 0),
+)
 const showCost = computed(() => doc.value?.lines.some((l) => l.unitCost !== undefined) ?? false)
 
 const actionError = ref<string>()
@@ -200,6 +211,19 @@ const { mutate: post, isPending: posting } = useMutation({
 async function askPost() {
   const d = doc.value!
   actionError.value = undefined
+  if (d.kind === 'receipt') {
+    const r = d.receipt
+    const accepted = d.lines.reduce((n, l) => n + (l.qtyAccepted ?? 0), 0)
+    const ok = await confirm({
+      title: `Завершить приёмку ${d.ttnNumber ?? d.number}?`,
+      text: r?.differences
+        ? `Будет принято ${accepted} шт. Недостача ${r.shortage}, излишек ${r.surplus}, чужих марок ${r.foreign} — в ЕГАИС уйдёт акт расхождения.`
+        : `Будет принято ${accepted} шт. — в ЕГАИС уйдёт акт подтверждения.`,
+      confirmText: 'Завершить приёмку',
+    })
+    if (ok) post()
+    return
+  }
   const effect =
     d.kind === 'opening'
       ? 'Товар встанет на остаток по закупочным ценам, марки — на учёт в зоне.'
@@ -294,8 +318,12 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         class="mb-4"
         data-test="awaiting-egais"
       >
-        Учёт уже изменён. Перевод пива между складом и залом ждёт ответа ЕГАИС.
+        Учёт уже изменён, документ ждёт квитанции ЕГАИС. Если УТМ точки недоступен, сообщение уйдёт
+        само, когда связь появится.
       </v-alert>
+      <p v-if="doc.kind === 'receipt'" class="text-body-medium mb-3" data-test="ttn">
+        {{ doc.ttnNumber }} · {{ doc.supplierName ?? 'поставщик не найден в справочнике' }}
+      </p>
 
       <template v-if="doc.canEdit">
         <ScanCamera
@@ -364,7 +392,13 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         </v-alert>
       </template>
 
-      <h2 class="text-title-large mb-2">Строки · {{ doc.totalQty }} шт.</h2>
+      <ReceiptPanel
+        v-if="doc.receipt"
+        :doc="doc"
+        @changed="(d) => queryClient.setQueryData(key, d)"
+      />
+
+      <h2 class="text-title-large mb-2">Строки · {{ totalQty }} шт.</h2>
       <p v-if="!doc.lines.length" class="text-body-medium text-medium-emphasis mb-4">
         Отсканируйте товар: штрихкод, марку ЕГАИС или код «Честного знака».
       </p>
@@ -373,7 +407,12 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
           <tr>
             <th class="d-none d-sm-table-cell">Артикул</th>
             <th>Товар</th>
-            <th class="text-end text-no-wrap">Кол-во</th>
+            <template v-if="doc.kind === 'receipt'">
+              <th class="text-end text-no-wrap">План</th>
+              <th class="text-end text-no-wrap">Факт</th>
+              <th class="text-end text-no-wrap">Примем</th>
+            </template>
+            <th v-else class="text-end text-no-wrap">Кол-во</th>
             <th v-if="showCost" class="text-end">Себестоимость</th>
           </tr>
         </thead>
@@ -387,7 +426,18 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
                 {{ variantLabel(l) }} · {{ accountingLabels[l.egaisAccounting ?? 'none'] }}
               </div>
             </td>
-            <td class="text-end pk-qty">
+            <template v-if="doc.kind === 'receipt'">
+              <td class="text-end">{{ l.qtyPlan ?? 'нет в ТТН' }}</td>
+              <td
+                class="text-end"
+                :class="{ 'text-warning font-weight-bold': l.qtyFact !== (l.qtyPlan ?? 0) }"
+                data-test="fact"
+              >
+                {{ l.qtyFact ?? l.qty }}
+              </td>
+              <td class="text-end">{{ l.qtyAccepted ?? 0 }}</td>
+            </template>
+            <td v-else class="text-end pk-qty">
               <input
                 v-if="doc.canEdit && l.egaisAccounting !== 'marked'"
                 :value="l.qty"
@@ -448,6 +498,11 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         </v-list-item>
       </v-list>
 
+      <template v-if="doc.exchange?.length">
+        <h2 class="text-title-large mb-2">Обмен с ЕГАИС</h2>
+        <ExchangeLog :messages="doc.exchange" />
+      </template>
+
       <v-alert v-if="actionError" type="error" class="mb-3">{{ actionError }}</v-alert>
       <div v-if="doc.canEdit || doc.canPost" class="pk-actions">
         <v-btn
@@ -470,7 +525,7 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
           data-test="post"
           @click="askPost"
         >
-          Провести
+          {{ doc.kind === 'receipt' ? 'Завершить приёмку' : 'Провести' }}
         </v-btn>
       </div>
       <p v-else-if="doc.status === 'draft'" class="text-body-medium text-medium-emphasis">
