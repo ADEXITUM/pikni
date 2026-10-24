@@ -20,6 +20,10 @@ type Config struct {
 	DatabaseMigratorURL string `env:"DATABASE_MIGRATOR_URL" envDefault:"postgres://pikni_owner:pikni_owner@localhost:5432/pikni?sslmode=disable"`
 
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+
+	// УТМ ЕГАИС: на стенде — имитатор govsim. Пусто — обмен с ЕГАИС выключен.
+	EgaisURL      string        `env:"EGAIS_URL" envDefault:"http://localhost:8090"`
+	EgaisInterval time.Duration `env:"EGAIS_INTERVAL" envDefault:"3s"`
 }
 
 func LoadConfig() (Config, error) {

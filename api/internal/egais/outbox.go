@@ -1,5 +1,5 @@
-// Package egais — обмен с ЕГАИС через порт. Сейчас — только очередь исходящих сообщений:
-// документ пишет сообщение в своей транзакции, отправит его адаптер к имитатору (итерация 5).
+// Package egais — обмен с ЕГАИС через порт Gateway: очередь исходящих сообщений (transactional
+// outbox), формат документов и клиент УТМ имитатора. Отправку и приём ведёт пакет exchange.
 package egais
 
 import (
@@ -28,9 +28,14 @@ type Item struct {
 }
 
 // Enqueue ставит сообщение в очередь в транзакции документа (transactional outbox):
-// если документ откатится, сообщение не уйдёт.
+// если документ откатится, сообщение не уйдёт, а если упадёт отправка — документ не потеряет его.
 func Enqueue(ctx context.Context, tx pgx.Tx, location uuid.UUID, docType string, document uuid.UUID, items []Item) error {
-	payload, err := json.Marshal(map[string]any{"items": items})
+	return EnqueuePayload(ctx, tx, location, docType, document, map[string]any{"items": items})
+}
+
+// EnqueuePayload — то же для документа произвольной структуры, например акта по ТТН.
+func EnqueuePayload(ctx context.Context, tx pgx.Tx, location uuid.UUID, docType string, document uuid.UUID, v any) error {
+	payload, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
@@ -38,4 +43,15 @@ func Enqueue(ctx context.Context, tx pgx.Tx, location uuid.UUID, docType string,
 		LocationID: location, DocType: docType, DocumentID: &document, Payload: payload,
 	})
 	return err
+}
+
+// Pending — сколько исходящих сообщений документа ещё ждут квитанции и сколько отклонено.
+func Pending(ctx context.Context, tx pgx.Tx, document uuid.UUID) (pending, rejected int32, err error) {
+	row, err := store.New(tx).DocumentPending(ctx, &document)
+	return row.Pending, row.Rejected, err
+}
+
+// Exchange — журнал обмена документа с ЕГАИС для его карточки (ИН-3).
+func Exchange(ctx context.Context, db store.DBTX, document uuid.UUID) ([]store.DocumentExchangeRow, error) {
+	return store.New(db).DocumentExchange(ctx, &document)
 }

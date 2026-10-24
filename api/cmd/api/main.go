@@ -81,6 +81,10 @@ func run() error {
 	if err := app.Register(e, pool); err != nil {
 		return err
 	}
+	if cfg.EgaisURL != "" {
+		go app.Exchanger(pool, cfg.EgaisURL, log).Run(ctx, cfg.EgaisInterval)
+		log.Info("egais exchange started", "utm", cfg.EgaisURL)
+	}
 
 	sc := echo.StartConfig{
 		Address:         cfg.HTTPAddr,

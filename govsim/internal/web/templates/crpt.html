@@ -1,0 +1,29 @@
+{{template "head" .}}
+<h1>«Честный знак»</h1>
+<form class="inline card" method="get" action="/ui/crpt">
+  <input name="code" value="{{.Code}}" placeholder="GTIN и серийный номер или код со сканера" size="50">
+  <button>Проверить</button>
+</form>
+{{if .Missing}}<p class="bad">Кода нет в реестре имитатора.</p>{{end}}
+{{with .Info}}
+<div class="card">
+  <div class="code">GTIN {{.GTIN}} · серийный номер {{.Serial}}</div>
+  <div>{{with .Name}}{{.}}{{end}} · партия {{.Batch}}</div>
+  <div>Владелец <span class="code">{{.Owner}}</span> · {{status .Status}}{{with .BlockReason}} ({{.}}){{end}}</div>
+  <div>Произведён {{.ProducedAt.Format "02.01.2006"}}, годен до {{.ExpiresAt.Format "02.01.2006"}}</div>
+</div>
+{{end}}
+<h2>Партии</h2>
+<p class="lead">Сценарии: отзыв партии — коды блокируются; просрочка — срок годности становится вчерашним. Касса «Пикни» не продаст такое пиво.</p>
+<table>
+  <tr><th>Партия</th><th>Продукция</th><th>Кодов</th><th>Годна до</th><th></th></tr>
+  {{range .Batches}}
+  <tr><td class="code">{{.Batch}}</td><td>{{with .Name}}{{.}}{{end}}</td><td>{{.Codes}}{{if .Blocked}}, заблокировано {{.Blocked}}{{end}}</td><td>{{.Expires.Format "02.01.2006"}}</td>
+    <td>
+      <form class="inline" method="post" action="/ui/crpt/batches"><input type="hidden" name="batch" value="{{.Batch}}">
+        <button name="action" value="block">Отозвать</button> <button name="action" value="expire">Просрочить</button>
+      </form>
+    </td></tr>
+  {{else}}<tr><td colspan="5">Кодов пока нет: они появляются с поставками пива</td></tr>{{end}}
+</table>
+{{template "foot"}}

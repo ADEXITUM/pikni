@@ -1161,7 +1161,7 @@ export interface paths {
         };
         /**
          * Документы движения
-         * @description Новые сверху. Видны документы тех видов и точек, на которые у пользователя есть право: ввод остатков — stocktake.manage или opening.post, передача в зал — floor.view. Следующая страница — параметр after из nextAfter.
+         * @description Новые сверху. Видны документы тех видов и точек, на которые у пользователя есть право: ввод остатков — stocktake.manage или opening.post, передача в зал — floor.view, поступление — receipt.view. Следующая страница — параметр after из nextAfter.
          */
         get: operations["listDocuments"];
         put?: never;
@@ -1278,6 +1278,26 @@ export interface paths {
          * @description Только для товара без марок; 0 удаляет строку. Товар с марками считается по сканам марок.
          */
         put: operations["setDocumentLine"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Сменить режим приёмки поступления
+         * @description Продукцию с марками можно принять только выборочно или поштучно.
+         */
+        put: operations["setReceivingMode"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2304,10 +2324,10 @@ export interface components {
             added: number;
         };
         /**
-         * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала
+         * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала, receipt — поступление по ТТН ЕГАИС
          * @enum {string}
          */
-        DocumentKind: "opening" | "floor_transfer";
+        DocumentKind: "opening" | "floor_transfer" | "receipt";
         /**
          * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён
          * @enum {string}
@@ -2334,7 +2354,11 @@ export interface components {
             /** Format: uuid */
             destZoneId?: string;
             destZoneKind?: components["schemas"]["ZoneKind"];
+            /** @description Сотрудник или «ЕГАИС», если документ создан по пришедшей ТТН */
             authorName: string;
+            supplierName?: string;
+            ttnNumber?: string;
+            receivingMode?: components["schemas"]["ReceivingMode"];
             postedByName?: string;
             /** Format: int32 */
             lineCount: number;
@@ -2371,6 +2395,21 @@ export interface components {
             egaisAccounting?: components["schemas"]["EgaisAccounting"];
             /** Format: int32 */
             qty: number;
+            /**
+             * Format: int32
+             * @description Поступление — количество по ТТН; нет — товара нет в ТТН
+             */
+            qtyPlan?: number;
+            /**
+             * Format: int32
+             * @description Поступление — сосчитано по сканам в выбранном режиме приёмки
+             */
+            qtyFact?: number;
+            /**
+             * Format: int32
+             * @description Поступление — сколько будет принято в ЕГАИС и на остаток
+             */
+            qtyAccepted?: number;
             /**
              * Format: double
              * @description Себестоимость единицы, ₽ — после проведения и только с правом cost.view
@@ -2412,6 +2451,68 @@ export interface components {
             canEdit: boolean;
             /** @description Текущий пользователь может провести документ */
             canPost: boolean;
+            receipt?: components["schemas"]["ReceiptInfo"];
+            /** @description Журнал обмена с ЕГАИС по документу (ИН-3) */
+            exchange?: components["schemas"]["ExchangeMessage"][];
+        };
+        /** @description Приёмка черновика поступления — короба, расхождения, позиции без сопоставления */
+        ReceiptInfo: {
+            mode: components["schemas"]["ReceivingMode"];
+            packages: components["schemas"]["ReceiptPackage"][];
+            /** @description Позиции ТТН, алкокода которых нет в каталоге */
+            unmapped: components["schemas"]["UnmappedPosition"][];
+            /** Format: int32 */
+            shortage: number;
+            /** Format: int32 */
+            surplus: number;
+            /**
+             * Format: int32
+             * @description Отсканировано чужих марок
+             */
+            foreign: number;
+            /** @description По итогам уйдёт акт расхождения, а не подтверждения */
+            differences: boolean;
+        };
+        ReceiptPackage: {
+            /** @description SSCC короба */
+            code: string;
+            /** Format: int32 */
+            qty: number;
+            /** @description Выборочная приёмка — короб надо вскрыть и сосчитать поштучно */
+            toOpen: boolean;
+            scanned: boolean;
+            /**
+             * Format: int32
+             * @description Сколько марок вскрытого короба отсканировано
+             */
+            counted: number;
+        };
+        UnmappedPosition: {
+            identity: number;
+            alcocode: string;
+            name: string;
+            qty: number;
+        };
+        ExchangeMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            direction: "out" | "in";
+            docType: string;
+            /** @enum {string} */
+            status: "queued" | "sent" | "accepted" | "rejected" | "error" | "processed";
+            /** Format: int32 */
+            attempts: number;
+            lastError?: string;
+            /** Format: date-time */
+            nextAttemptAt?: string;
+            /** @description Причина отказа ЕГАИС из квитанции */
+            reason?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReceivingModeUpdate: {
+            mode: components["schemas"]["ReceivingMode"];
         };
         NewOpening: {
             /** Format: uuid */
@@ -4764,6 +4865,33 @@ export interface operations {
         };
         responses: {
             /** @description Документ после изменения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setReceivingMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceivingModeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Документ после смены режима */
             200: {
                 headers: {
                     [name: string]: unknown;

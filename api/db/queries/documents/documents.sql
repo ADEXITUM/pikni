@@ -27,7 +27,8 @@ values (@kind, @number, @doc_date, @location_id, @zone_id, sqlc.narg(dest_zone_i
 returning id;
 
 -- name: LockDocument :one
-select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version
+select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
+       receiving_mode, ttn_id, unmapped
 from documents
 where id = @id
 for update;
@@ -35,14 +36,16 @@ for update;
 -- name: GetDocument :one
 select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as location_name,
        d.zone_id, z.kind as zone_kind, d.dest_zone_id, dz.kind as dest_zone_kind,
-       au.full_name as author_name, pu.full_name as posted_by_name, d.comment, d.created_at, d.posted_at, d.version,
+       coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.comment, d.created_at, d.posted_at, d.version,
+       sp.name as supplier_name, d.ttn_number, d.receiving_mode, d.unmapped,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
        (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
-join users au on au.id = d.author_id
+left join users au on au.id = d.author_id
+left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
 where d.id = @id;
 
@@ -51,14 +54,16 @@ where d.id = @id;
 -- id — UUIDv7, поэтому порядок по нему — порядок создания.
 select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as location_name,
        d.zone_id, z.kind as zone_kind, d.dest_zone_id, dz.kind as dest_zone_kind,
-       au.full_name as author_name, pu.full_name as posted_by_name, d.created_at, d.posted_at, d.version,
+       coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.created_at, d.posted_at, d.version,
+       sp.name as supplier_name, d.ttn_number, d.receiving_mode,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
        (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
-join users au on au.id = d.author_id
+left join users au on au.id = d.author_id
+left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
 where (d.kind = any(@kinds_all::text[])
        or (d.kind = any(@kinds_own::text[]) and d.location_id = any(@own_locations::uuid[])))
@@ -71,7 +76,8 @@ limit @max_rows;
 
 -- name: ListLines :many
 select dl.id, dl.variant_id, v.product_id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container, v.gift_pack,
-       k.egais_accounting, v.alcocode, dl.qty, (dl.unit_cost is not null)::boolean as costed,
+       k.egais_accounting, v.alcocode, dl.qty, dl.qty_plan, dl.ttn_identity,
+       coalesce((dl.price * 100)::bigint, 0)::bigint as price_kopecks, (dl.unit_cost is not null)::boolean as costed,
        coalesce((dl.unit_cost * 10000)::bigint, 0)::bigint as unit_cost_e4
 from document_lines dl
 join variants v on v.id = dl.variant_id
@@ -79,7 +85,9 @@ join products p on p.id = v.product_id
 left join product_kinds k on k.code = p.kind_code
 where dl.document_id = @document_id
   -- одна строка — и с нулевым количеством: после отмены скана экран должен увидеть ноль
-  and (sqlc.narg(variant_id)::uuid is null and dl.qty > 0 or dl.variant_id = sqlc.narg(variant_id)::uuid)
+  -- строки ТТН видны и с нулевым фактом: план нужен на экране приёмки
+  and (sqlc.narg(variant_id)::uuid is null and (dl.qty > 0 or dl.qty_plan is not null)
+       or dl.variant_id = sqlc.narg(variant_id)::uuid)
 order by dl.line_no;
 
 -- name: AddToLine :one
@@ -127,16 +135,16 @@ select exists (
 )::boolean;
 
 -- name: InsertScan :exec
-insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, qty,
-                   status, reason, scanned_at)
+insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, package_code,
+                   qty, status, reason, scanned_at)
 values (@id, @document_id, @user_id, @source, @raw, sqlc.narg(code_kind), sqlc.narg(variant_id),
-        sqlc.narg(mark_code), sqlc.narg(crpt_code), @qty, @status, sqlc.narg(reason), @scanned_at);
+        sqlc.narg(mark_code), sqlc.narg(crpt_code), sqlc.narg(package_code), @qty, @status, sqlc.narg(reason), @scanned_at);
 
 -- name: UndoScan :one
 update scans
 set undone_at = now()
 where id = @id and document_id = @document_id and undone_at is null
-returning variant_id, qty, status;
+returning variant_id, qty, status, mark_code, package_code;
 
 -- name: ListScans :many
 select s.id, s.raw, s.status, s.reason, s.variant_id, v.article, p.name, s.mark_code, s.qty, s.scanned_at, s.undone_at
@@ -166,3 +174,73 @@ where id = @id;
 update document_lines
 set qty = qty + @delta::integer
 where document_id = @document_id and variant_id = @variant_id;
+
+-- ---------- поступление по ТТН
+
+-- name: LocationByFSRAR :one
+select l.id, l.kind, l.is_active, (now() at time zone l.timezone)::date as local_date,
+       (select z.id from zones z where z.location_id = l.id and z.kind in ('warehouse', 'backroom') limit 1)::uuid as zone_id
+from locations l
+where l.fsrar_id = @fsrar_id;
+
+-- name: SupplierByFSRAR :one
+select id, default_receiving_mode
+from suppliers
+where fsrar_id = @fsrar_id;
+
+-- name: CreateReceipt :one
+insert into documents (kind, number, doc_date, location_id, zone_id, supplier_id, receiving_mode, ttn_id, ttn_number,
+                       ttn_date, unmapped)
+values ('receipt', @number, @doc_date, @location_id, @zone_id, sqlc.narg(supplier_id), @receiving_mode, @ttn_id,
+        @ttn_number, sqlc.narg(ttn_date), @unmapped)
+on conflict (location_id, ttn_id) where ttn_id is not null do nothing
+returning id;
+
+-- name: InsertPlanLine :exec
+insert into document_lines (document_id, line_no, variant_id, qty, qty_plan, price, ttn_identity)
+values (@document_id, @line_no, @variant_id, 0, @qty_plan, sqlc.arg(price_kopecks)::bigint / 100.0, @ttn_identity)
+on conflict (document_id, variant_id) do update
+set qty_plan = document_lines.qty_plan + excluded.qty_plan;
+
+-- name: InsertTTNMarks :exec
+insert into ttn_marks (document_id, code, variant_id, package_code)
+select @document_id, t.code, t.variant_id, nullif(t.package_code, '')
+from (select unnest(@codes::text[]) as code, unnest(@variant_ids::uuid[]) as variant_id,
+             unnest(@package_codes::text[]) as package_code) as t
+on conflict do nothing;
+
+-- name: InsertPackage :exec
+insert into document_packages (document_id, code, variant_id, qty)
+values (@document_id, @code, sqlc.narg(variant_id), @qty)
+on conflict do nothing;
+
+-- name: ReceiptMarks :many
+select code, variant_id, package_code
+from ttn_marks
+where document_id = @document_id;
+
+-- name: ReceiptPackages :many
+select code, variant_id, qty, to_open
+from document_packages
+where document_id = @document_id
+order by code;
+
+-- name: AcceptedScans :many
+-- Засчитанные сканы документа: марки, коды «Честного знака» и короба — из них считается факт приёмки.
+select mark_code, package_code, variant_id, qty
+from scans
+where document_id = @document_id and status = 'accepted' and undone_at is null;
+
+-- name: SetReceivingMode :exec
+update documents set receiving_mode = @receiving_mode where id = @id;
+
+-- name: ResetPackagesToOpen :exec
+update document_packages set to_open = false where document_id = @document_id;
+
+-- name: MarkPackagesToOpen :exec
+update document_packages set to_open = true where document_id = @document_id and code = any(@codes::text[]);
+
+-- name: CountForeign :one
+select count(*)::integer
+from scans
+where document_id = @document_id and status = 'foreign' and undone_at is null;
