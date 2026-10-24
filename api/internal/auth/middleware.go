@@ -41,6 +41,12 @@ func FromContext(ctx context.Context) (Session, bool) {
 	return s, ok
 }
 
+// WithSession кладёт сессию в контекст: так сервисы видят пользователя в тестах и в фоновых
+// задачах, которые действуют от его имени.
+func WithSession(ctx context.Context, s Session) context.Context {
+	return context.WithValue(ctx, sessionKey, s)
+}
+
 func ClientFrom(ctx context.Context) Client {
 	c, _ := ctx.Value(clientKey).(Client)
 	return c

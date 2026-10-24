@@ -8,7 +8,10 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
+	"github.com/ADEXITUM/pikni/api/internal/documents"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
+	"github.com/ADEXITUM/pikni/api/internal/marks"
+	"github.com/ADEXITUM/pikni/api/internal/stock"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
@@ -18,7 +21,10 @@ type (
 	auditHandler     = audit.Handler
 	authHandler      = auth.Handler
 	catalogHandler   = catalog.Handler
+	documentsHandler = documents.Handler
 	locationsHandler = locations.Handler
+	marksHandler     = marks.Handler
+	stockHandler     = stock.Handler
 	usersHandler     = users.Handler
 )
 
@@ -27,7 +33,10 @@ type API struct {
 	*auditHandler
 	*authHandler
 	*catalogHandler
+	*documentsHandler
 	*locationsHandler
+	*marksHandler
+	*stockHandler
 	*usersHandler
 }
 
@@ -39,11 +48,16 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
+	cat := catalog.NewService(pool)
+	mk := marks.NewService(pool)
 	api := &API{
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
-		catalogHandler:   catalog.NewHandler(catalog.NewService(pool)),
+		catalogHandler:   catalog.NewHandler(cat),
+		documentsHandler: documents.NewHandler(documents.NewService(pool, cat, mk)),
 		locationsHandler: locations.NewHandler(locations.NewService(pool)),
+		marksHandler:     marks.NewHandler(mk),
+		stockHandler:     stock.NewHandler(stock.NewService(pool, mk)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}
 

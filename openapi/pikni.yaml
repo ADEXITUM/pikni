@@ -1852,6 +1852,395 @@ paths:
           $ref: "#/components/responses/Problem"
 
 
+  /documents:
+    get:
+      operationId: listDocuments
+      summary: Документы движения
+      description: >
+        Новые сверху. Видны документы тех видов и точек, на которые у пользователя есть право:
+        ввод остатков — stocktake.manage или opening.post, передача в зал — floor.view.
+        Следующая страница — параметр after из nextAfter.
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            $ref: "#/components/schemas/DocumentKind"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/DocumentStatus"
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: after
+          in: query
+          description: Документ, после которого начинается страница
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Страница документов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/opening:
+    post:
+      operationId: createOpening
+      summary: Создать ввод начальных остатков по зоне
+      description: Один документ на зону. Проводит руководитель или бухгалтер (opening.post).
+      tags: [documents]
+      x-permission: stocktake.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewOpening"
+      responses:
+        "201":
+          description: Документ создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/floor-transfer:
+    post:
+      operationId: createFloorTransfer
+      summary: Создать передачу в торговый зал или из зала
+      tags: [documents]
+      x-permission: floor.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewFloorTransfer"
+      responses:
+        "201":
+          description: Документ создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getDocument
+      summary: Документ со строками и последними сканами
+      tags: [documents]
+      x-permission: availability.view
+      responses:
+        "200":
+          description: Документ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/scans:
+    post:
+      operationId: addDocumentScan
+      summary: Скан в документ
+      description: >
+        id скана присваивает устройство: повтор запроса возвращает тот же результат.
+        Нераспознанный или чужой код тоже сохраняется — со статусом и причиной.
+        Право на изменение зависит от вида документа.
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewDocumentScan"
+      responses:
+        "200":
+          description: Результат скана и изменённая строка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentScanResult"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/scans/{scanId}:
+    delete:
+      operationId: undoDocumentScan
+      summary: Отменить скан
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: scanId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Строка после отмены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentScanResult"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/lines/{variantId}:
+    put:
+      operationId: setDocumentLine
+      summary: Задать количество строки вручную
+      description: Только для товара без марок; 0 удаляет строку. Товар с марками считается по сканам марок.
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentLineUpdate"
+      responses:
+        "200":
+          description: Документ после изменения
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/post:
+    post:
+      operationId: postDocument
+      summary: Провести документ
+      description: >
+        Движения записываются в регистр и меняют остатки в одной транзакции. Документ, который
+        нужно отразить в ЕГАИС, получает статус awaiting_egais до ответа ЕГАИС.
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: Проведённый документ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/cancel:
+    post:
+      operationId: cancelDocument
+      summary: Отменить черновик
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: Отменённый документ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /stock/balances:
+    get:
+      operationId: listStockBalances
+      summary: Остатки точки по зонам
+      description: >
+        По наименованию и объёму; варианты с нулевым остатком и без недостачи не показываются.
+        Средняя себестоимость — только с правом cost.view.
+      tags: [stock]
+      x-permission: availability.view
+      parameters:
+        - name: locationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: zoneId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          description: Слова наименования, часть артикула, штрихкод или скан
+          schema:
+            type: string
+        - name: after
+          in: query
+          description: Вариант, после которого начинается страница
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Страница остатков
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockBalanceList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /stock/moves:
+    get:
+      operationId: listStockMoves
+      summary: Карточка движения товара по зоне
+      description: Новые сверху; у каждого движения — остаток после него. Суммы — только с правом cost.view.
+      tags: [stock]
+      x-permission: availability.view
+      parameters:
+        - name: variantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: zoneId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: before
+          in: query
+          description: Движение, до которого начинается страница
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Страница движений
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockMoveList"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /marks/{code}:
+    get:
+      operationId: getMark
+      summary: Марка ЕГАИС и её история
+      description: Код — скан марки или её нормализованный текст.
+      tags: [stock]
+      x-permission: availability.view
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Марка и события
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mark"
+        default:
+          $ref: "#/components/responses/Problem"
+
 components:
   securitySchemes:
     session:
@@ -1943,6 +2332,7 @@ components:
         - docs.approve
         - stocktake.manage
         - stocktake.count
+        - opening.post
         - reservations.manage
         - availability.view
         - egais.reconcile
@@ -1986,6 +2376,9 @@ components:
         - assortment.set
         - assortment.removed
         - assortment.copied
+        - document.created
+        - document.posted
+        - document.cancelled
 
     AuditEntry:
       type: object
@@ -3588,6 +3981,455 @@ components:
       properties:
         added:
           type: integer
+
+    DocumentKind:
+      type: string
+      enum: [opening, floor_transfer]
+      description: opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала
+
+    DocumentStatus:
+      type: string
+      enum: [draft, awaiting_egais, posted, egais_rejected, cancelled]
+      description: >
+        draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС,
+        posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён
+
+    DocumentSummary:
+      type: object
+      required: [id, kind, number, status, docDate, locationId, locationName, zoneId, zoneKind, authorName, lineCount, totalQty, createdAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/DocumentKind"
+        number:
+          type: string
+          description: Префикс, год и порядковый номер — ВО-2026-000001
+        status:
+          $ref: "#/components/schemas/DocumentStatus"
+        docDate:
+          type: string
+          format: date
+          description: Местная дата точки
+        locationId:
+          type: string
+          format: uuid
+        locationName:
+          type: string
+        zoneId:
+          type: string
+          format: uuid
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        destZoneId:
+          type: string
+          format: uuid
+        destZoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        authorName:
+          type: string
+        postedByName:
+          type: string
+        lineCount:
+          type: integer
+          format: int32
+        totalQty:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        postedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int32
+
+    DocumentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentSummary"
+        nextAfter:
+          type: string
+          format: uuid
+          description: Если есть — параметр after для следующей страницы
+
+    DocumentLine:
+      type: object
+      required: [variantId, productId, article, name, giftPack, qty]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        volumeMl:
+          type: integer
+          format: int32
+        netWeightG:
+          type: integer
+          format: int32
+        container:
+          $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
+        egaisAccounting:
+          $ref: "#/components/schemas/EgaisAccounting"
+        qty:
+          type: integer
+          format: int32
+        unitCost:
+          type: number
+          format: double
+          description: Себестоимость единицы, ₽ — после проведения и только с правом cost.view
+
+    ScanSource:
+      type: string
+      enum: [camera, wedge, manual]
+
+    DocumentScanStatus:
+      type: string
+      enum: [accepted, selected, unknown, foreign, duplicate, rejected]
+      description: >
+        accepted — засчитан, selected — выбран товар с марками (дальше сканируются его марки),
+        unknown — код не найден, foreign — марка не отсюда,
+        duplicate — уже засчитан в документе, rejected — не подходит по другой причине
+
+    DocumentScan:
+      type: object
+      required: [id, raw, status, qty, scannedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        raw:
+          type: string
+        status:
+          $ref: "#/components/schemas/DocumentScanStatus"
+        reason:
+          type: string
+          description: Почему скан не засчитан — текст для пользователя
+        variantId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        markCode:
+          type: string
+        qty:
+          type: integer
+          format: int32
+        scannedAt:
+          type: string
+          format: date-time
+        undoneAt:
+          type: string
+          format: date-time
+
+    Document:
+      allOf:
+        - $ref: "#/components/schemas/DocumentSummary"
+        - type: object
+          required: [comment, lines, scans, canEdit, canPost]
+          properties:
+            comment:
+              type: string
+            lines:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentLine"
+            scans:
+              type: array
+              description: Последние 50 сканов, новые сверху
+              items:
+                $ref: "#/components/schemas/DocumentScan"
+            canEdit:
+              type: boolean
+              description: Текущий пользователь может сканировать и править черновик
+            canPost:
+              type: boolean
+              description: Текущий пользователь может провести документ
+
+    NewOpening:
+      type: object
+      required: [zoneId]
+      properties:
+        zoneId:
+          type: string
+          format: uuid
+        comment:
+          type: string
+          maxLength: 1000
+
+    FloorDirection:
+      type: string
+      enum: [to_floor, from_floor]
+
+    NewFloorTransfer:
+      type: object
+      required: [locationId, direction]
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        direction:
+          $ref: "#/components/schemas/FloorDirection"
+        comment:
+          type: string
+          maxLength: 1000
+
+    NewDocumentScan:
+      type: object
+      required: [id, raw, source, scannedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        raw:
+          type: string
+          maxLength: 300
+        source:
+          $ref: "#/components/schemas/ScanSource"
+        scannedAt:
+          type: string
+          format: date-time
+        variantId:
+          type: string
+          format: uuid
+          description: >
+            Вариант, к которому отнести марку нового образца: в ней нет алкокода,
+            поэтому при вводе остатков сначала сканируется штрихкод бутылки
+
+    DocumentScanResult:
+      type: object
+      required: [scan]
+      properties:
+        scan:
+          $ref: "#/components/schemas/DocumentScan"
+        line:
+          $ref: "#/components/schemas/DocumentLine"
+
+    DocumentLineUpdate:
+      type: object
+      required: [qty]
+      properties:
+        qty:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 99999
+
+    DocumentVersion:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          format: int32
+
+    StockBalance:
+      type: object
+      required: [variantId, productId, article, name, giftPack, zoneId, zoneKind, onHand, reserved, inTransit, deficit]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        volumeMl:
+          type: integer
+          format: int32
+        netWeightG:
+          type: integer
+          format: int32
+        container:
+          $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
+        zoneId:
+          type: string
+          format: uuid
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        onHand:
+          type: integer
+          format: int32
+        reserved:
+          type: integer
+          format: int32
+        inTransit:
+          type: integer
+          format: int32
+        deficit:
+          type: integer
+          format: int32
+          description: Продано через кассу сверх учёта и ещё не разобрано
+        avgCost:
+          type: number
+          format: double
+          description: Средняя себестоимость по организации, ₽ — только с правом cost.view
+
+    StockBalanceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockBalance"
+        nextAfter:
+          type: string
+          format: uuid
+
+    StockBucket:
+      type: string
+      enum: [on_hand, in_transit, deficit]
+
+    StockMove:
+      type: object
+      required: [id, postedAt, docDate, documentId, documentNumber, documentKind, bucket, qty, onHandAfter]
+      properties:
+        id:
+          type: integer
+          format: int64
+        postedAt:
+          type: string
+          format: date-time
+        docDate:
+          type: string
+          format: date
+        documentId:
+          type: string
+          format: uuid
+        documentNumber:
+          type: string
+        documentKind:
+          $ref: "#/components/schemas/DocumentKind"
+        bucket:
+          $ref: "#/components/schemas/StockBucket"
+        qty:
+          type: integer
+          format: int32
+        onHandAfter:
+          type: integer
+          format: int32
+          description: Фактический остаток зоны после движения
+        costAmount:
+          type: number
+          format: double
+          description: Сумма по себестоимости, ₽ — только с правом cost.view
+
+    StockMoveList:
+      type: object
+      required: [items, article, name, giftPack, locationName, zoneKind]
+      properties:
+        article:
+          type: string
+        name:
+          type: string
+        volumeMl:
+          type: integer
+          format: int32
+        netWeightG:
+          type: integer
+          format: int32
+        container:
+          $ref: "#/components/schemas/Container"
+        giftPack:
+          type: boolean
+        locationName:
+          type: string
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockMove"
+        nextBefore:
+          type: integer
+          format: int64
+
+    MarkStatus:
+      type: string
+      enum: [in_stock, in_transit, reserved, sold, written_off, returned]
+
+    MarkEvent:
+      type: object
+      required: [id, at, toStatus]
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        documentId:
+          type: string
+          format: uuid
+        documentNumber:
+          type: string
+        documentKind:
+          $ref: "#/components/schemas/DocumentKind"
+        fromStatus:
+          $ref: "#/components/schemas/MarkStatus"
+        toStatus:
+          $ref: "#/components/schemas/MarkStatus"
+        fromZoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        toZoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        locationName:
+          type: string
+        userName:
+          type: string
+
+    Mark:
+      type: object
+      required: [code, variantId, productId, article, name, status, locationId, locationName, events]
+      properties:
+        code:
+          type: string
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/MarkStatus"
+        locationId:
+          type: string
+          format: uuid
+        locationName:
+          type: string
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarkEvent"
 
     RuSubject:
       type: object

@@ -15,6 +15,7 @@ import (
 
 const (
 	EntityAssortment = "assortment"
+	EntityDocument   = "document"
 	EntityLocation   = "location"
 	EntityMinPrice   = "min_price"
 	EntityProduct    = "product"

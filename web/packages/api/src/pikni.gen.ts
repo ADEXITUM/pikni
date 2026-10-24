@@ -1152,6 +1152,236 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Документы движения
+         * @description Новые сверху. Видны документы тех видов и точек, на которые у пользователя есть право: ввод остатков — stocktake.manage или opening.post, передача в зал — floor.view. Следующая страница — параметр after из nextAfter.
+         */
+        get: operations["listDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/opening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать ввод начальных остатков по зоне
+         * @description Один документ на зону. Проводит руководитель или бухгалтер (opening.post).
+         */
+        post: operations["createOpening"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/floor-transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Создать передачу в торговый зал или из зала */
+        post: operations["createFloorTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Документ со строками и последними сканами */
+        get: operations["getDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Скан в документ
+         * @description id скана присваивает устройство: повтор запроса возвращает тот же результат. Нераспознанный или чужой код тоже сохраняется — со статусом и причиной. Право на изменение зависит от вида документа.
+         */
+        post: operations["addDocumentScan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/scans/{scanId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отменить скан */
+        delete: operations["undoDocumentScan"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/lines/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Задать количество строки вручную
+         * @description Только для товара без марок; 0 удаляет строку. Товар с марками считается по сканам марок.
+         */
+        put: operations["setDocumentLine"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Провести документ
+         * @description Движения записываются в регистр и меняют остатки в одной транзакции. Документ, который нужно отразить в ЕГАИС, получает статус awaiting_egais до ответа ЕГАИС.
+         */
+        post: operations["postDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отменить черновик */
+        post: operations["cancelDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock/balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Остатки точки по зонам
+         * @description По наименованию и объёму; варианты с нулевым остатком и без недостачи не показываются. Средняя себестоимость — только с правом cost.view.
+         */
+        get: operations["listStockBalances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Карточка движения товара по зоне
+         * @description Новые сверху; у каждого движения — остаток после него. Суммы — только с правом cost.view.
+         */
+        get: operations["listStockMoves"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/marks/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Марка ЕГАИС и её история
+         * @description Код — скан марки или её нормализованный текст.
+         */
+        get: operations["getMark"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1162,12 +1392,12 @@ export interface components {
          * @description Право доступа. Матрица «роль → права» повторяет таблицу ПБ-6 ТЗ.
          * @enum {string}
          */
-        Permission: "users.manage" | "users.view" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
+        Permission: "users.manage" | "users.view" | "refs.view" | "refs.edit" | "cost.view" | "receipt.view" | "receipt.edit" | "floor.view" | "floor.edit" | "transfer.request" | "transfer.view" | "transfer.edit" | "pos.view" | "pos.sell" | "writeoff.create" | "docs.approve" | "stocktake.manage" | "stocktake.count" | "opening.post" | "reservations.manage" | "availability.view" | "egais.reconcile" | "assets.view" | "assets.edit" | "reports.view" | "audit.view";
         /**
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -2072,6 +2302,267 @@ export interface components {
         };
         AssortmentCopyResult: {
             added: number;
+        };
+        /**
+         * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала
+         * @enum {string}
+         */
+        DocumentKind: "opening" | "floor_transfer";
+        /**
+         * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён
+         * @enum {string}
+         */
+        DocumentStatus: "draft" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled";
+        DocumentSummary: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["DocumentKind"];
+            /** @description Префикс, год и порядковый номер — ВО-2026-000001 */
+            number: string;
+            status: components["schemas"]["DocumentStatus"];
+            /**
+             * Format: date
+             * @description Местная дата точки
+             */
+            docDate: string;
+            /** Format: uuid */
+            locationId: string;
+            locationName: string;
+            /** Format: uuid */
+            zoneId: string;
+            zoneKind: components["schemas"]["ZoneKind"];
+            /** Format: uuid */
+            destZoneId?: string;
+            destZoneKind?: components["schemas"]["ZoneKind"];
+            authorName: string;
+            postedByName?: string;
+            /** Format: int32 */
+            lineCount: number;
+            /** Format: int32 */
+            totalQty: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            postedAt?: string;
+            /** Format: int32 */
+            version: number;
+        };
+        DocumentList: {
+            items: components["schemas"]["DocumentSummary"][];
+            /**
+             * Format: uuid
+             * @description Если есть — параметр after для следующей страницы
+             */
+            nextAfter?: string;
+        };
+        DocumentLine: {
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            productId: string;
+            article: string;
+            name: string;
+            /** Format: int32 */
+            volumeMl?: number;
+            /** Format: int32 */
+            netWeightG?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+            egaisAccounting?: components["schemas"]["EgaisAccounting"];
+            /** Format: int32 */
+            qty: number;
+            /**
+             * Format: double
+             * @description Себестоимость единицы, ₽ — после проведения и только с правом cost.view
+             */
+            unitCost?: number;
+        };
+        /** @enum {string} */
+        ScanSource: "camera" | "wedge" | "manual";
+        /**
+         * @description accepted — засчитан, selected — выбран товар с марками (дальше сканируются его марки), unknown — код не найден, foreign — марка не отсюда, duplicate — уже засчитан в документе, rejected — не подходит по другой причине
+         * @enum {string}
+         */
+        DocumentScanStatus: "accepted" | "selected" | "unknown" | "foreign" | "duplicate" | "rejected";
+        DocumentScan: {
+            /** Format: uuid */
+            id: string;
+            raw: string;
+            status: components["schemas"]["DocumentScanStatus"];
+            /** @description Почему скан не засчитан — текст для пользователя */
+            reason?: string;
+            /** Format: uuid */
+            variantId?: string;
+            article?: string;
+            name?: string;
+            markCode?: string;
+            /** Format: int32 */
+            qty: number;
+            /** Format: date-time */
+            scannedAt: string;
+            /** Format: date-time */
+            undoneAt?: string;
+        };
+        Document: components["schemas"]["DocumentSummary"] & {
+            comment: string;
+            lines: components["schemas"]["DocumentLine"][];
+            /** @description Последние 50 сканов, новые сверху */
+            scans: components["schemas"]["DocumentScan"][];
+            /** @description Текущий пользователь может сканировать и править черновик */
+            canEdit: boolean;
+            /** @description Текущий пользователь может провести документ */
+            canPost: boolean;
+        };
+        NewOpening: {
+            /** Format: uuid */
+            zoneId: string;
+            comment?: string;
+        };
+        /** @enum {string} */
+        FloorDirection: "to_floor" | "from_floor";
+        NewFloorTransfer: {
+            /** Format: uuid */
+            locationId: string;
+            direction: components["schemas"]["FloorDirection"];
+            comment?: string;
+        };
+        NewDocumentScan: {
+            /** Format: uuid */
+            id: string;
+            raw: string;
+            source: components["schemas"]["ScanSource"];
+            /** Format: date-time */
+            scannedAt: string;
+            /**
+             * Format: uuid
+             * @description Вариант, к которому отнести марку нового образца: в ней нет алкокода, поэтому при вводе остатков сначала сканируется штрихкод бутылки
+             */
+            variantId?: string;
+        };
+        DocumentScanResult: {
+            scan: components["schemas"]["DocumentScan"];
+            line?: components["schemas"]["DocumentLine"];
+        };
+        DocumentLineUpdate: {
+            /** Format: int32 */
+            qty: number;
+        };
+        DocumentVersion: {
+            /** Format: int32 */
+            version: number;
+        };
+        StockBalance: {
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            productId: string;
+            article: string;
+            name: string;
+            /** Format: int32 */
+            volumeMl?: number;
+            /** Format: int32 */
+            netWeightG?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+            /** Format: uuid */
+            zoneId: string;
+            zoneKind: components["schemas"]["ZoneKind"];
+            /** Format: int32 */
+            onHand: number;
+            /** Format: int32 */
+            reserved: number;
+            /** Format: int32 */
+            inTransit: number;
+            /**
+             * Format: int32
+             * @description Продано через кассу сверх учёта и ещё не разобрано
+             */
+            deficit: number;
+            /**
+             * Format: double
+             * @description Средняя себестоимость по организации, ₽ — только с правом cost.view
+             */
+            avgCost?: number;
+        };
+        StockBalanceList: {
+            items: components["schemas"]["StockBalance"][];
+            /** Format: uuid */
+            nextAfter?: string;
+        };
+        /** @enum {string} */
+        StockBucket: "on_hand" | "in_transit" | "deficit";
+        StockMove: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            postedAt: string;
+            /** Format: date */
+            docDate: string;
+            /** Format: uuid */
+            documentId: string;
+            documentNumber: string;
+            documentKind: components["schemas"]["DocumentKind"];
+            bucket: components["schemas"]["StockBucket"];
+            /** Format: int32 */
+            qty: number;
+            /**
+             * Format: int32
+             * @description Фактический остаток зоны после движения
+             */
+            onHandAfter: number;
+            /**
+             * Format: double
+             * @description Сумма по себестоимости, ₽ — только с правом cost.view
+             */
+            costAmount?: number;
+        };
+        StockMoveList: {
+            article: string;
+            name: string;
+            /** Format: int32 */
+            volumeMl?: number;
+            /** Format: int32 */
+            netWeightG?: number;
+            container?: components["schemas"]["Container"];
+            giftPack: boolean;
+            locationName: string;
+            zoneKind: components["schemas"]["ZoneKind"];
+            items: components["schemas"]["StockMove"][];
+            /** Format: int64 */
+            nextBefore?: number;
+        };
+        /** @enum {string} */
+        MarkStatus: "in_stock" | "in_transit" | "reserved" | "sold" | "written_off" | "returned";
+        MarkEvent: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            documentId?: string;
+            documentNumber?: string;
+            documentKind?: components["schemas"]["DocumentKind"];
+            fromStatus?: components["schemas"]["MarkStatus"];
+            toStatus: components["schemas"]["MarkStatus"];
+            fromZoneKind?: components["schemas"]["ZoneKind"];
+            toZoneKind?: components["schemas"]["ZoneKind"];
+            locationName?: string;
+            userName?: string;
+        };
+        Mark: {
+            code: string;
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            productId: string;
+            article: string;
+            name: string;
+            status: components["schemas"]["MarkStatus"];
+            /** Format: uuid */
+            locationId: string;
+            locationName: string;
+            zoneKind?: components["schemas"]["ZoneKind"];
+            events: components["schemas"]["MarkEvent"][];
         };
         RuSubject: {
             /** @example 28 */
@@ -4099,6 +4590,319 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuSubjectList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["DocumentKind"];
+                status?: components["schemas"]["DocumentStatus"];
+                locationId?: string;
+                /** @description Документ, после которого начинается страница */
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница документов */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createOpening: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewOpening"];
+            };
+        };
+        responses: {
+            /** @description Документ создан */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createFloorTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewFloorTransfer"];
+            };
+        };
+        responses: {
+            /** @description Документ создан */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Документ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    addDocumentScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDocumentScan"];
+            };
+        };
+        responses: {
+            /** @description Результат скана и изменённая строка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentScanResult"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    undoDocumentScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                scanId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Строка после отмены */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentScanResult"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setDocumentLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentLineUpdate"];
+            };
+        };
+        responses: {
+            /** @description Документ после изменения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    postDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description Проведённый документ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    cancelDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description Отменённый документ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listStockBalances: {
+        parameters: {
+            query: {
+                locationId: string;
+                zoneId?: string;
+                /** @description Слова наименования, часть артикула, штрихкод или скан */
+                q?: string;
+                /** @description Вариант, после которого начинается страница */
+                after?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница остатков */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockBalanceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listStockMoves: {
+        parameters: {
+            query: {
+                variantId: string;
+                zoneId: string;
+                /** @description Движение, до которого начинается страница */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница движений */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockMoveList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getMark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Марка и события */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mark"];
                 };
             };
             default: components["responses"]["Problem"];

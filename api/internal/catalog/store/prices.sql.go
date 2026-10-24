@@ -121,6 +121,44 @@ func (q *Queries) CurrentProductPrices(ctx context.Context, productID uuid.UUID)
 	return items, nil
 }
 
+const currentPurchasePrices = `-- name: CurrentPurchasePrices :many
+select distinct on (p.variant_id) p.variant_id, (p.price * 100)::bigint as kopecks
+from prices p
+where p.kind = 'purchase' and p.variant_id = any($1::uuid[]) and p.valid_from <= $2
+order by p.variant_id, p.valid_from desc
+`
+
+type CurrentPurchasePricesParams struct {
+	VariantIds []uuid.UUID
+	At         time.Time
+}
+
+type CurrentPurchasePricesRow struct {
+	VariantID uuid.UUID
+	Kopecks   int64
+}
+
+// Справочная закупочная цена на момент at: по ней оцениваются начальные остатки.
+func (q *Queries) CurrentPurchasePrices(ctx context.Context, arg CurrentPurchasePricesParams) ([]CurrentPurchasePricesRow, error) {
+	rows, err := q.db.Query(ctx, currentPurchasePrices, arg.VariantIds, arg.At)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CurrentPurchasePricesRow
+	for rows.Next() {
+		var i CurrentPurchasePricesRow
+		if err := rows.Scan(&i.VariantID, &i.Kopecks); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteMinPriceRule = `-- name: DeleteMinPriceRule :exec
 delete from min_retail_prices
 where id = $1

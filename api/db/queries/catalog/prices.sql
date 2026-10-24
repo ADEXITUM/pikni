@@ -68,3 +68,10 @@ returning id;
 -- name: DeleteMinPriceRule :exec
 delete from min_retail_prices
 where id = @id;
+
+-- name: CurrentPurchasePrices :many
+-- Справочная закупочная цена на момент at: по ней оцениваются начальные остатки.
+select distinct on (p.variant_id) p.variant_id, (p.price * 100)::bigint as kopecks
+from prices p
+where p.kind = 'purchase' and p.variant_id = any(@variant_ids::uuid[]) and p.valid_from <= @at
+order by p.variant_id, p.valid_from desc;
