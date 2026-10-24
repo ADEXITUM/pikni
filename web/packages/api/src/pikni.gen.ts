@@ -1315,8 +1315,6 @@ export interface components {
             /** Format: date */
             licenseValidTo?: string;
             openingHours: components["schemas"]["OpeningHours"];
-            /** @description Показывать на публичной справочной странице */
-            isPublic: boolean;
         };
         NewLocation: components["schemas"]["LocationFields"] & {
             /** @example МГ-05 */

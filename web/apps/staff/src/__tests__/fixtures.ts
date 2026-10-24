@@ -28,7 +28,6 @@ export function makeLocation(
     timezone: 'Asia/Yakutsk',
     subjectCode: '28',
     openingHours: {},
-    isPublic: false,
     isActive: true,
     version: 1,
     zones: [],

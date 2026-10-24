@@ -62,7 +62,6 @@ type Fields struct {
 	Lat, Lon                          *float64
 	LicenseValidTo                    *time.Time
 	OpeningHours                      apispec.OpeningHours
-	IsPublic                          bool
 }
 
 type Service struct {
@@ -123,7 +122,7 @@ func (s *Service) Create(ctx context.Context, code string, kind apispec.Location
 			Code: code, Kind: string(kind), Name: f.Name, City: f.City, Timezone: f.Timezone,
 			SubjectCode: f.SubjectCode, Address: f.Address, Lat: f.Lat, Lon: f.Lon,
 			FSRARID: f.FSRARID, KPP: f.KPP, LicenseNo: f.LicenseNo, LicenseValidTo: f.LicenseValidTo,
-			OpeningHours: hours, IsPublic: f.IsPublic,
+			OpeningHours: hours,
 		})
 		if err != nil {
 			return writeError(err)
@@ -168,7 +167,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, f Fields, isActive b
 			ID: id, Name: f.Name, City: f.City, Timezone: f.Timezone, SubjectCode: f.SubjectCode,
 			Address: f.Address, Lat: f.Lat, Lon: f.Lon, FSRARID: f.FSRARID, KPP: f.KPP,
 			LicenseNo: f.LicenseNo, LicenseValidTo: f.LicenseValidTo, OpeningHours: hours,
-			IsPublic: f.IsPublic, IsActive: isActive,
+			IsActive: isActive,
 		})
 		if err != nil {
 			return writeError(err)
@@ -178,7 +177,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, f Fields, isActive b
 		after.Name, after.City, after.Timezone, after.SubjectCode = f.Name, f.City, f.Timezone, f.SubjectCode
 		after.Address, after.Lat, after.Lon, after.FSRARID, after.KPP = f.Address, f.Lat, f.Lon, f.FSRARID, f.KPP
 		after.LicenseNo, after.LicenseValidTo, after.OpeningHours = f.LicenseNo, f.LicenseValidTo, hours
-		after.IsPublic, after.IsActive = f.IsPublic, isActive
+		after.IsActive = isActive
 		if changes := diff(before, after); len(changes) > 0 {
 			err := audit.Record(ctx, tx, audit.Event{
 				Action:     apispec.AuditActionLocationUpdated,
@@ -309,7 +308,7 @@ func diff(before, after Location) map[string]any {
 			"name": l.Name, "city": l.City, "timezone": l.Timezone, "subjectCode": l.SubjectCode,
 			"address": l.Address, "lat": l.Lat, "lon": l.Lon, "fsrarId": l.FSRARID, "kpp": l.KPP,
 			"licenseNo": l.LicenseNo, "licenseValidTo": validTo, "openingHours": hours,
-			"isPublic": l.IsPublic, "isActive": l.IsActive,
+			"isActive": l.IsActive,
 		}
 	}
 

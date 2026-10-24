@@ -79,7 +79,6 @@ const form = reactive({
   licenseNo: '',
   licenseValidTo: '',
   openingHours: {} as OpeningHours,
-  isPublic: false,
   isActive: true,
 })
 
@@ -102,7 +101,6 @@ watch(
       licenseNo: l.licenseNo ?? '',
       licenseValidTo: l.licenseValidTo ?? '',
       openingHours: { ...l.openingHours },
-      isPublic: l.isPublic,
       isActive: l.isActive,
     })
   },
@@ -135,7 +133,6 @@ const {
       licenseNo: optional(form.licenseNo),
       licenseValidTo: optional(form.licenseValidTo),
       openingHours: form.openingHours,
-      isPublic: form.isPublic,
     }
     const { data, error } = isNew.value
       ? await api.POST('/locations', { body: { ...fields, code: form.code, kind: form.kind } })
@@ -262,9 +259,6 @@ async function submit(event: SubmitEventPromise) {
                 inputmode="decimal"
                 data-test="lon"
               />
-            </v-col>
-            <v-col cols="12" sm="6">
-              <v-switch v-model="form.isPublic" label="Показывать на публичной странице" />
             </v-col>
             <v-col v-if="!isNew" cols="12" sm="6">
               <v-switch v-model="form.isActive" label="Точка действует" />

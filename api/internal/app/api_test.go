@@ -266,7 +266,7 @@ func TestLocationPermissions(t *testing.T) {
 
 	location := map[string]any{
 		"code": "МГ-05", "kind": "store", "name": "Магазин", "city": "Благовещенск",
-		"timezone": "Asia/Yakutsk", "subjectCode": "28", "openingHours": map[string]any{}, "isPublic": false,
+		"timezone": "Asia/Yakutsk", "subjectCode": "28", "openingHours": map[string]any{},
 	}
 	boss.login("boss")
 	rec := boss.do(http.MethodPost, "/locations", location, http.StatusCreated)

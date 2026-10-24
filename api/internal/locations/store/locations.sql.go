@@ -14,10 +14,10 @@ import (
 
 const createLocation = `-- name: CreateLocation :one
 insert into locations (code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-                       license_no, license_valid_to, opening_hours, is_public)
+                       license_no, license_valid_to, opening_hours)
 values ($1, $2, $3, $4, $5, $6, $7, $8, $9,
         $10, $11, $12, $13,
-        $14, $15)
+        $14)
 returning id
 `
 
@@ -36,7 +36,6 @@ type CreateLocationParams struct {
 	LicenseNo      *string
 	LicenseValidTo *time.Time
 	OpeningHours   []byte
-	IsPublic       bool
 }
 
 func (q *Queries) CreateLocation(ctx context.Context, arg CreateLocationParams) (uuid.UUID, error) {
@@ -55,7 +54,6 @@ func (q *Queries) CreateLocation(ctx context.Context, arg CreateLocationParams) 
 		arg.LicenseNo,
 		arg.LicenseValidTo,
 		arg.OpeningHours,
-		arg.IsPublic,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -64,7 +62,7 @@ func (q *Queries) CreateLocation(ctx context.Context, arg CreateLocationParams) 
 
 const getLocation = `-- name: GetLocation :one
 select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-       license_no, license_valid_to, opening_hours, is_public, is_active, version
+       license_no, license_valid_to, opening_hours, is_active, version
 from locations
 where id = $1
 `
@@ -85,7 +83,6 @@ type GetLocationRow struct {
 	LicenseNo      *string
 	LicenseValidTo *time.Time
 	OpeningHours   []byte
-	IsPublic       bool
 	IsActive       bool
 	Version        int32
 }
@@ -109,7 +106,6 @@ func (q *Queries) GetLocation(ctx context.Context, id uuid.UUID) (GetLocationRow
 		&i.LicenseNo,
 		&i.LicenseValidTo,
 		&i.OpeningHours,
-		&i.IsPublic,
 		&i.IsActive,
 		&i.Version,
 	)
@@ -150,7 +146,7 @@ func (q *Queries) ListLocationZones(ctx context.Context, locationID uuid.UUID) (
 
 const listLocations = `-- name: ListLocations :many
 select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-       license_no, license_valid_to, opening_hours, is_public, is_active, version
+       license_no, license_valid_to, opening_hours, is_active, version
 from locations
 order by code
 `
@@ -171,7 +167,6 @@ type ListLocationsRow struct {
 	LicenseNo      *string
 	LicenseValidTo *time.Time
 	OpeningHours   []byte
-	IsPublic       bool
 	IsActive       bool
 	Version        int32
 }
@@ -201,7 +196,6 @@ func (q *Queries) ListLocations(ctx context.Context) ([]ListLocationsRow, error)
 			&i.LicenseNo,
 			&i.LicenseValidTo,
 			&i.OpeningHours,
-			&i.IsPublic,
 			&i.IsActive,
 			&i.Version,
 		); err != nil {
@@ -274,7 +268,7 @@ func (q *Queries) ListZones(ctx context.Context) ([]Zone, error) {
 
 const lockLocation = `-- name: LockLocation :one
 select id, code, name, kind, city, timezone, subject_code, address, lat, lon, fsrar_id, kpp,
-       license_no, license_valid_to, opening_hours, is_public, is_active, version
+       license_no, license_valid_to, opening_hours, is_active, version
 from locations
 where id = $1
 for update
@@ -296,7 +290,6 @@ type LockLocationRow struct {
 	LicenseNo      *string
 	LicenseValidTo *time.Time
 	OpeningHours   []byte
-	IsPublic       bool
 	IsActive       bool
 	Version        int32
 }
@@ -320,7 +313,6 @@ func (q *Queries) LockLocation(ctx context.Context, id uuid.UUID) (LockLocationR
 		&i.LicenseNo,
 		&i.LicenseValidTo,
 		&i.OpeningHours,
-		&i.IsPublic,
 		&i.IsActive,
 		&i.Version,
 	)
@@ -341,11 +333,10 @@ set name             = $1,
     license_no       = $10,
     license_valid_to = $11,
     opening_hours    = $12,
-    is_public        = $13,
-    is_active        = $14,
+    is_active        = $13,
     version          = version + 1,
     updated_at       = now()
-where id = $15
+where id = $14
 `
 
 type UpdateLocationParams struct {
@@ -361,7 +352,6 @@ type UpdateLocationParams struct {
 	LicenseNo      *string
 	LicenseValidTo *time.Time
 	OpeningHours   []byte
-	IsPublic       bool
 	IsActive       bool
 	ID             uuid.UUID
 }
@@ -380,7 +370,6 @@ func (q *Queries) UpdateLocation(ctx context.Context, arg UpdateLocationParams) 
 		arg.LicenseNo,
 		arg.LicenseValidTo,
 		arg.OpeningHours,
-		arg.IsPublic,
 		arg.IsActive,
 		arg.ID,
 	)

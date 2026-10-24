@@ -2204,7 +2204,7 @@ components:
 
     LocationFields:
       type: object
-      required: [name, city, timezone, subjectCode, openingHours, isPublic]
+      required: [name, city, timezone, subjectCode, openingHours]
       properties:
         name:
           type: string
@@ -2242,9 +2242,6 @@ components:
           format: date
         openingHours:
           $ref: "#/components/schemas/OpeningHours"
-        isPublic:
-          type: boolean
-          description: Показывать на публичной справочной странице
 
     NewLocation:
       allOf:
