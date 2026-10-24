@@ -16,6 +16,7 @@ export const codeKindLabels: Record<CodeKind, string> = {
   crpt: 'Код «Честного знака»',
   package: 'Короб или палета',
   product: 'Штрихкод товара',
+  article: 'Артикул',
   asset: 'Инвентарный номер',
   service_qr: 'Служебный QR-код',
   unknown: 'Неизвестный код',

@@ -38,6 +38,12 @@ const router = createRouter({
       meta: { title: 'Точка', permission: 'refs.view' },
     },
     {
+      path: '/locations/:id/assortment',
+      name: 'location-assortment',
+      component: () => import('@/pages/AssortmentPage.vue'),
+      meta: { title: 'Ассортиментная матрица', permission: 'refs.view' },
+    },
+    {
       path: '/sale-rules',
       name: 'sale-rules',
       component: () => import('@/pages/SaleRulesPage.vue'),

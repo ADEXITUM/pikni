@@ -21,6 +21,7 @@ export const scanLabels: Record<ScanKind, string> = {
   alcocode: 'алкокод',
   egais_mark: 'марка ЕГАИС, алкокод',
   egais_mark_new: 'марка нового образца',
+  article: 'артикул',
   crpt_code: 'код «Честного знака», GTIN',
 }
 

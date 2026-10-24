@@ -40,6 +40,11 @@ async function mountAt(path: string, permissions: Permission[]) {
       { path: '/locations', name: 'locations', component: { render: () => null } },
       { path: '/locations/new', name: 'location-new', component: LocationPage },
       { path: '/locations/:id', name: 'location', component: LocationPage },
+      {
+        path: '/locations/:id/assortment',
+        name: 'location-assortment',
+        component: { render: () => null },
+      },
     ],
   })
   await router.push(path)
@@ -57,15 +62,17 @@ describe('LocationPage', () => {
         data:
           path === '/ru-subjects'
             ? { items: [{ code: '28', name: 'Амурская область' }] }
-            : path === '/locations/{id}/assortment' || path === '/locations'
-              ? { items: [] }
-              : path === '/locations/{id}/sale-check'
-                ? {
-                    localTime: '2026-10-23T20:30:00+09:00',
-                    strong: { allowed: true, from: '11:00', to: '21:00' },
-                    other: { allowed: false, banDay: 'День знаний' },
-                  }
-                : store,
+            : path === '/locations/{id}/assortment'
+              ? { items: [], total: 3 }
+              : path === '/locations'
+                ? { items: [] }
+                : path === '/locations/{id}/sale-check'
+                  ? {
+                      localTime: '2026-10-23T20:30:00+09:00',
+                      strong: { allowed: true, from: '11:00', to: '21:00' },
+                      other: { allowed: false, banDay: 'День знаний' },
+                    }
+                  : store,
         response: new Response(),
       })) as never)
     vi.mocked(api.POST).mockReset()
@@ -76,6 +83,7 @@ describe('LocationPage', () => {
 
     expect(wrapper.text()).toContain('МГ-01 · Магазин на ул. Ленина')
     expect(wrapper.text()).toContain('Торговый зал')
+    expect(wrapper.find('[data-test="assortment-link"]').text()).toContain('Вариантов: 3')
     const sale = wrapper.find('[data-test="sale-now"]').text()
     expect(sale).toContain('местное время 20:30')
     expect(sale).toContain('можно до 21:00')
