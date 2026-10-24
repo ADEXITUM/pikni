@@ -1858,7 +1858,8 @@ paths:
       summary: Документы движения
       description: >
         Новые сверху. Видны документы тех видов и точек, на которые у пользователя есть право:
-        ввод остатков — stocktake.manage или opening.post, передача в зал — floor.view.
+        ввод остатков — stocktake.manage или opening.post, передача в зал — floor.view,
+        поступление — receipt.view.
         Следующая страница — параметр after из nextAfter.
       tags: [documents]
       x-permission: availability.view
@@ -2058,6 +2059,36 @@ paths:
       responses:
         "200":
           description: Документ после изменения
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/mode:
+    put:
+      operationId: setReceivingMode
+      summary: Сменить режим приёмки поступления
+      description: Продукцию с марками можно принять только выборочно или поштучно.
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceivingModeUpdate"
+      responses:
+        "200":
+          description: Документ после смены режима
           content:
             application/json:
               schema:
@@ -3984,8 +4015,10 @@ components:
 
     DocumentKind:
       type: string
-      enum: [opening, floor_transfer]
-      description: opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала
+      enum: [opening, floor_transfer, receipt]
+      description: >
+        opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала,
+        receipt — поступление по ТТН ЕГАИС
 
     DocumentStatus:
       type: string
@@ -4029,6 +4062,13 @@ components:
           $ref: "#/components/schemas/ZoneKind"
         authorName:
           type: string
+          description: Сотрудник или «ЕГАИС», если документ создан по пришедшей ТТН
+        supplierName:
+          type: string
+        ttnNumber:
+          type: string
+        receivingMode:
+          $ref: "#/components/schemas/ReceivingMode"
         postedByName:
           type: string
         lineCount:
@@ -4089,6 +4129,18 @@ components:
         qty:
           type: integer
           format: int32
+        qtyPlan:
+          type: integer
+          format: int32
+          description: Поступление — количество по ТТН; нет — товара нет в ТТН
+        qtyFact:
+          type: integer
+          format: int32
+          description: Поступление — сосчитано по сканам в выбранном режиме приёмки
+        qtyAccepted:
+          type: integer
+          format: int32
+          description: Поступление — сколько будет принято в ЕГАИС и на остаток
         unitCost:
           type: number
           format: double
@@ -4162,6 +4214,113 @@ components:
             canPost:
               type: boolean
               description: Текущий пользователь может провести документ
+            receipt:
+              $ref: "#/components/schemas/ReceiptInfo"
+            exchange:
+              type: array
+              description: Журнал обмена с ЕГАИС по документу (ИН-3)
+              items:
+                $ref: "#/components/schemas/ExchangeMessage"
+
+    ReceiptInfo:
+      type: object
+      required: [mode, packages, unmapped, shortage, surplus, foreign, differences]
+      description: Приёмка черновика поступления — короба, расхождения, позиции без сопоставления
+      properties:
+        mode:
+          $ref: "#/components/schemas/ReceivingMode"
+        packages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceiptPackage"
+        unmapped:
+          type: array
+          description: Позиции ТТН, алкокода которых нет в каталоге
+          items:
+            $ref: "#/components/schemas/UnmappedPosition"
+        shortage:
+          type: integer
+          format: int32
+        surplus:
+          type: integer
+          format: int32
+        foreign:
+          type: integer
+          format: int32
+          description: Отсканировано чужих марок
+        differences:
+          type: boolean
+          description: По итогам уйдёт акт расхождения, а не подтверждения
+
+    ReceiptPackage:
+      type: object
+      required: [code, qty, toOpen, scanned, counted]
+      properties:
+        code:
+          type: string
+          description: SSCC короба
+        qty:
+          type: integer
+          format: int32
+        toOpen:
+          type: boolean
+          description: Выборочная приёмка — короб надо вскрыть и сосчитать поштучно
+        scanned:
+          type: boolean
+        counted:
+          type: integer
+          format: int32
+          description: Сколько марок вскрытого короба отсканировано
+
+    UnmappedPosition:
+      type: object
+      required: [identity, alcocode, name, qty]
+      properties:
+        identity:
+          type: integer
+        alcocode:
+          type: string
+        name:
+          type: string
+        qty:
+          type: integer
+
+    ExchangeMessage:
+      type: object
+      required: [id, direction, docType, status, attempts, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum: [out, in]
+        docType:
+          type: string
+        status:
+          type: string
+          enum: [queued, sent, accepted, rejected, error, processed]
+        attempts:
+          type: integer
+          format: int32
+        lastError:
+          type: string
+        nextAttemptAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          description: Причина отказа ЕГАИС из квитанции
+        createdAt:
+          type: string
+          format: date-time
+
+    ReceivingModeUpdate:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          $ref: "#/components/schemas/ReceivingMode"
 
     NewOpening:
       type: object

@@ -18,6 +18,8 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
 	"github.com/ADEXITUM/pikni/api/internal/documents/store"
+	"github.com/ADEXITUM/pikni/api/internal/egais"
+	egaisstore "github.com/ADEXITUM/pikni/api/internal/egais/store"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 )
@@ -29,6 +31,7 @@ const (
 	StatusDraft         = "draft"
 	StatusAwaitingEgais = "awaiting_egais"
 	StatusPosted        = "posted"
+	StatusEgaisRejected = "egais_rejected"
 	StatusCancelled     = "cancelled"
 )
 
@@ -63,6 +66,12 @@ var kinds = map[string]kindSpec{
 		view:   []apispec.Permission{apispec.PermissionStocktakeManage, apispec.PermissionOpeningPost},
 		edit:   apispec.PermissionStocktakeManage,
 		post:   apispec.PermissionOpeningPost,
+	},
+	Receipt: {
+		prefix: "ПТ",
+		view:   []apispec.Permission{apispec.PermissionReceiptView},
+		edit:   apispec.PermissionReceiptEdit,
+		post:   apispec.PermissionReceiptEdit,
 	},
 	FloorTransfer: {
 		prefix: "ПЗ",
@@ -127,7 +136,8 @@ func create(ctx context.Context, tx pgx.Tx, kind string, date time.Time, p store
 	if err != nil {
 		return uuid.Nil, err
 	}
-	p.Kind, p.DocDate, p.AuthorID = kind, date, userID(ctx)
+	author := userID(ctx)
+	p.Kind, p.DocDate, p.AuthorID = kind, date, &author
 	p.Number = fmt.Sprintf("%s-%d-%06d", spec.prefix, date.Year(), n)
 	id, err := q.CreateDocument(ctx, p)
 	if db.IsUniqueViolationOn(err, "documents_opening_zone") {
@@ -212,6 +222,8 @@ func (s *Service) CreateFloorTransfer(ctx context.Context, locationID uuid.UUID,
 // Detail — документ для экрана: шапка, строки, последние сканы и что можно делать текущему пользователю.
 type Detail struct {
 	Doc      store.GetDocumentRow
+	Receipt  *ReceiptState
+	Exchange []egaisstore.DocumentExchangeRow
 	Lines    []store.ListLinesRow
 	Scans    []store.ListScansRow
 	CanEdit  bool
@@ -243,6 +255,17 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
 	d.CanEdit = draft && auth.CheckLocation(ctx, spec.edit, doc.LocationID) == nil
 	d.CanPost = draft && auth.CheckLocation(ctx, spec.post, doc.LocationID) == nil
 	d.ShowCost = auth.Has(ctx, apispec.PermissionCostView)
+	// Факт приёмки считается по сканам, пока документ черновик; у проведённого он уже в строках.
+	if doc.Kind == Receipt && doc.ReceivingMode != nil && doc.Status == StatusDraft {
+		st, err := receiptState(ctx, s.q, id, *doc.ReceivingMode, doc.Unmapped)
+		if err != nil {
+			return d, err
+		}
+		d.Receipt = &st
+	}
+	if d.Exchange, err = egais.Exchange(ctx, s.pool, id); err != nil {
+		return d, err
+	}
 	return d, nil
 }
 

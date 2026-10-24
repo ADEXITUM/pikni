@@ -12,6 +12,45 @@ import (
 	"github.com/google/uuid"
 )
 
+const acceptedScans = `-- name: AcceptedScans :many
+select mark_code, package_code, variant_id, qty
+from scans
+where document_id = $1 and status = 'accepted' and undone_at is null
+`
+
+type AcceptedScansRow struct {
+	MarkCode    *string
+	PackageCode *string
+	VariantID   *uuid.UUID
+	Qty         int32
+}
+
+// Засчитанные сканы документа: марки, коды «Честного знака» и короба — из них считается факт приёмки.
+func (q *Queries) AcceptedScans(ctx context.Context, documentID uuid.UUID) ([]AcceptedScansRow, error) {
+	rows, err := q.db.Query(ctx, acceptedScans, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AcceptedScansRow
+	for rows.Next() {
+		var i AcceptedScansRow
+		if err := rows.Scan(
+			&i.MarkCode,
+			&i.PackageCode,
+			&i.VariantID,
+			&i.Qty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const addToLine = `-- name: AddToLine :one
 insert into document_lines (document_id, line_no, variant_id, qty)
 values ($1,
@@ -76,6 +115,19 @@ func (q *Queries) CodeScanned(ctx context.Context, arg CodeScannedParams) (bool,
 	return column_1, err
 }
 
+const countForeign = `-- name: CountForeign :one
+select count(*)::integer
+from scans
+where document_id = $1 and status = 'foreign' and undone_at is null
+`
+
+func (q *Queries) CountForeign(ctx context.Context, documentID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countForeign, documentID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createDocument = `-- name: CreateDocument :one
 insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, author_id, comment)
 values ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -89,7 +141,7 @@ type CreateDocumentParams struct {
 	LocationID uuid.UUID
 	ZoneID     uuid.UUID
 	DestZoneID *uuid.UUID
-	AuthorID   uuid.UUID
+	AuthorID   *uuid.UUID
 	Comment    string
 }
 
@@ -103,6 +155,46 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.DestZoneID,
 		arg.AuthorID,
 		arg.Comment,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createReceipt = `-- name: CreateReceipt :one
+insert into documents (kind, number, doc_date, location_id, zone_id, supplier_id, receiving_mode, ttn_id, ttn_number,
+                       ttn_date, unmapped)
+values ('receipt', $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10)
+on conflict (location_id, ttn_id) where ttn_id is not null do nothing
+returning id
+`
+
+type CreateReceiptParams struct {
+	Number        string
+	DocDate       time.Time
+	LocationID    uuid.UUID
+	ZoneID        uuid.UUID
+	SupplierID    *uuid.UUID
+	ReceivingMode *string
+	TtnID         *string
+	TtnNumber     *string
+	TtnDate       *time.Time
+	Unmapped      []byte
+}
+
+func (q *Queries) CreateReceipt(ctx context.Context, arg CreateReceiptParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createReceipt,
+		arg.Number,
+		arg.DocDate,
+		arg.LocationID,
+		arg.ZoneID,
+		arg.SupplierID,
+		arg.ReceivingMode,
+		arg.TtnID,
+		arg.TtnNumber,
+		arg.TtnDate,
+		arg.Unmapped,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -144,38 +236,44 @@ func (q *Queries) DocumentMarks(ctx context.Context, documentID uuid.UUID) ([]Do
 const getDocument = `-- name: GetDocument :one
 select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as location_name,
        d.zone_id, z.kind as zone_kind, d.dest_zone_id, dz.kind as dest_zone_kind,
-       au.full_name as author_name, pu.full_name as posted_by_name, d.comment, d.created_at, d.posted_at, d.version,
+       coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.comment, d.created_at, d.posted_at, d.version,
+       sp.name as supplier_name, d.ttn_number, d.receiving_mode, d.unmapped,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
        (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
-join users au on au.id = d.author_id
+left join users au on au.id = d.author_id
+left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
 where d.id = $1
 `
 
 type GetDocumentRow struct {
-	ID           uuid.UUID
-	Kind         string
-	Number       string
-	Status       string
-	DocDate      time.Time
-	LocationID   uuid.UUID
-	LocationName string
-	ZoneID       uuid.UUID
-	ZoneKind     string
-	DestZoneID   *uuid.UUID
-	DestZoneKind *string
-	AuthorName   string
-	PostedByName *string
-	Comment      string
-	CreatedAt    time.Time
-	PostedAt     *time.Time
-	Version      int32
-	LineCount    int32
-	TotalQty     int32
+	ID            uuid.UUID
+	Kind          string
+	Number        string
+	Status        string
+	DocDate       time.Time
+	LocationID    uuid.UUID
+	LocationName  string
+	ZoneID        uuid.UUID
+	ZoneKind      string
+	DestZoneID    *uuid.UUID
+	DestZoneKind  *string
+	AuthorName    string
+	PostedByName  *string
+	Comment       string
+	CreatedAt     time.Time
+	PostedAt      *time.Time
+	Version       int32
+	SupplierName  *string
+	TtnNumber     *string
+	ReceivingMode *string
+	Unmapped      []byte
+	LineCount     int32
+	TotalQty      int32
 }
 
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (GetDocumentRow, error) {
@@ -199,6 +297,10 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (GetDocumentRow
 		&i.CreatedAt,
 		&i.PostedAt,
 		&i.Version,
+		&i.SupplierName,
+		&i.TtnNumber,
+		&i.ReceivingMode,
+		&i.Unmapped,
 		&i.LineCount,
 		&i.TotalQty,
 	)
@@ -280,27 +382,79 @@ func (q *Queries) GetZone(ctx context.Context, id uuid.UUID) (GetZoneRow, error)
 	return i, err
 }
 
+const insertPackage = `-- name: InsertPackage :exec
+insert into document_packages (document_id, code, variant_id, qty)
+values ($1, $2, $3, $4)
+on conflict do nothing
+`
+
+type InsertPackageParams struct {
+	DocumentID uuid.UUID
+	Code       string
+	VariantID  *uuid.UUID
+	Qty        int32
+}
+
+func (q *Queries) InsertPackage(ctx context.Context, arg InsertPackageParams) error {
+	_, err := q.db.Exec(ctx, insertPackage,
+		arg.DocumentID,
+		arg.Code,
+		arg.VariantID,
+		arg.Qty,
+	)
+	return err
+}
+
+const insertPlanLine = `-- name: InsertPlanLine :exec
+insert into document_lines (document_id, line_no, variant_id, qty, qty_plan, price, ttn_identity)
+values ($1, $2, $3, 0, $4, $5::bigint / 100.0, $6)
+on conflict (document_id, variant_id) do update
+set qty_plan = document_lines.qty_plan + excluded.qty_plan
+`
+
+type InsertPlanLineParams struct {
+	DocumentID   uuid.UUID
+	LineNo       int32
+	VariantID    uuid.UUID
+	QtyPlan      *int32
+	PriceKopecks int64
+	TtnIdentity  *int32
+}
+
+func (q *Queries) InsertPlanLine(ctx context.Context, arg InsertPlanLineParams) error {
+	_, err := q.db.Exec(ctx, insertPlanLine,
+		arg.DocumentID,
+		arg.LineNo,
+		arg.VariantID,
+		arg.QtyPlan,
+		arg.PriceKopecks,
+		arg.TtnIdentity,
+	)
+	return err
+}
+
 const insertScan = `-- name: InsertScan :exec
-insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, qty,
-                   status, reason, scanned_at)
+insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, package_code,
+                   qty, status, reason, scanned_at)
 values ($1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11, $12, $13)
+        $8, $9, $10, $11, $12, $13, $14)
 `
 
 type InsertScanParams struct {
-	ID         uuid.UUID
-	DocumentID uuid.UUID
-	UserID     uuid.UUID
-	Source     string
-	Raw        string
-	CodeKind   *string
-	VariantID  *uuid.UUID
-	MarkCode   *string
-	CrptCode   *string
-	Qty        int32
-	Status     string
-	Reason     *string
-	ScannedAt  time.Time
+	ID          uuid.UUID
+	DocumentID  uuid.UUID
+	UserID      uuid.UUID
+	Source      string
+	Raw         string
+	CodeKind    *string
+	VariantID   *uuid.UUID
+	MarkCode    *string
+	CrptCode    *string
+	PackageCode *string
+	Qty         int32
+	Status      string
+	Reason      *string
+	ScannedAt   time.Time
 }
 
 func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) error {
@@ -314,6 +468,7 @@ func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) error {
 		arg.VariantID,
 		arg.MarkCode,
 		arg.CrptCode,
+		arg.PackageCode,
 		arg.Qty,
 		arg.Status,
 		arg.Reason,
@@ -322,17 +477,44 @@ func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) error {
 	return err
 }
 
+const insertTTNMarks = `-- name: InsertTTNMarks :exec
+insert into ttn_marks (document_id, code, variant_id, package_code)
+select $1, t.code, t.variant_id, nullif(t.package_code, '')
+from (select unnest($2::text[]) as code, unnest($3::uuid[]) as variant_id,
+             unnest($4::text[]) as package_code) as t
+on conflict do nothing
+`
+
+type InsertTTNMarksParams struct {
+	DocumentID   uuid.UUID
+	Codes        []string
+	VariantIds   []uuid.UUID
+	PackageCodes []string
+}
+
+func (q *Queries) InsertTTNMarks(ctx context.Context, arg InsertTTNMarksParams) error {
+	_, err := q.db.Exec(ctx, insertTTNMarks,
+		arg.DocumentID,
+		arg.Codes,
+		arg.VariantIds,
+		arg.PackageCodes,
+	)
+	return err
+}
+
 const listDocuments = `-- name: ListDocuments :many
 select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as location_name,
        d.zone_id, z.kind as zone_kind, d.dest_zone_id, dz.kind as dest_zone_kind,
-       au.full_name as author_name, pu.full_name as posted_by_name, d.created_at, d.posted_at, d.version,
+       coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.created_at, d.posted_at, d.version,
+       sp.name as supplier_name, d.ttn_number, d.receiving_mode,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
        (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
-join users au on au.id = d.author_id
+left join users au on au.id = d.author_id
+left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
 where (d.kind = any($1::text[])
        or (d.kind = any($2::text[]) and d.location_id = any($3::uuid[])))
@@ -356,24 +538,27 @@ type ListDocumentsParams struct {
 }
 
 type ListDocumentsRow struct {
-	ID           uuid.UUID
-	Kind         string
-	Number       string
-	Status       string
-	DocDate      time.Time
-	LocationID   uuid.UUID
-	LocationName string
-	ZoneID       uuid.UUID
-	ZoneKind     string
-	DestZoneID   *uuid.UUID
-	DestZoneKind *string
-	AuthorName   string
-	PostedByName *string
-	CreatedAt    time.Time
-	PostedAt     *time.Time
-	Version      int32
-	LineCount    int32
-	TotalQty     int32
+	ID            uuid.UUID
+	Kind          string
+	Number        string
+	Status        string
+	DocDate       time.Time
+	LocationID    uuid.UUID
+	LocationName  string
+	ZoneID        uuid.UUID
+	ZoneKind      string
+	DestZoneID    *uuid.UUID
+	DestZoneKind  *string
+	AuthorName    string
+	PostedByName  *string
+	CreatedAt     time.Time
+	PostedAt      *time.Time
+	Version       int32
+	SupplierName  *string
+	TtnNumber     *string
+	ReceivingMode *string
+	LineCount     int32
+	TotalQty      int32
 }
 
 // Видны виды документов, на которые есть право во всей сети (kinds_all) или в своих точках (kinds_own).
@@ -413,6 +598,9 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.CreatedAt,
 			&i.PostedAt,
 			&i.Version,
+			&i.SupplierName,
+			&i.TtnNumber,
+			&i.ReceivingMode,
 			&i.LineCount,
 			&i.TotalQty,
 		); err != nil {
@@ -428,7 +616,8 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 
 const listLines = `-- name: ListLines :many
 select dl.id, dl.variant_id, v.product_id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container, v.gift_pack,
-       k.egais_accounting, v.alcocode, dl.qty, (dl.unit_cost is not null)::boolean as costed,
+       k.egais_accounting, v.alcocode, dl.qty, dl.qty_plan, dl.ttn_identity,
+       coalesce((dl.price * 100)::bigint, 0)::bigint as price_kopecks, (dl.unit_cost is not null)::boolean as costed,
        coalesce((dl.unit_cost * 10000)::bigint, 0)::bigint as unit_cost_e4
 from document_lines dl
 join variants v on v.id = dl.variant_id
@@ -436,7 +625,9 @@ join products p on p.id = v.product_id
 left join product_kinds k on k.code = p.kind_code
 where dl.document_id = $1
   -- одна строка — и с нулевым количеством: после отмены скана экран должен увидеть ноль
-  and ($2::uuid is null and dl.qty > 0 or dl.variant_id = $2::uuid)
+  -- строки ТТН видны и с нулевым фактом: план нужен на экране приёмки
+  and ($2::uuid is null and (dl.qty > 0 or dl.qty_plan is not null)
+       or dl.variant_id = $2::uuid)
 order by dl.line_no
 `
 
@@ -458,6 +649,9 @@ type ListLinesRow struct {
 	EgaisAccounting *string
 	Alcocode        *string
 	Qty             int32
+	QtyPlan         *int32
+	TtnIdentity     *int32
+	PriceKopecks    int64
 	Costed          bool
 	UnitCostE4      int64
 }
@@ -484,6 +678,9 @@ func (q *Queries) ListLines(ctx context.Context, arg ListLinesParams) ([]ListLin
 			&i.EgaisAccounting,
 			&i.Alcocode,
 			&i.Qty,
+			&i.QtyPlan,
+			&i.TtnIdentity,
+			&i.PriceKopecks,
 			&i.Costed,
 			&i.UnitCostE4,
 		); err != nil {
@@ -553,6 +750,36 @@ func (q *Queries) ListScans(ctx context.Context, documentID uuid.UUID) ([]ListSc
 	return items, nil
 }
 
+const locationByFSRAR = `-- name: LocationByFSRAR :one
+
+select l.id, l.kind, l.is_active, (now() at time zone l.timezone)::date as local_date,
+       (select z.id from zones z where z.location_id = l.id and z.kind in ('warehouse', 'backroom') limit 1)::uuid as zone_id
+from locations l
+where l.fsrar_id = $1
+`
+
+type LocationByFSRARRow struct {
+	ID        uuid.UUID
+	Kind      string
+	IsActive  bool
+	LocalDate time.Time
+	ZoneID    uuid.UUID
+}
+
+// ---------- поступление по ТТН
+func (q *Queries) LocationByFSRAR(ctx context.Context, fsrarID *string) (LocationByFSRARRow, error) {
+	row := q.db.QueryRow(ctx, locationByFSRAR, fsrarID)
+	var i LocationByFSRARRow
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.IsActive,
+		&i.LocalDate,
+		&i.ZoneID,
+	)
+	return i, err
+}
+
 const locationZones = `-- name: LocationZones :many
 select z.id, z.kind, l.kind as location_kind, l.is_active as location_active,
        (now() at time zone l.timezone)::date as local_date
@@ -596,23 +823,27 @@ func (q *Queries) LocationZones(ctx context.Context, locationID uuid.UUID) ([]Lo
 }
 
 const lockDocument = `-- name: LockDocument :one
-select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version
+select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
+       receiving_mode, ttn_id, unmapped
 from documents
 where id = $1
 for update
 `
 
 type LockDocumentRow struct {
-	ID         uuid.UUID
-	Kind       string
-	Number     string
-	Status     string
-	DocDate    time.Time
-	LocationID uuid.UUID
-	ZoneID     uuid.UUID
-	DestZoneID *uuid.UUID
-	AuthorID   uuid.UUID
-	Version    int32
+	ID            uuid.UUID
+	Kind          string
+	Number        string
+	Status        string
+	DocDate       time.Time
+	LocationID    uuid.UUID
+	ZoneID        uuid.UUID
+	DestZoneID    *uuid.UUID
+	AuthorID      *uuid.UUID
+	Version       int32
+	ReceivingMode *string
+	TtnID         *string
+	Unmapped      []byte
 }
 
 func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentRow, error) {
@@ -629,8 +860,25 @@ func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentR
 		&i.DestZoneID,
 		&i.AuthorID,
 		&i.Version,
+		&i.ReceivingMode,
+		&i.TtnID,
+		&i.Unmapped,
 	)
 	return i, err
+}
+
+const markPackagesToOpen = `-- name: MarkPackagesToOpen :exec
+update document_packages set to_open = true where document_id = $1 and code = any($2::text[])
+`
+
+type MarkPackagesToOpenParams struct {
+	DocumentID uuid.UUID
+	Codes      []string
+}
+
+func (q *Queries) MarkPackagesToOpen(ctx context.Context, arg MarkPackagesToOpenParams) error {
+	_, err := q.db.Exec(ctx, markPackagesToOpen, arg.DocumentID, arg.Codes)
+	return err
 }
 
 const nextDocNumber = `-- name: NextDocNumber :one
@@ -653,6 +901,86 @@ func (q *Queries) NextDocNumber(ctx context.Context, arg NextDocNumberParams) (i
 	var last_no int32
 	err := row.Scan(&last_no)
 	return last_no, err
+}
+
+const receiptMarks = `-- name: ReceiptMarks :many
+select code, variant_id, package_code
+from ttn_marks
+where document_id = $1
+`
+
+type ReceiptMarksRow struct {
+	Code        string
+	VariantID   uuid.UUID
+	PackageCode *string
+}
+
+func (q *Queries) ReceiptMarks(ctx context.Context, documentID uuid.UUID) ([]ReceiptMarksRow, error) {
+	rows, err := q.db.Query(ctx, receiptMarks, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReceiptMarksRow
+	for rows.Next() {
+		var i ReceiptMarksRow
+		if err := rows.Scan(&i.Code, &i.VariantID, &i.PackageCode); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const receiptPackages = `-- name: ReceiptPackages :many
+select code, variant_id, qty, to_open
+from document_packages
+where document_id = $1
+order by code
+`
+
+type ReceiptPackagesRow struct {
+	Code      string
+	VariantID *uuid.UUID
+	Qty       int32
+	ToOpen    bool
+}
+
+func (q *Queries) ReceiptPackages(ctx context.Context, documentID uuid.UUID) ([]ReceiptPackagesRow, error) {
+	rows, err := q.db.Query(ctx, receiptPackages, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReceiptPackagesRow
+	for rows.Next() {
+		var i ReceiptPackagesRow
+		if err := rows.Scan(
+			&i.Code,
+			&i.VariantID,
+			&i.Qty,
+			&i.ToOpen,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resetPackagesToOpen = `-- name: ResetPackagesToOpen :exec
+update document_packages set to_open = false where document_id = $1
+`
+
+func (q *Queries) ResetPackagesToOpen(ctx context.Context, documentID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, resetPackagesToOpen, documentID)
+	return err
 }
 
 const setDocumentStatus = `-- name: SetDocumentStatus :exec
@@ -711,11 +1039,43 @@ func (q *Queries) SetLineQty(ctx context.Context, arg SetLineQtyParams) (int64, 
 	return result.RowsAffected(), nil
 }
 
+const setReceivingMode = `-- name: SetReceivingMode :exec
+update documents set receiving_mode = $1 where id = $2
+`
+
+type SetReceivingModeParams struct {
+	ReceivingMode *string
+	ID            uuid.UUID
+}
+
+func (q *Queries) SetReceivingMode(ctx context.Context, arg SetReceivingModeParams) error {
+	_, err := q.db.Exec(ctx, setReceivingMode, arg.ReceivingMode, arg.ID)
+	return err
+}
+
+const supplierByFSRAR = `-- name: SupplierByFSRAR :one
+select id, default_receiving_mode
+from suppliers
+where fsrar_id = $1
+`
+
+type SupplierByFSRARRow struct {
+	ID                   uuid.UUID
+	DefaultReceivingMode string
+}
+
+func (q *Queries) SupplierByFSRAR(ctx context.Context, fsrarID *string) (SupplierByFSRARRow, error) {
+	row := q.db.QueryRow(ctx, supplierByFSRAR, fsrarID)
+	var i SupplierByFSRARRow
+	err := row.Scan(&i.ID, &i.DefaultReceivingMode)
+	return i, err
+}
+
 const undoScan = `-- name: UndoScan :one
 update scans
 set undone_at = now()
 where id = $1 and document_id = $2 and undone_at is null
-returning variant_id, qty, status
+returning variant_id, qty, status, mark_code, package_code
 `
 
 type UndoScanParams struct {
@@ -724,15 +1084,23 @@ type UndoScanParams struct {
 }
 
 type UndoScanRow struct {
-	VariantID *uuid.UUID
-	Qty       int32
-	Status    string
+	VariantID   *uuid.UUID
+	Qty         int32
+	Status      string
+	MarkCode    *string
+	PackageCode *string
 }
 
 func (q *Queries) UndoScan(ctx context.Context, arg UndoScanParams) (UndoScanRow, error) {
 	row := q.db.QueryRow(ctx, undoScan, arg.ID, arg.DocumentID)
 	var i UndoScanRow
-	err := row.Scan(&i.VariantID, &i.Qty, &i.Status)
+	err := row.Scan(
+		&i.VariantID,
+		&i.Qty,
+		&i.Status,
+		&i.MarkCode,
+		&i.PackageCode,
+	)
 	return i, err
 }
 
