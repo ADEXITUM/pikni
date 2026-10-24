@@ -154,6 +154,12 @@ tasks:
     cmds:
       - npm test
 
+  e2e:
+    desc: 'Сквозные тесты Playwright; нужен запущенный task dev, первый раз — E2E_TEMP_PASSWORD'
+    dir: web/apps/staff
+    cmds:
+      - npx playwright test
+
   lint:
     desc: Проверки кода сервера и фронтенда
     cmds:
