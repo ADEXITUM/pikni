@@ -171,3 +171,12 @@ func (s *Service) DeleteMinPriceRule(ctx context.Context, id uuid.UUID) error {
 		})
 	})
 }
+
+// MinRetailPrice — МРЦ варианта на момент at в копейках; nil, если для него МРЦ не установлена.
+func (s *Service) MinRetailPrice(ctx context.Context, variantID uuid.UUID, at time.Time) (*int64, error) {
+	v, p, err := lockVariant(ctx, s.q, variantID)
+	if err != nil {
+		return nil, err
+	}
+	return minRetailPrice(ctx, s.q, p, v, at)
+}

@@ -264,3 +264,26 @@ func (q *Queries) MoveMarks(ctx context.Context, arg MoveMarksParams) error {
 	)
 	return err
 }
+
+const setMarksStatus = `-- name: SetMarksStatus :exec
+update excise_marks
+set status = $1, zone_id = $2, last_document_id = $3, updated_at = now()
+where code = any($4::text[])
+`
+
+type SetMarksStatusParams struct {
+	Status     string
+	ZoneID     *uuid.UUID
+	DocumentID *uuid.UUID
+	Codes      []string
+}
+
+func (q *Queries) SetMarksStatus(ctx context.Context, arg SetMarksStatusParams) error {
+	_, err := q.db.Exec(ctx, setMarksStatus,
+		arg.Status,
+		arg.ZoneID,
+		arg.DocumentID,
+		arg.Codes,
+	)
+	return err
+}

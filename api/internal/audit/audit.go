@@ -18,6 +18,7 @@ const (
 	EntityDocument   = "document"
 	EntityLocation   = "location"
 	EntityMinPrice   = "min_price"
+	EntityPosDevice  = "pos_device"
 	EntityProduct    = "product"
 	EntitySaleBan    = "sale_ban"
 	EntitySaleRule   = "sale_rule"

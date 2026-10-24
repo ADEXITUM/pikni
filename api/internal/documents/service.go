@@ -73,6 +73,13 @@ var kinds = map[string]kindSpec{
 		edit:   apispec.PermissionReceiptEdit,
 		post:   apispec.PermissionReceiptEdit,
 	},
+	// «Продажа» ведёт смена кассы: документ создаётся при открытии смены и проводится при закрытии.
+	Sale: {
+		prefix: "ПР",
+		view:   []apispec.Permission{apispec.PermissionPosView},
+		edit:   apispec.PermissionPosSell,
+		post:   apispec.PermissionPosSell,
+	},
 	FloorTransfer: {
 		prefix: "ПЗ",
 		view:   []apispec.Permission{apispec.PermissionFloorView},
@@ -136,8 +143,11 @@ func create(ctx context.Context, tx pgx.Tx, kind string, date time.Time, p store
 	if err != nil {
 		return uuid.Nil, err
 	}
-	author := userID(ctx)
-	p.Kind, p.DocDate, p.AuthorID = kind, date, &author
+	if p.AuthorID == nil {
+		author := userID(ctx)
+		p.AuthorID = &author
+	}
+	p.Kind, p.DocDate = kind, date
 	p.Number = fmt.Sprintf("%s-%d-%06d", spec.prefix, date.Year(), n)
 	id, err := q.CreateDocument(ctx, p)
 	if db.IsUniqueViolationOn(err, "documents_opening_zone") {

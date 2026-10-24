@@ -10,11 +10,14 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
+	"github.com/ADEXITUM/pikni/api/internal/crpt"
 	"github.com/ADEXITUM/pikni/api/internal/documents"
 	"github.com/ADEXITUM/pikni/api/internal/egais"
 	"github.com/ADEXITUM/pikni/api/internal/exchange"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
+	"github.com/ADEXITUM/pikni/api/internal/pos"
+	"github.com/ADEXITUM/pikni/api/internal/posspec"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
@@ -28,6 +31,7 @@ type (
 	documentsHandler = documents.Handler
 	locationsHandler = locations.Handler
 	marksHandler     = marks.Handler
+	posStaffHandler  = pos.StaffHandler
 	stockHandler     = stock.Handler
 	usersHandler     = users.Handler
 )
@@ -40,6 +44,7 @@ type API struct {
 	*documentsHandler
 	*locationsHandler
 	*marksHandler
+	*posStaffHandler
 	*stockHandler
 	*usersHandler
 }
@@ -52,7 +57,9 @@ func Exchanger(pool *pgxpool.Pool, url string, log *slog.Logger) *exchange.Excha
 	return exchange.New(pool, egais.NewGovsim(url), docs, log)
 }
 
-func Register(e *echo.Echo, pool *pgxpool.Pool) error {
+// Register подключает API приложения (/api/v1) и кассовый API (/api/pos/v1). govsimURL — адрес
+// УТМ ЕГАИС и «Честного знака»: на стенде их заменяет имитатор.
+func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string) error {
 	sessions := auth.NewService(pool)
 	authorize, err := sessions.Middleware()
 	if err != nil {
@@ -60,13 +67,17 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 	}
 	cat := catalog.NewService(pool)
 	mk := marks.NewService(pool)
+	docs := documents.NewService(pool, cat, mk)
+	locs := locations.NewService(pool)
+	tills := pos.NewService(pool, cat, mk, docs, locs, egais.NewGovsim(govsimURL), crpt.NewGovsim(govsimURL))
 	api := &API{
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
 		catalogHandler:   catalog.NewHandler(cat),
-		documentsHandler: documents.NewHandler(documents.NewService(pool, cat, mk)),
-		locationsHandler: locations.NewHandler(locations.NewService(pool)),
+		documentsHandler: documents.NewHandler(docs),
+		locationsHandler: locations.NewHandler(locs),
 		marksHandler:     marks.NewHandler(mk),
+		posStaffHandler:  pos.NewStaffHandler(tills),
 		stockHandler:     stock.NewHandler(stock.NewService(pool, mk)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}
@@ -80,6 +91,12 @@ func Register(e *echo.Echo, pool *pgxpool.Pool) error {
 				"login":          {limit},
 				"changePassword": {limit},
 			},
+		})
+	posspec.RegisterHandlersWithOptions(e,
+		posspec.NewStrictHandler(pos.NewHandler(tills), []posspec.StrictMiddlewareFunc{tills.Middleware()}),
+		posspec.RegisterHandlersOptions{
+			BaseURL:              "/api/pos/v1",
+			OperationMiddlewares: map[string][]echo.MiddlewareFunc{"posLogin": {auth.RateLimit()}},
 		})
 	return nil
 }

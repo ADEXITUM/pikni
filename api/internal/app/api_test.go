@@ -36,7 +36,7 @@ func newBrowser(t *testing.T) (*browser, *dbtest.DB) {
 	t.Helper()
 	db := dbtest.New(t)
 	e := httpx.NewServer(slog.New(slog.DiscardHandler), "pikni-test")
-	if err := app.Register(e, db.App); err != nil {
+	if err := app.Register(e, db.App, "http://127.0.0.1:1"); err != nil {
 		t.Fatal(err)
 	}
 	return &browser{t: t, e: e, header: http.Header{}}, db

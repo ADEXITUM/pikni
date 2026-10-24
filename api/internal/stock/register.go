@@ -27,6 +27,11 @@ type Move struct {
 	External bool
 	// UnitCostE4 — цена внешнего прихода за единицу в десятитысячных рубля.
 	UnitCostE4 int64
+	// AtAverage — внешний приход по текущей средней, без её пересчёта: возврат покупателя.
+	AtAverage bool
+	// AllowDeficit — продажа через кассу сверх учёта (решение 0013): то, чего нет на остатке,
+	// записывается в недостачу к разбору, а не отклоняется.
+	AllowDeficit bool
 }
 
 // Doc — документ, которым проводятся движения.
@@ -151,21 +156,33 @@ func Apply(ctx context.Context, tx pgx.Tx, doc Doc, moves []Move) (map[uuid.UUID
 		switch {
 		case m.Qty < 0:
 			need := -m.Qty
-			if free := b.onHand - b.reserved; need > free {
-				return nil, &ShortageError{VariantID: m.VariantID, ZoneID: m.ZoneID, Available: max(free, 0), Need: need}
+			free := max(b.onHand-b.reserved, 0)
+			if need > free && !m.AllowDeficit {
+				return nil, &ShortageError{VariantID: m.VariantID, ZoneID: m.ZoneID, Available: free, Need: need}
 			}
 			unit = c.avgE4
-			b.onHand -= need
-			b.dOnHand -= need
+			take := min(need, free)
+			if take > 0 {
+				b.onHand -= take
+				b.dOnHand -= take
+				record(m, "on_hand", -take, -kopecks(unit, take))
+			}
+			if short := need - take; short > 0 {
+				b.deficit += short
+				b.dDeficit += short
+				record(m, "deficit", short, 0)
+			}
 			if m.External {
 				c.qtyTotal -= need
 				c.changed = true
 			}
-			record(m, "on_hand", -need, -kopecks(unit, need))
 
 		case m.Qty > 0:
 			unit = c.avgE4
-			if m.External {
+			if m.External && m.AtAverage {
+				c.qtyTotal += m.Qty
+				c.changed = true
+			} else if m.External {
 				unit = m.UnitCostE4
 				// Отрицательный запас в среднюю не входит: приход при нулевом или отрицательном
 				// запасе задаёт среднюю ценой прихода (п. 3.3 backend.md).

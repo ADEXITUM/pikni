@@ -52,3 +52,8 @@ left join locations l on l.id = coalesce(tz.location_id, fz.location_id, d.locat
 left join users u on u.id = m.user_id
 where m.mark_code = @code
 order by m.id;
+
+-- name: SetMarksStatus :exec
+update excise_marks
+set status = @status, zone_id = sqlc.narg(zone_id), last_document_id = @document_id, updated_at = now()
+where code = any(@codes::text[]);
