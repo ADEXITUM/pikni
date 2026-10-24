@@ -5,12 +5,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./assets/*": "./src/assets/*"
+    "./assets/*": "./src/assets/*",
+    "./ScanCamera.vue": "./src/ScanCamera.vue"
   },
   "peerDependencies": {
+    "vue": "^3.5.42",
     "vuetify": "^4.3.0"
   },
   "dependencies": {
+    "@mdi/js": "^7.4.47",
+    "@pikni/scanner": "^0.0.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0"
   }

@@ -15,7 +15,7 @@ import type { SoundEvent } from '@pikni/ui'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import ScanCamera from '@/components/ScanCamera.vue'
+import ScanCamera from '@pikni/ui/ScanCamera.vue'
 import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'
 import { documentKindLabels, markStatusLabels, zoneLabels } from '@/labels'

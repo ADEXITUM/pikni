@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   mdiAccountCircleOutline,
+  mdiCameraOffOutline,
+  mdiCameraOutline,
   mdiCash,
   mdiCreditCardOutline,
   mdiDeleteOutline,
@@ -9,14 +11,16 @@ import {
   mdiStoreClockOutline,
 } from '@mdi/js'
 import type { PosReceipt } from '@pikni/api/pos'
-import { listenWedge } from '@pikni/scanner'
+import { createDeduper, listenWedge } from '@pikni/scanner'
 import { createSounds } from '@pikni/ui'
+import ScanCamera from '@pikni/ui/ScanCamera.vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 
 import {
   addLine,
   canSellOffline,
   isDuplicateCode,
+  linePrice,
   needsAge,
   removeLine,
   rubles,
@@ -27,6 +31,7 @@ import {
   type Payment,
 } from '../cart'
 import { catalogIndex, findOffline } from '../catalog'
+import { local } from '../storage'
 import { check, closeShift, enqueue, logout, sendReceipt, till, TillError } from '../till'
 import ReceiptDialog from './ReceiptDialog.vue'
 import ReturnDialog from './ReturnDialog.vue'
@@ -51,8 +56,23 @@ const qtyValue = ref('1')
 const printed = ref<{ receipt: PosReceipt | null; offline: boolean; total: number } | null>(null)
 const returnOpen = ref(false)
 
+// Камера — для планшета и телефона; включённая остаётся включённой и после перезагрузки.
+const cameraOn = ref(local.get('pikni.pos.camera') === '1')
+const flash = ref<{ color: string; key: string }>()
+const fresh = createDeduper(2000)
+
+function setCamera(on: boolean) {
+  cameraOn.value = on
+  local.set('pikni.pos.camera', on ? '1' : null)
+}
+
+function onCamera(raw: string) {
+  if (fresh(raw)) void scan(raw)
+}
+
 function refuse(message: string) {
   refusal.value = message
+  flash.value = { color: 'error', key: crypto.randomUUID() }
   sounds.play('stop')
 }
 
@@ -69,6 +89,7 @@ function add(line: Line) {
       l.crptCode === line.crptCode,
   )
   refusal.value = ''
+  flash.value = { color: 'success', key: crypto.randomUUID() }
   sounds.play('accepted')
 }
 
@@ -84,7 +105,14 @@ async function scan(raw: string) {
         refuse(c.refusals[0]?.message ?? 'Товар не найден')
         return
       }
-      add({ item: c.item, qty: 1, markCode: c.markCode, crptCode: c.crptCode })
+      add({
+        item: c.item,
+        qty: 1,
+        markCode: c.markCode,
+        crptCode: c.crptCode,
+        price: c.price,
+        maxPrice: c.maxPrice,
+      })
       return
     } catch (e) {
       if (!(e instanceof TillError) || till.online) {
@@ -198,7 +226,7 @@ async function close() {
   }
 }
 
-// Горячие клавиши (КС-3): F2 — код вручную, F4 — количество, F8 — удалить строку,
+// Горячие клавиши (КС-7): F2 — код вручную, F4 — количество, F8 — удалить строку,
 // F9 — оплата картой, F10 — наличными, Esc — отменить чек.
 function onKey(e: KeyboardEvent) {
   if (ageOpen.value || qtyOpen.value || printed.value || returnOpen.value) return
@@ -294,6 +322,24 @@ const alcohol = computed(() => {
           class="mb-2"
           data-test="code"
           @keyup.enter="scan(code)"
+        >
+          <template #append-inner>
+            <v-btn
+              :icon="cameraOn ? mdiCameraOffOutline : mdiCameraOutline"
+              :title="cameraOn ? 'Выключить камеру' : 'Сканировать камерой'"
+              variant="text"
+              size="small"
+              data-test="camera-toggle"
+              @click="setCamera(!cameraOn)"
+            />
+          </template>
+        </v-text-field>
+        <ScanCamera
+          v-if="cameraOn"
+          class="mb-2"
+          :flash="flash"
+          @scan="(c) => onCamera(c.raw)"
+          @close="setCamera(false)"
         />
         <v-alert
           v-if="refusal"
@@ -329,12 +375,15 @@ const alcohol = computed(() => {
                   {{ l.item.label }}
                   <span v-if="l.markCode"> · марка …{{ l.markCode.slice(-6) }}</span>
                   <span v-if="l.crptCode"> · код ЧЗ</span>
+                  <span v-if="l.maxPrice">
+                    · МРЦ на пачке {{ rubles(Math.round(l.maxPrice * 100)) }}</span
+                  >
                 </div>
               </td>
-              <td class="text-end text-no-wrap">{{ rubles(Math.round(l.item.price * 100)) }}</td>
+              <td class="text-end text-no-wrap">{{ rubles(Math.round(linePrice(l) * 100)) }}</td>
               <td class="text-end">{{ l.qty }}</td>
               <td class="text-end text-no-wrap">
-                {{ rubles(Math.round(l.item.price * 100) * l.qty) }}
+                {{ rubles(Math.round(linePrice(l) * 100) * l.qty) }}
               </td>
             </tr>
             <tr v-if="lines.length === 0">
