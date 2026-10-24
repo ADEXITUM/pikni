@@ -28,6 +28,22 @@ type Gateway interface {
 	Send(ctx context.Context, fsrar, docType string, payload []byte) (replyID string, err error)
 	Inbox(ctx context.Context, fsrar string) ([]Inbound, error)
 	Ack(ctx context.Context, fsrar, id string) error
+	// Cheque — чек с марками: синхронно, как касса работает с УТМ при оплате.
+	Cheque(ctx context.Context, fsrar string, c Cheque) (ChequeReply, error)
+}
+
+// Cheque — чек продажи или возврата с марками.
+type Cheque struct {
+	Kind      string   `json:"kind"`
+	ReceiptID string   `json:"receipt_id"`
+	Marks     []string `json:"marks"`
+}
+
+// ChequeReply — ответ ЕГАИС: QR-ссылка или отказ с причиной.
+type ChequeReply struct {
+	Result string `json:"result"`
+	Reason string `json:"reason,omitempty"`
+	QRURL  string `json:"qr_url,omitempty"`
 }
 
 // Govsim — клиент УТМ имитатора (docs/design/govsim.md, п. 3).
@@ -39,6 +55,9 @@ type Govsim struct {
 func NewGovsim(base string) *Govsim {
 	return &Govsim{base: base, client: &http.Client{Timeout: 10 * time.Second}}
 }
+
+// chequeTimeout — касса ждёт ответа ЕГАИС на чек не дольше 3 с (п. 4.3 backend.md).
+const chequeTimeout = 3 * time.Second
 
 func (g *Govsim) do(ctx context.Context, method, path string, body []byte, out any) error {
 	req, err := http.NewRequestWithContext(ctx, method, g.base+path, bytes.NewReader(body))
@@ -85,4 +104,16 @@ func (g *Govsim) Inbox(ctx context.Context, fsrar string) ([]Inbound, error) {
 
 func (g *Govsim) Ack(ctx context.Context, fsrar, id string) error {
 	return g.do(ctx, http.MethodDelete, "/utm/"+url.PathEscape(fsrar)+"/opt/out/"+url.PathEscape(id), nil, nil)
+}
+
+func (g *Govsim) Cheque(ctx context.Context, fsrar string, c Cheque) (ChequeReply, error) {
+	ctx, cancel := context.WithTimeout(ctx, chequeTimeout)
+	defer cancel()
+	body, err := json.Marshal(c)
+	if err != nil {
+		return ChequeReply{}, err
+	}
+	var out ChequeReply
+	err = g.do(ctx, http.MethodPost, "/utm/"+url.PathEscape(fsrar)+"/cheque", body, &out)
+	return out, err
 }

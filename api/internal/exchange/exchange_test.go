@@ -73,6 +73,10 @@ func (f *fakeUTM) Ack(_ context.Context, fsrar, id string) error {
 	return nil
 }
 
+func (f *fakeUTM) Cheque(context.Context, string, egais.Cheque) (egais.ChequeReply, error) {
+	return egais.ChequeReply{Result: "accepted"}, nil
+}
+
 func (f *fakeUTM) put(fsrar, kind string, v any) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()

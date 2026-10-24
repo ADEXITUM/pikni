@@ -30,6 +30,9 @@ export default defineConfig({
     host: https || undefined,
     proxy: {
       '/api': process.env.PIKNI_API_URL ?? 'http://localhost:8080',
+      // Учебная касса (apps/pos) — на том же адресе, что и основное приложение: ссылка из QR-кода
+      // регистрации кассы открывает её без настройки.
+      '^/pos(/|$)': { target: process.env.PIKNI_POS_URL ?? 'http://localhost:5174', ws: true },
     },
   },
 })

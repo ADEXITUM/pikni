@@ -70,8 +70,9 @@ func run(ctx context.Context, log *slog.Logger, cmd string, args []string) error
 			return err
 		}
 		srv := &http.Server{
-			Addr:              env("GOVSIM_ADDR", "localhost:8090"),
-			Handler:           web.New(sim.New(pool), log, env("GOVSIM_ADMIN_PASSWORD", "govsim")).Handler(),
+			Addr: env("GOVSIM_ADDR", "localhost:8090"),
+			Handler: web.New(sim.New(pool), log, env("GOVSIM_ADMIN_PASSWORD", "govsim"),
+				env("GOVSIM_PUBLIC_URL", "http://localhost:8090")).Handler(),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
 		go func() {

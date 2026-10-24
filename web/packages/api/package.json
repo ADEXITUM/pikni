@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./pos": "./src/pos.ts"
   },
   "scripts": {
-    "gen": "openapi-typescript ../../../openapi/pikni.yaml -o src/pikni.gen.ts"
+    "gen": "openapi-typescript ../../../openapi/pikni.yaml -o src/pikni.gen.ts && openapi-typescript ../../../openapi/pos.yaml -o src/pos.gen.ts"
   },
   "dependencies": {
     "openapi-fetch": "^0.17.0"

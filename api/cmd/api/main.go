@@ -78,7 +78,7 @@ func run() error {
 	httpx.RegisterHealth(e, version)
 	httpx.RegisterReady(e, log, map[string]httpx.Check{"database": pool.Ping})
 
-	if err := app.Register(e, pool); err != nil {
+	if err := app.Register(e, pool, cfg.EgaisURL); err != nil {
 		return err
 	}
 	if cfg.EgaisURL != "" {

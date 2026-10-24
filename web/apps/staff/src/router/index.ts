@@ -122,6 +122,12 @@ const router = createRouter({
       meta: { title: 'Сотрудники', permission: 'users.manage' },
     },
     {
+      path: '/pos-devices',
+      name: 'pos-devices',
+      component: () => import('@/pages/PosDevicesPage.vue'),
+      meta: { title: 'Кассы', permission: 'users.manage' },
+    },
+    {
       path: '/audit',
       name: 'audit',
       component: () => import('@/pages/AuditPage.vue'),

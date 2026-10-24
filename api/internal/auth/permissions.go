@@ -164,6 +164,18 @@ func AllowedLocations(ctx context.Context, p apispec.Permission) ([]uuid.UUID, e
 	return nil, ErrForbidden
 }
 
+// RoleCan — есть ли у роли право в точке. Нужна там, где пользователь входит не через сессию
+// основного приложения, а, например, по PIN на кассе.
+func RoleCan(role string, p apispec.Permission, location uuid.UUID, userLocations []uuid.UUID) bool {
+	switch scopeOf(role, p) {
+	case scopeAll:
+		return true
+	case scopeOwn:
+		return slices.Contains(userLocations, location)
+	}
+	return false
+}
+
 // CheckLocation проверяет точку, которую прислал клиент. Выбор точки в интерфейсе —
 // только подсказка, поэтому её проверяет каждый метод, принимающий точку.
 func CheckLocation(ctx context.Context, p apispec.Permission, location uuid.UUID) error {

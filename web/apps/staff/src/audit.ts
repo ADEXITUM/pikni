@@ -24,6 +24,9 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'user.blocked': 'Блокировка сотрудника',
   'user.unblocked': 'Разблокировка сотрудника',
   'user.password_reset': 'Сброс пароля',
+  'user.pin_set': 'PIN для кассы',
+  'pos_device.created': 'Регистрация кассы',
+  'pos_device.revoked': 'Отключение кассы',
   'location.created': 'Создание точки',
   'location.updated': 'Изменение точки',
   'sale_rule.created': 'Новая редакция правила продажи',
@@ -54,6 +57,7 @@ export const auditActionColors: Partial<Record<AuditAction, string>> = {
   'auth.login_failed': 'error',
   'user.blocked': 'error',
   'user.created': 'success',
+  'pos_device.revoked': 'error',
   'location.created': 'success',
   'product.created': 'success',
 }
@@ -137,6 +141,7 @@ export function auditObject(e: AuditEntry): string {
   const login = typeof e.data.login === 'string' ? e.data.login : undefined
   if (e.entityType === 'user') return login ?? e.entityId ?? ''
   if (e.entityType === 'session') return 'сеанс'
+  if (e.entityType === 'pos_device') return `касса «${String(e.data.name)}»`
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   // Записи до решения 0031 хранят артикул позиции, новые — только наименование.
   if (e.entityType === 'product')

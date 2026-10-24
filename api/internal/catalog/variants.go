@@ -233,23 +233,27 @@ func variantWriteError(err error) error {
 	return fmt.Errorf("write variant: %w", err)
 }
 
-// variantLabel — подпись варианта для журнала: «0,5 л, стекло, подарочная упаковка», «70 г».
 func variantLabel(v store.Variant) string {
+	return PackLabel(v.VolumeMl, v.NetWeightG, v.Container, v.GiftPack)
+}
+
+// PackLabel — подпись фасовки: «0,5 л, стекло, подарочная упаковка», «70 г».
+func PackLabel(volumeMl, netWeightG *int32, container *string, giftPack bool) string {
 	var parts []string
 	decimal := func(n float64) string { return strings.Replace(strconv.FormatFloat(n, 'f', -1, 64), ".", ",", 1) }
-	if v.VolumeMl != nil {
-		parts = append(parts, decimal(float64(*v.VolumeMl)/1000)+" л")
+	if volumeMl != nil {
+		parts = append(parts, decimal(float64(*volumeMl)/1000)+" л")
 	}
 	switch {
-	case v.NetWeightG != nil && *v.NetWeightG >= 1000:
-		parts = append(parts, decimal(float64(*v.NetWeightG)/1000)+" кг")
-	case v.NetWeightG != nil:
-		parts = append(parts, strconv.Itoa(int(*v.NetWeightG))+" г")
+	case netWeightG != nil && *netWeightG >= 1000:
+		parts = append(parts, decimal(float64(*netWeightG)/1000)+" кг")
+	case netWeightG != nil:
+		parts = append(parts, strconv.Itoa(int(*netWeightG))+" г")
 	}
-	if v.Container != nil {
-		parts = append(parts, containerNames[*v.Container])
+	if container != nil {
+		parts = append(parts, containerNames[*container])
 	}
-	if v.GiftPack {
+	if giftPack {
 		parts = append(parts, "подарочная упаковка")
 	}
 	if len(parts) == 0 {

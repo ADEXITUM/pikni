@@ -10,7 +10,8 @@
     "gen": "npm run gen -w @pikni/api",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test:unit --workspaces --if-present -- --run"
+    "test": "npm run test:unit --workspaces --if-present -- --run",
+    "dev:pos": "npm run dev -w @pikni/pos"
   },
   "allowScripts": {
     "vue-demi": false

@@ -9,6 +9,8 @@ const (
 	Ticket     = "Ticket"
 	QueryRests = "QueryRests"
 	ReplyRests = "ReplyRests"
+	// ActWriteOffShop — списание из торгового зала, для пива — с причиной «Реализация».
+	ActWriteOffShop = "ActWriteOffShop"
 )
 
 // TTN — товарно-транспортная накладная от поставщика.

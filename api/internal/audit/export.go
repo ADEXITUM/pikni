@@ -29,6 +29,9 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionUserBlocked:         "Блокировка сотрудника",
 	apispec.AuditActionUserUnblocked:       "Разблокировка сотрудника",
 	apispec.AuditActionUserPasswordReset:   "Сброс пароля",
+	apispec.AuditActionUserPinSet:          "PIN для кассы",
+	apispec.AuditActionPosDeviceCreated:    "Регистрация кассы",
+	apispec.AuditActionPosDeviceRevoked:    "Отключение кассы",
 	apispec.AuditActionLocationCreated:     "Создание точки",
 	apispec.AuditActionLocationUpdated:     "Изменение точки",
 	apispec.AuditActionSaleRuleCreated:     "Новая редакция правила продажи",
@@ -188,6 +191,8 @@ func object(r store.ListEntriesRow) string {
 		return "сотрудник " + deref(r.EntityID)
 	case EntitySession:
 		return "сеанс"
+	case EntityPosDevice:
+		return "касса «" + d.Name + "»"
 	case EntityProduct:
 		return "позиция «" + d.Name + "»"
 	case EntityVariant:

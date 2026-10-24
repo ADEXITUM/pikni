@@ -1,0 +1,8 @@
+{{template "head" .}}
+<h1>{{if .Return}}Возврат зафиксирован в ЕГАИС{{else}}Продажа зафиксирована в ЕГАИС{{end}}</h1>
+<p class="lead">Учебный имитатор. Точка <span class="code">{{.FSRAR}}</span>, {{.At.Format "02.01.2006 15:04:05"}}.</p>
+<table>
+  <tr><th>Марки</th></tr>
+  {{range .Marks}}<tr><td class="code"><a href="/ui/marks?code={{.}}">{{.}}</a></td></tr>{{end}}
+</table>
+{{template "foot"}}

@@ -3,6 +3,7 @@ import {
   mdiBarcodeScan,
   mdiBookshelf,
   mdiBottleWineOutline,
+  mdiCashRegister,
   mdiClockAlertOutline,
   mdiFileDocumentMultipleOutline,
   mdiFileTreeOutline,
@@ -24,5 +25,6 @@ export const navItems: { title: string; icon: string; route: string; forEditors?
   { title: 'Категории', icon: mdiFileTreeOutline, route: 'categories', forEditors: true },
   { title: 'Справочники', icon: mdiBookshelf, route: 'refs', forEditors: true },
   { title: 'Сотрудники', icon: mdiAccountGroupOutline, route: 'users' },
+  { title: 'Кассы', icon: mdiCashRegister, route: 'pos-devices' },
   { title: 'Журнал действий', icon: mdiHistory, route: 'audit' },
 ]

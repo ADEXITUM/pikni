@@ -16,7 +16,7 @@ import (
 // УТМ отвечает 503, когда УТМ точки «выключен».
 func TestPagesAndProtocol(t *testing.T) {
 	s := simtest.New(t)
-	srv := httptest.NewServer(web.New(s, slog.New(slog.DiscardHandler), "secret").Handler())
+	srv := httptest.NewServer(web.New(s, slog.New(slog.DiscardHandler), "secret", "http://sim").Handler())
 	defer srv.Close()
 
 	get := func(path string, auth bool) (int, string) {

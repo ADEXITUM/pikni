@@ -26,3 +26,4 @@ export {
 } from './camera'
 export { readerOptions, toScanFormat, type DecodedCode, type Decoder } from './decode'
 export { frameRect, videoRegion, type FrameShape, type Rect, type Size } from './frame'
+export { qrSvg } from './qr'

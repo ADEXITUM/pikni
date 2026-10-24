@@ -153,3 +153,67 @@ func MoveWithin(ctx context.Context, tx pgx.Tx, ev Event, from, toLocation, to u
 		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InStock, ToZoneID: &to,
 	})
 }
+
+// Sell отмечает марки проданными: каждая должна числиться на остатке в точке location.
+// Возвращает зону, где стояла каждая марка, — оттуда списывается остаток.
+func Sell(ctx context.Context, tx pgx.Tx, ev Event, location uuid.UUID, codes []string) (map[string]uuid.UUID, error) {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return nil, err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	zones := make(map[string]uuid.UUID, len(codes))
+	statuses := make([]string, len(codes))
+	fromZones := make([]uuid.UUID, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		if !ok || r.Status != InStock || r.LocationID != location || r.ZoneID == nil {
+			st := ""
+			if ok {
+				st = r.Status
+			}
+			return nil, &MisplacedError{Code: c, Status: st}
+		}
+		zones[c] = *r.ZoneID
+		statuses[i], fromZones[i] = r.Status, *r.ZoneID
+	}
+	if err := q.SetMarksStatus(ctx, store.SetMarksStatusParams{Codes: codes, Status: Sold, DocumentID: &ev.DocumentID}); err != nil {
+		return nil, err
+	}
+	return zones, q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: fromZones,
+		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: Sold,
+	})
+}
+
+// Unsell возвращает проданные марки на остаток в зону zone — возврат покупателя.
+func Unsell(ctx context.Context, tx pgx.Tx, ev Event, location, zone uuid.UUID, codes []string) error {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	statuses := make([]string, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		if !ok || r.Status != Sold || r.LocationID != location {
+			return &MisplacedError{Code: c, Status: r.Status}
+		}
+		statuses[i] = r.Status
+	}
+	if err := q.SetMarksStatus(ctx, store.SetMarksStatusParams{Codes: codes, Status: InStock, ZoneID: &zone, DocumentID: &ev.DocumentID}); err != nil {
+		return err
+	}
+	return q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: make([]uuid.UUID, len(codes)),
+		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InStock, ToZoneID: &zone,
+	})
+}

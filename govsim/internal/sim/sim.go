@@ -233,6 +233,9 @@ func (s *Sim) process(ctx context.Context, tx pgx.Tx, fsrar, docType string, doc
 		return transfer(ctx, tx, fsrar, payload, 2, 1)
 	case "QueryRests":
 		return queryRests(ctx, tx, fsrar, doc)
+	case "ActWriteOffShop":
+		// Списание из торгового зала — в том числе проданного пива с причиной «Реализация».
+		return writeOff(ctx, tx, fsrar, payload, 2)
 	}
 	return reject("Тип документа %s имитатор не поддерживает", docType)
 }
@@ -420,6 +423,26 @@ func transfer(ctx context.Context, tx pgx.Tx, fsrar string, payload []byte, from
 	return nil
 }
 
+func writeOff(ctx context.Context, tx pgx.Tx, fsrar string, payload []byte, register int) error {
+	var doc struct {
+		Items []Item `json:"items"`
+	}
+	if err := json.Unmarshal(payload, &doc); err != nil {
+		return reject("Документ не разобран: %v", err)
+	}
+	for _, it := range doc.Items {
+		tag, err := tx.Exec(ctx, `update rests set qty = qty - $4 where fsrar_id = $1 and alcocode = $2 and register = $3 and qty >= $4`,
+			fsrar, it.Alcocode, register, it.Qty)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return reject("На регистре %d недостаточно продукции %s для списания %d шт.", register, it.Alcocode, it.Qty)
+		}
+	}
+	return nil
+}
+
 // Rest — остаток продукции без марок на регистре.
 type Rest struct {
 	Alcocode string `json:"alcocode"`
@@ -467,4 +490,107 @@ func queryRests(ctx context.Context, tx pgx.Tx, fsrar string, doc uuid.UUID) err
 // Rests — остатки участника для веб-интерфейса.
 func (s *Sim) Rests(ctx context.Context, fsrar string) ([]Rest, []BalanceMark, error) {
 	return rests(ctx, s.pool, fsrar)
+}
+
+// ChequeRequest — чек с марками от кассы точки.
+type ChequeRequest struct {
+	Kind      string   `json:"kind"` // sale или return
+	ReceiptID string   `json:"receipt_id"`
+	Marks     []string `json:"marks"`
+}
+
+// ChequeReply — ответ ЕГАИС на чек: QR-ссылка или отказ с причиной.
+type ChequeReply struct {
+	Result string `json:"result"`
+	Reason string `json:"reason,omitempty"` // mark.unknown, mark.not_on_balance, mark.already_sold, mark.blocked
+	QRURL  string `json:"qr_url,omitempty"`
+}
+
+// Cheque проверяет марки чека и продаёт их (или возвращает на баланс при чеке возврата).
+// Отвечает сразу, как настоящий УТМ кассе. Повтор с тем же receipt_id возвращает прежний ответ.
+func (s *Sim) Cheque(ctx context.Context, fsrar, publicURL string, req ChequeRequest) (ChequeReply, error) {
+	if _, err := s.utm(ctx, fsrar); err != nil {
+		return ChequeReply{}, err
+	}
+	var reply ChequeReply
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var reason, qr *string
+		err := tx.QueryRow(ctx, `select result, reason, qr_url from cheques where receipt_id = $1`, req.ReceiptID).
+			Scan(&reply.Result, &reason, &qr)
+		if err == nil {
+			if reason != nil {
+				reply.Reason = *reason
+			}
+			if qr != nil {
+				reply.QRURL = *qr
+			}
+			return nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		reply = ChequeReply{Result: "accepted"}
+		for _, code := range req.Marks {
+			var owner, status string
+			var blocked bool
+			err := tx.QueryRow(ctx, `select owner_fsrar, status, blocked from marks where code = $1 for update`, code).
+				Scan(&owner, &status, &blocked)
+			switch {
+			case errors.Is(err, pgx.ErrNoRows):
+				reply = ChequeReply{Result: "rejected", Reason: "mark.unknown"}
+			case err != nil:
+				return err
+			case blocked:
+				reply = ChequeReply{Result: "rejected", Reason: "mark.blocked"}
+			case req.Kind == "return" && (owner != fsrar || status != "sold"):
+				reply = ChequeReply{Result: "rejected", Reason: "mark.not_sold_here"}
+			case req.Kind != "return" && status == "sold":
+				reply = ChequeReply{Result: "rejected", Reason: "mark.already_sold"}
+			case req.Kind != "return" && (owner != fsrar || status != "on_balance"):
+				reply = ChequeReply{Result: "rejected", Reason: "mark.not_on_balance"}
+			}
+			if reply.Result == "rejected" {
+				break
+			}
+		}
+		if reply.Result == "accepted" {
+			status, event := "sold", "Продана чеком "+req.ReceiptID
+			if req.Kind == "return" {
+				status, event = "on_balance", "Возвращена покупателем, чек "+req.ReceiptID
+			}
+			if _, err := tx.Exec(ctx, `update marks set status = $2, updated_at = now() where code = any($1)`, req.Marks, status); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `insert into mark_events (code, event, fsrar_id) select unnest($1::text[]), $2, $3`,
+				req.Marks, event, fsrar); err != nil {
+				return err
+			}
+			reply.QRURL = publicURL + "/check/" + req.ReceiptID
+		}
+		var rsn, link *string
+		if reply.Reason != "" {
+			rsn = &reply.Reason
+		}
+		if reply.QRURL != "" {
+			link = &reply.QRURL
+		}
+		kind := req.Kind
+		if kind != "return" {
+			kind = "sale"
+		}
+		_, err = tx.Exec(ctx, `insert into cheques (receipt_id, fsrar_id, kind, marks, result, reason, qr_url)
+			values ($1, $2, $3, $4, $5, $6, $7)`, req.ReceiptID, fsrar, kind, req.Marks, reply.Result, rsn, link)
+		return err
+	})
+	return reply, err
+}
+
+// ChequeInfo — страница «чек проверен в ЕГАИС» по QR-коду.
+func (s *Sim) ChequeInfo(ctx context.Context, receipt string) (fsrar, kind string, marks []string, at time.Time, err error) {
+	err = s.pool.QueryRow(ctx, `select fsrar_id, kind, marks, created_at from cheques where receipt_id = $1 and result = 'accepted'`,
+		receipt).Scan(&fsrar, &kind, &marks, &at)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = ErrNotFound
+	}
+	return
 }

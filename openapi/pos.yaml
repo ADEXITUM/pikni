@@ -1,0 +1,535 @@
+openapi: 3.0.3
+info:
+  title: Кассовый API «Пикни»
+  version: 0.1.0
+  description: >
+    Протокол обмена между сервером учёта и кассовой программой (КС-6). Учебная касса «Пикни»
+    работает только через него, поэтому так же может подключиться любая другая касса.
+    Касса аутентифицируется ключом, выданным при регистрации (заголовок Authorization: Device <ключ>),
+    кассир — по логину и PIN (заголовок X-Cashier-Session). Чек — нефискальный учебный документ.
+servers:
+  - url: /api/pos/v1
+
+paths:
+  /session:
+    post:
+      operationId: posLogin
+      summary: Вход кассира по логину и PIN
+      security: [{ deviceKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PosLogin"
+      responses:
+        "200":
+          description: Сессия кассира и данные кассы
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosSession"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: posLogout
+      summary: Выход кассира
+      responses:
+        "204":
+          description: Сессия завершена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /catalog:
+    get:
+      operationId: posCatalog
+      summary: Каталог для кассы
+      description: Варианты, штрихкоды, цены, МРЦ и признаки учёта. Касса хранит его для автономной работы.
+      responses:
+        "200":
+          description: Каталог
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosCatalog"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /time:
+    get:
+      operationId: posTime
+      summary: Время сервера и окна продажи алкоголя на сегодня
+      responses:
+        "200":
+          description: Время и окна продажи
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosTime"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /shift:
+    get:
+      operationId: posCurrentShift
+      summary: Открытая смена кассы
+      responses:
+        "200":
+          description: Смена; если смены нет — open = false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosShiftState"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: posOpenShift
+      summary: Открыть смену
+      responses:
+        "201":
+          description: Смена открыта
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosShift"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /shift/close:
+    post:
+      operationId: posCloseShift
+      summary: Закрыть смену
+      description: >
+        Документ «Продажа» проводится; для пива и другой продукции без марок в ЕГАИС уходит акт
+        списания из торгового зала «Реализация». Ответ — сводный отчёт смены.
+      responses:
+        "200":
+          description: Отчёт смены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosShift"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /checks:
+    post:
+      operationId: posCheck
+      summary: Проверить позицию перед добавлением в чек
+      description: >
+        Разбирает скан и проверяет всё, что требует КС-2: время продажи, марку, код «Честного знака»,
+        цену. Отказ не ошибка запроса — ответ 200 со списком причин.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PosCheckRequest"
+      responses:
+        "200":
+          description: Позиция или причины отказа
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosCheck"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /receipts:
+    get:
+      operationId: posFindReceipts
+      summary: Найти чек продажи для возврата
+      parameters:
+        - name: number
+          in: query
+          schema:
+            type: integer
+        - name: mark
+          in: query
+          description: Скан марки или кода «Честного знака» из чека
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Чеки точки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosReceiptList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: posCreateReceipt
+      summary: Чек продажи или возврата
+      description: >
+        Идентификатор задаёт касса: повторная отправка возвращает прежний чек. Сервер повторяет
+        все проверки; чек с марками синхронно уходит в ЕГАИС, ответ содержит QR-код.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PosNewReceipt"
+      responses:
+        "201":
+          description: Чек принят
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosReceipt"
+        "422":
+          description: Продажа невозможна
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosRefusal"
+        default:
+          $ref: "#/components/responses/Problem"
+
+components:
+  securitySchemes:
+    deviceKey:
+      type: apiKey
+      in: header
+      name: Authorization
+    cashierSession:
+      type: apiKey
+      in: header
+      name: X-Cashier-Session
+
+  responses:
+    Problem:
+      description: Ошибка (RFC 9457)
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+
+    PosLogin:
+      type: object
+      required: [login, pin]
+      properties:
+        login:
+          type: string
+        pin:
+          type: string
+
+    PosSession:
+      type: object
+      required: [token, cashierName, deviceName, locationName, locationCode, timezone, expiresAt]
+      properties:
+        token:
+          type: string
+        cashierName:
+          type: string
+        deviceName:
+          type: string
+        locationName:
+          type: string
+        locationCode:
+          type: string
+        timezone:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    Accounting:
+      type: string
+      enum: [marked, quantity]
+      description: Учёт в ЕГАИС — по маркам или количеством
+
+    PosItem:
+      type: object
+      required: [variantId, article, name, label, barcodes, alcohol, crptMarked, price]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        label:
+          type: string
+          description: Фасовка — «0,5 л, стекло»
+        barcodes:
+          type: array
+          items:
+            type: string
+        gtin:
+          type: string
+        alcocode:
+          type: string
+        accounting:
+          $ref: "#/components/schemas/Accounting"
+        alcohol:
+          type: boolean
+        tobacco:
+          type: boolean
+        abv:
+          type: number
+          format: double
+        crptMarked:
+          type: boolean
+        price:
+          type: number
+          format: double
+          description: Розничная цена, ₽; 0 — цена не назначена
+        minPrice:
+          type: number
+          format: double
+          description: Минимальная розничная цена Минфина, ₽
+
+    PosCatalog:
+      type: object
+      required: [version, items]
+      properties:
+        version:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PosItem"
+
+    SaleWindow:
+      type: object
+      required: [allowed]
+      properties:
+        allowed:
+          type: boolean
+        from:
+          type: string
+          description: Начало продажи по местному времени — «10:00»
+        to:
+          type: string
+        ban:
+          type: string
+          description: День полного запрета — «День знаний»
+
+    PosTime:
+      type: object
+      required: [serverTime, localTime, timezone, strong, weak]
+      properties:
+        serverTime:
+          type: string
+          format: date-time
+        localTime:
+          type: string
+          description: Местное время точки — «2026-10-24T20:15:00»
+        timezone:
+          type: string
+        strong:
+          $ref: "#/components/schemas/SaleWindow"
+        weak:
+          $ref: "#/components/schemas/SaleWindow"
+
+    PosShift:
+      type: object
+      required: [id, number, openedAt, receipts, returns, cash, card]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        openedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+        receipts:
+          type: integer
+          description: Чеков продажи
+        returns:
+          type: integer
+          description: Чеков возврата
+        cash:
+          type: number
+          format: double
+          description: Выручка наличными за вычетом возвратов, ₽
+        card:
+          type: number
+          format: double
+        egaisAct:
+          type: boolean
+          description: В ЕГАИС отправлен акт списания проданного пива
+
+    PosShiftState:
+      type: object
+      required: [open]
+      properties:
+        open:
+          type: boolean
+        shift:
+          $ref: "#/components/schemas/PosShift"
+
+    PosCheckRequest:
+      type: object
+      required: [raw]
+      properties:
+        raw:
+          type: string
+          description: Скан или код, набранный вручную
+
+    PosRefusal:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: >
+            sale.alcohol_time — продажа алкоголя запрещена сейчас; sale.age — не подтверждён возраст;
+            mark.required — нужна марка; mark.not_here — марка не числится в точке; mark.sold — уже продана;
+            mark.unknown — марки нет в учёте; crpt.required — нужен код «Честного знака»;
+            crpt.unknown, crpt.sold, crpt.blocked, crpt.expired, crpt.not_owner — отказ разрешительного режима;
+            price.missing, price.below_min, price.above_max — цена; utm.unavailable — УТМ недоступен;
+            item.unknown — товара нет в каталоге
+        message:
+          type: string
+          description: Что нельзя, почему и что делать — для кассира
+
+    PosCheck:
+      type: object
+      required: [refusals]
+      properties:
+        item:
+          $ref: "#/components/schemas/PosItem"
+        markCode:
+          type: string
+        crptCode:
+          type: string
+          description: GTIN и серийный номер кода «Честного знака»
+        refusals:
+          type: array
+          items:
+            $ref: "#/components/schemas/PosRefusal"
+
+    PosNewLine:
+      type: object
+      required: [variantId, qty, price]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        qty:
+          type: integer
+          minimum: 1
+        price:
+          type: number
+          format: double
+        markCode:
+          type: string
+        crptCode:
+          type: string
+
+    PosNewReceipt:
+      type: object
+      required: [id, kind, payment, ageConfirmed, createdOnDeviceAt, lines]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [sale, return]
+        returnOf:
+          type: string
+          format: uuid
+        payment:
+          type: string
+          enum: [cash, card]
+        ageConfirmed:
+          type: boolean
+        createdOnDeviceAt:
+          type: string
+          format: date-time
+        offline:
+          type: boolean
+          description: Чек пробит без связи и отправлен позже
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/PosNewLine"
+
+    PosReceiptLine:
+      type: object
+      required: [variantId, name, label, qty, price]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        label:
+          type: string
+        qty:
+          type: integer
+        price:
+          type: number
+          format: double
+        markCode:
+          type: string
+        crptCode:
+          type: string
+
+    PosReceipt:
+      type: object
+      required: [id, number, kind, shiftNumber, total, payment, createdAt, lines]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        kind:
+          type: string
+          enum: [sale, return]
+        shiftNumber:
+          type: integer
+        total:
+          type: number
+          format: double
+        payment:
+          type: string
+          enum: [cash, card]
+        egaisQr:
+          type: string
+          description: Ссылка из ответа ЕГАИС для QR-кода на чеке
+        createdAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PosReceiptLine"
+
+    PosReceiptList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PosReceipt"
+
+security:
+  - deviceKey: []
+    cashierSession: []

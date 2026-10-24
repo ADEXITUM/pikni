@@ -323,6 +323,93 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /users/{id}/pin:
+    put:
+      operationId: setUserPin
+      summary: Задать PIN для входа на кассе
+      description: 4–6 цифр. Кассир входит на кассе по логину и PIN; PIN хранится хешем, как пароль.
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinRequest"
+      responses:
+        "204":
+          description: PIN задан
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pos-devices:
+    get:
+      operationId: listPosDevices
+      summary: Кассы
+      tags: [users]
+      x-permission: users.manage
+      responses:
+        "200":
+          description: Зарегистрированные кассы всех точек
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PosDevice"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createPosDevice
+      summary: Зарегистрировать кассу
+      description: >
+        Касса привязывается к магазину. Ключ кассы показывается один раз — его вводят в кассовой
+        программе или сканируют QR-код. В базе хранится только хеш ключа.
+      tags: [users]
+      x-permission: users.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPosDevice"
+      responses:
+        "201":
+          description: Касса и её ключ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosDeviceKey"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pos-devices/{id}/revoke:
+    post:
+      operationId: revokePosDevice
+      summary: Отключить кассу
+      description: Ключ перестаёт действовать сразу; потерянную или заменённую кассу регистрируют заново.
+      tags: [users]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Касса отключена
+        default:
+          $ref: "#/components/responses/Problem"
+
   /audit/export:
     get:
       operationId: exportAuditLog
@@ -2386,6 +2473,9 @@ components:
         - user.blocked
         - user.unblocked
         - user.password_reset
+        - user.pin_set
+        - pos_device.created
+        - pos_device.revoked
         - location.created
         - location.updated
         - sale_rule.created
@@ -2593,6 +2683,66 @@ components:
       properties:
         temporaryPassword:
           type: string
+
+    PinRequest:
+      type: object
+      required: [pin]
+      properties:
+        pin:
+          type: string
+          pattern: "^[0-9]{4,6}$"
+
+    PosDevice:
+      type: object
+      required: [id, locationId, locationCode, locationName, name, keyPrefix, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        locationCode:
+          type: string
+        locationName:
+          type: string
+        name:
+          type: string
+          example: Касса 1
+        keyPrefix:
+          type: string
+          description: Начало ключа — чтобы отличить кассы, сам ключ не хранится
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+
+    NewPosDevice:
+      type: object
+      required: [locationId, name]
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+
+    PosDeviceKey:
+      type: object
+      required: [device, key]
+      properties:
+        device:
+          $ref: "#/components/schemas/PosDevice"
+        key:
+          type: string
+          description: Ключ кассы, показывается один раз
 
     LoginRequest:
       type: object

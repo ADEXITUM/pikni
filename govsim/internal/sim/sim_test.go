@@ -235,3 +235,50 @@ func TestCodesLifecycle(t *testing.T) {
 		t.Errorf("blocked code: %+v", v)
 	}
 }
+
+func TestChequeAndShopWriteOff(t *testing.T) {
+	t.Parallel()
+	s := New(t)
+	ctx := t.Context()
+	if _, err := s.CreateShipment(ctx, sim.ShipmentRequest{Supplier: Supplier, Recipient: Store,
+		Positions: []sim.Item{{Alcocode: Vodka, Qty: 2}, {Alcocode: Beer, Qty: 4}}}); err != nil {
+		t.Fatal(err)
+	}
+	_, ttn := waybill(t, s, Store)
+	marks := ttn.Positions[0].Marks
+	send(t, s, Store, "WayBillAct", sim.WayBillAct{TTNID: ttn.ID, Positions: []sim.ActPosition{
+		{Identity: 1, QtyAccepted: 2, Marks: marks}, {Identity: 2, QtyAccepted: 4},
+	}})
+
+	sale := sim.ChequeRequest{Kind: "sale", ReceiptID: "r1", Marks: marks[:1]}
+	if r, err := s.Cheque(ctx, Store, "http://sim", sale); err != nil || r.Result != "accepted" || r.QRURL != "http://sim/check/r1" {
+		t.Fatalf("cheque: %+v %v", r, err)
+	}
+	// Повтор того же чека — прежний ответ; другой чек с той же маркой — отказ.
+	if r, _ := s.Cheque(ctx, Store, "http://sim", sale); r.Result != "accepted" {
+		t.Errorf("repeated cheque: %+v", r)
+	}
+	if r, _ := s.Cheque(ctx, Store, "http://sim", sim.ChequeRequest{Kind: "sale", ReceiptID: "r2", Marks: marks[:1]}); r.Reason != "mark.already_sold" {
+		t.Errorf("second sale of the mark: %+v", r)
+	}
+	if r, _ := s.Cheque(ctx, Store2, "http://sim", sim.ChequeRequest{Kind: "sale", ReceiptID: "r3", Marks: marks[1:]}); r.Reason != "mark.not_on_balance" {
+		t.Errorf("mark of another point: %+v", r)
+	}
+	if r, _ := s.Cheque(ctx, Store, "http://sim", sim.ChequeRequest{Kind: "return", ReceiptID: "r4", Marks: marks[:1]}); r.Result != "accepted" {
+		t.Errorf("return: %+v", r)
+	}
+	if m, _ := s.Mark(ctx, marks[0]); m.Status != "on_balance" {
+		t.Errorf("returned mark: %+v", m)
+	}
+
+	type items struct {
+		Items []sim.Item `json:"items"`
+	}
+	send(t, s, Store, "TransferToShop", items{[]sim.Item{{Alcocode: Beer, Qty: 3}}})
+	if tk := ticket(t, s, Store, send(t, s, Store, "ActWriteOffShop", items{[]sim.Item{{Alcocode: Beer, Qty: 4}}})); tk.Result != "rejected" {
+		t.Errorf("write-off over register 2: %+v", tk)
+	}
+	if tk := ticket(t, s, Store, send(t, s, Store, "ActWriteOffShop", items{[]sim.Item{{Alcocode: Beer, Qty: 2}}})); tk.Result != "accepted" {
+		t.Errorf("write-off: %+v", tk)
+	}
+}
