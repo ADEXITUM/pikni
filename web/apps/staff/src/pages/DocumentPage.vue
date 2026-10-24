@@ -38,6 +38,7 @@ import {
   scanStatusLabels,
   zoneLabels,
 } from '@/labels'
+import { useLive } from '@/live'
 import { load, save } from '@/preferences'
 import { accountingLabels, formatPrice, variantLabel } from '@/products'
 import { useScanner } from '@/scanning'
@@ -46,6 +47,11 @@ const route = useRoute()
 const id = computed(() => String(route.params.id))
 const queryClient = useQueryClient()
 const key = computed(() => ['document', id.value])
+// Сканы коллег, квитанции ЕГАИС и проведение видны без перезагрузки (УВ-1).
+useLive(
+  () => [`doc:${id.value}`],
+  () => [key.value],
+)
 
 const { data: doc, error: loadError } = useQuery({
   queryKey: key,

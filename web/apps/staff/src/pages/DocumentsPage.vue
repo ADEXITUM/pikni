@@ -18,9 +18,14 @@ import {
   documentStatusLabels,
   zoneLabels,
 } from '@/labels'
+import { useLive } from '@/live'
 import { useLocationChoice } from '@/stock'
 
 const router = useRouter()
+
+// Новые документы и смена статусов в доступных точках появляются в журнале сами (УВ-1).
+const places = useLocationChoice('availability.view')
+useLive(() => places.options.value.map((l) => `location:${l.id}`), [['documents']])
 
 const kind = ref<DocumentKind | null>(null)
 const status = ref<DocumentStatus | null>(null)

@@ -16,6 +16,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/exchange"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
+	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/pos"
 	"github.com/ADEXITUM/pikni/api/internal/posspec"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
@@ -59,7 +60,7 @@ func Exchanger(pool *pgxpool.Pool, url string, log *slog.Logger) *exchange.Excha
 
 // Register подключает API приложения (/api/v1) и кассовый API (/api/pos/v1). govsimURL — адрес
 // УТМ ЕГАИС и «Честного знака»: на стенде их заменяет имитатор.
-func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string) error {
+func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.Hub) error {
 	sessions := auth.NewService(pool)
 	authorize, err := sessions.Middleware()
 	if err != nil {
@@ -92,6 +93,17 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string) error {
 				"changePassword": {limit},
 			},
 		})
+	// События реального времени: WebSocket вне контракта OpenAPI, вход — по cookie сеанса.
+	e.GET("/api/v1/ws", func(c *echo.Context) error {
+		cookie, err := c.Cookie(auth.CookieName)
+		if err != nil {
+			return echo.ErrUnauthorized
+		}
+		if _, err := sessions.Authenticate(c.Request().Context(), cookie.Value); err != nil {
+			return echo.ErrUnauthorized
+		}
+		return hub.Serve(c.Response(), c.Request())
+	})
 	posspec.RegisterHandlersWithOptions(e,
 		posspec.NewStrictHandler(pos.NewHandler(tills), []posspec.StrictMiddlewareFunc{tills.Middleware()}),
 		posspec.RegisterHandlersOptions{

@@ -5,10 +5,15 @@ import { useInfiniteQuery } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 
 import { zoneLabels } from '@/labels'
+import { useLive } from '@/live'
 import { formatPrice, variantLabel } from '@/products'
 import { useLocationChoice } from '@/stock'
 
 const location = useLocationChoice('availability.view')
+useLive(
+  () => (location.selectedId.value ? [`location:${location.selectedId.value}`] : []),
+  [['stock']],
+)
 const zone = ref<string | null>(null)
 const zones = computed(() => location.selected.value?.zones ?? [])
 watch(location.selectedId, () => (zone.value = null))
