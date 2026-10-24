@@ -1,7 +1,7 @@
 /**
  * Тема «Пикни» для Vuetify 4.
  *
- * Палитра «склад и накладная»: крафт-картон, штемпельные чернила, сургуч,
+ * Палитра «склад и накладная»: бланк накладной, штемпельные чернила, сургуч,
  * дерево ящика. Обоснование каждого цвета — в brandbook.md, раздел 6.
  * Контраст проверяется скриптом check-contrast.mjs (результат — contrast.md).
  *
@@ -16,14 +16,14 @@ import type { ThemeDefinition, VuetifyOptions } from 'vuetify'
 
 /** Сырые цвета бренда. В компонентах используются только роли темы, не эти значения. */
 export const brand = {
-  /** Крафт-картон: фон приложения, как упаковочная бумага и коробки на складе. */
-  kraft: '#F3EDE3',
-  /** Бумага накладной: карточки, таблицы, поля ввода. */
-  paper: '#FFFDF8',
-  /** Тёмный крафт: заливки при наведении, фон «своей точки» в матрице. */
-  kraft200: '#EAE1D2',
-  /** Сажа: основной текст. Тёплый почти чёрный, мягче чистого #000 на крафте. */
-  ink: '#221D17',
+  /** Бланк: фон приложения — холодная серая бумага, как копия накладной. */
+  blank: '#EEF1F5',
+  /** Лист: карточки, таблицы, поля ввода — белая бумага. */
+  paper: '#FFFFFF',
+  /** Серый бланк: заливки при наведении, фон «своей точки» в матрице. */
+  blank200: '#E2E7EE',
+  /** Чернила: основной текст. Сине-чёрный, мягче чистого #000. */
+  ink: '#1A2029',
   /** Штемпельная синь: основной цвет действий. Цвет печати на документе. */
   stamp: '#2D3A8C',
   /** Сургуч: ошибки, «стоп», отмена (как «красное сторно» в бухгалтерии). */
@@ -31,19 +31,19 @@ export const brand = {
   /** Дерево ящика: иллюстрации (веник, планшет, ноги персонажа), акцент «своей точки». */
   wood: '#E6BF88',
   woodDark: '#7A4A1F',
-  /** Ночная смена: фон тёмной темы. Тёплый, не синий, чтобы крафт не «умирал». */
-  night: '#14110D',
+  /** Ночная смена: фон тёмной темы, холодный тёмно-синий. */
+  night: '#0E1218',
 } as const
 
 export const pikniLight: ThemeDefinition = {
   dark: false,
   colors: {
-    background: brand.kraft,
+    background: brand.blank,
     surface: brand.paper,
     'surface-bright': '#FFFFFF',
-    'surface-light': brand.kraft200,
-    'surface-variant': '#3A332A',
-    'on-surface-variant': brand.kraft,
+    'surface-light': brand.blank200,
+    'surface-variant': '#2A313C',
+    'on-surface-variant': brand.blank,
     'on-background': brand.ink,
     'on-surface': brand.ink,
 
@@ -63,7 +63,7 @@ export const pikniLight: ThemeDefinition = {
     'on-info': '#FFFFFF',
 
     // Статусы документов (п. 4.4.5 ТЗ: единые цвет + значок + слово)
-    'status-draft': '#5B5246',
+    'status-draft': '#4B5563',
     'on-status-draft': '#FFFFFF',
     'status-progress': brand.stamp,
     'on-status-progress': '#FFFFFF',
@@ -89,7 +89,7 @@ export const pikniLight: ThemeDefinition = {
     'on-wood': brand.ink,
   },
   variables: {
-    'border-color': '#4A3B26',
+    'border-color': '#2E3A4A',
     'border-opacity': 0.2,
     'high-emphasis-opacity': 0.92,
     'medium-emphasis-opacity': 0.74,
@@ -99,11 +99,11 @@ export const pikniLight: ThemeDefinition = {
     'selected-opacity': 0.1,
     'activated-opacity': 0.12,
     'pressed-opacity': 0.16,
-    'theme-code': brand.kraft200,
+    'theme-code': brand.blank200,
     'theme-on-code': brand.ink,
-    'theme-kbd': brand.kraft200,
+    'theme-kbd': brand.blank200,
     'theme-on-kbd': brand.ink,
-    'shadow-color': '#2B2116',
+    'shadow-color': '#1A2029',
   },
 }
 
@@ -111,13 +111,13 @@ export const pikniDark: ThemeDefinition = {
   dark: true,
   colors: {
     background: brand.night,
-    surface: '#1D1914',
-    'surface-bright': '#3A332A',
-    'surface-light': '#29231C',
-    'surface-variant': '#E9E1D3',
-    'on-surface-variant': '#1D1914',
-    'on-background': '#F1E9DC',
-    'on-surface': '#F1E9DC',
+    surface: '#161B23',
+    'surface-bright': '#2A313C',
+    'surface-light': '#1F2630',
+    'surface-variant': '#E4E8EE',
+    'on-surface-variant': '#161B23',
+    'on-background': '#E8ECF1',
+    'on-surface': '#E8ECF1',
 
     primary: '#AEB8FF',
     'primary-darken-1': '#8F9BF0',
@@ -134,8 +134,8 @@ export const pikniDark: ThemeDefinition = {
     info: '#7DD1DD',
     'on-info': '#05292F',
 
-    'status-draft': '#CDC3B2',
-    'on-status-draft': '#1D1914',
+    'status-draft': '#C3CAD4',
+    'on-status-draft': '#161B23',
     'status-progress': '#AEB8FF',
     'on-status-progress': '#12174A',
     'status-pending': '#F1C462',
@@ -158,7 +158,7 @@ export const pikniDark: ThemeDefinition = {
     'on-wood': brand.ink,
   },
   variables: {
-    'border-color': '#F1E9DC',
+    'border-color': '#E8ECF1',
     'border-opacity': 0.18,
     'high-emphasis-opacity': 0.96,
     'medium-emphasis-opacity': 0.76,
@@ -168,10 +168,10 @@ export const pikniDark: ThemeDefinition = {
     'selected-opacity': 0.12,
     'activated-opacity': 0.16,
     'pressed-opacity': 0.2,
-    'theme-code': '#29231C',
-    'theme-on-code': '#F1E9DC',
-    'theme-kbd': '#29231C',
-    'theme-on-kbd': '#F1E9DC',
+    'theme-code': '#1F2630',
+    'theme-on-code': '#E8ECF1',
+    'theme-kbd': '#1F2630',
+    'theme-on-kbd': '#E8ECF1',
     'shadow-color': '#000000',
   },
 }
