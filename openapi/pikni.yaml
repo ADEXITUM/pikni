@@ -1702,11 +1702,31 @@ paths:
     get:
       operationId: listAssortment
       summary: Ассортиментная матрица точки
+      description: По наименованию и объёму. Следующая страница — параметр after из nextAfter.
       tags: [catalog]
       x-permission: refs.view
+      parameters:
+        - name: q
+          in: query
+          description: Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки
+          schema:
+            type: string
+        - name: after
+          in: query
+          description: Вариант, после которого начинается страница
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
       responses:
         "200":
-          description: Варианты матрицы по наименованию
+          description: Страница матрицы
           content:
             application/json:
               schema:
@@ -3051,9 +3071,10 @@ components:
 
     ScanKind:
       type: string
-      enum: [barcode, alcocode, egais_mark, egais_mark_new, crpt_code]
+      enum: [barcode, alcocode, egais_mark, egais_mark_new, crpt_code, article]
       description: >
-        Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод,
+        Как сервер понял поисковую строку: article — артикул позиции (ЧК-000001),
+        barcode — штрихкод или GTIN, alcocode — алкокод,
         egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод),
         egais_mark_new — марка нового образца (150 символов, алкокода в ней нет),
         crpt_code — код «Честного знака» (из него взят GTIN)
@@ -3464,12 +3485,19 @@ components:
 
     AssortmentList:
       type: object
-      required: [items]
+      required: [items, total]
       properties:
         items:
           type: array
           items:
             $ref: "#/components/schemas/AssortmentItem"
+        total:
+          type: integer
+          description: Сколько вариантов подходит под поиск, на всех страницах
+        nextAfter:
+          type: string
+          format: uuid
+          description: Если есть — параметр after для следующей страницы
 
     AssortmentItemUpdate:
       type: object

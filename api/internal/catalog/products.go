@@ -45,31 +45,51 @@ func (s *Service) Products(ctx context.Context, f ProductFilter) ([]store.Produc
 		return rows, nil, err
 	}
 
+	search := parseSearch(q)
+	if search.Nothing {
+		return []store.ProductCard{}, search.Scan, nil
+	}
 	params.Searching = true
+	params.Article, params.Words, params.Code = search.Article, search.Words, search.Code
+	params.Alcocode, params.Gtin = search.Alcocode, search.Gtin
+	rows, err := s.q.ListProducts(ctx, params)
+	return rows, search.Scan, err
+}
+
+// codeSearch — условия поиска по строке: часть артикула и слова наименования либо код варианта,
+// если строка похожа на скан. Общие для каталога и ассортиментной матрицы.
+type codeSearch struct {
+	Article, Words, Alcocode, Gtin, Code *string
+	Scan                                 *Scan
+	// Nothing — марка нового образца: алкокода в ней нет, товар по ней находится только по
+	// документам приёмки.
+	Nothing bool
+}
+
+func parseSearch(q string) codeSearch {
 	scan, ok := parseScan(q)
-	switch {
-	case !ok:
-		params.Article, params.Words = likePattern(q), tsquery(q)
-	case scan.Kind == apispec.ScanKindEgaisMarkNew:
-		// В марке нового образца нет алкокода: товар по ней находится только по документам приёмки.
-		return []store.ProductCard{}, &scan, nil
-	case scan.Kind == apispec.ScanKindEgaisMark, scan.Kind == apispec.ScanKindAlcocode:
-		params.Alcocode = &scan.Code
-	case scan.Kind == apispec.ScanKindCrptCode:
-		params.Gtin = &scan.Code
+	if !ok {
+		return codeSearch{Article: likePattern(q), Words: tsquery(q)}
+	}
+	s := codeSearch{Scan: &scan}
+	switch scan.Kind {
+	case apispec.ScanKindEgaisMarkNew:
+		s.Nothing = true
+	case apispec.ScanKindArticle:
+		s.Article = likePattern(scan.Code)
+	case apispec.ScanKindEgaisMark, apispec.ScanKindAlcocode:
+		s.Alcocode = &scan.Code
+	case apispec.ScanKindCrptCode:
+		s.Gtin = &scan.Code
 	default:
-		params.Code = &scan.Code
-		params.Gtin, _ = normalizeGTIN(&scan.Code)
+		s.Code = &scan.Code
+		s.Gtin, _ = normalizeGTIN(&scan.Code)
 	}
 	// Цифры могут оказаться и частью артикула.
-	if ok && (scan.Kind == apispec.ScanKindBarcode || scan.Kind == apispec.ScanKindAlcocode) {
-		params.Article = likePattern(q)
+	if scan.Kind == apispec.ScanKindBarcode || scan.Kind == apispec.ScanKindAlcocode {
+		s.Article = likePattern(q)
 	}
-	rows, err := s.q.ListProducts(ctx, params)
-	if !ok {
-		return rows, nil, err
-	}
-	return rows, &scan, err
+	return s
 }
 
 func (s *Service) Product(ctx context.Context, id uuid.UUID) (store.ProductCard, error) {

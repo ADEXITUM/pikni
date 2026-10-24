@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -25,11 +26,37 @@ func locationCode(ctx context.Context, q *store.Queries, id uuid.UUID) (string, 
 	return code, err
 }
 
-func (s *Service) Assortment(ctx context.Context, locationID uuid.UUID) ([]store.ListAssortmentRow, error) {
+// AssortmentFilter — страница матрицы точки: поиск и вариант, после которого она начинается.
+type AssortmentFilter struct {
+	Search string
+	After  *uuid.UUID
+	Limit  int32
+}
+
+// Assortment отдаёт страницу матрицы точки и сколько всего вариантов подходит под поиск.
+func (s *Service) Assortment(ctx context.Context, locationID uuid.UUID, f AssortmentFilter) ([]store.ListAssortmentRow, int64, error) {
 	if _, err := locationCode(ctx, s.q, locationID); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return s.q.ListAssortment(ctx, locationID)
+	params := store.ListAssortmentParams{LocationID: locationID, After: f.After, MaxRows: f.Limit}
+	if q := strings.TrimSpace(f.Search); q != "" {
+		search := parseSearch(q)
+		if search.Nothing {
+			return []store.ListAssortmentRow{}, 0, nil
+		}
+		params.Searching = true
+		params.Article, params.Words, params.Code = search.Article, search.Words, search.Code
+		params.Alcocode, params.Gtin = search.Alcocode, search.Gtin
+	}
+	rows, err := s.q.ListAssortment(ctx, params)
+	if err != nil {
+		return nil, 0, err
+	}
+	total, err := s.q.CountAssortment(ctx, store.CountAssortmentParams{
+		LocationID: locationID, Searching: params.Searching, Article: params.Article, Words: params.Words,
+		Alcocode: params.Alcocode, Gtin: params.Gtin, Code: params.Code,
+	})
+	return rows, total, err
 }
 
 // SetAssortmentItem добавляет вариант в матрицу точки или меняет его минимальный остаток.

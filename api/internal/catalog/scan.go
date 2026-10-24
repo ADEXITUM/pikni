@@ -20,7 +20,11 @@ type Scan struct {
 var (
 	markPattern = regexp.MustCompile(`^[0-9A-Z]+$`)
 	wordPattern = regexp.MustCompile(`[\p{L}\p{N}]+`)
-	likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+
+	// Артикул присваивает база: «ЧК-000001». Его набирают вручную — бывает, без ведущих нулей
+	// и в латинской раскладке, где на тех же клавишах «XR».
+	articlePattern = regexp.MustCompile(`^(?i:ЧК|XR)-?([0-9]{1,6})$`)
+	likeEscaper    = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
 
 	// Сканер в русской раскладке печатает вместо латиницы буквы с тех же клавиш: «Й» вместо «Q».
 	layout = func() *strings.Replacer {
@@ -42,6 +46,11 @@ func parseScan(raw string) (Scan, bool) {
 		s = s[3:]
 	}
 	s = strings.TrimLeft(s, "è\x1d")
+
+	if m := articlePattern.FindStringSubmatch(s); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return Scan{Kind: apispec.ScanKindArticle, Code: fmt.Sprintf("ЧК-%06d", n)}, true
+	}
 
 	latin := strings.ToUpper(layout.Replace(s))
 	if markPattern.MatchString(latin) {

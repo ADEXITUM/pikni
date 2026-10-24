@@ -37,6 +37,9 @@ func TestParseScan(t *testing.T) {
 		{"0177207000002463655", apispec.ScanKindAlcocode, "0177207000002463655"},
 		{" 4006381333931 ", apispec.ScanKindBarcode, "4006381333931"},
 		{"PK-BOX-0001", apispec.ScanKindBarcode, "PK-BOX-0001"},
+		{"ЧК-000001", apispec.ScanKindArticle, "ЧК-000001"},
+		{"чк12", apispec.ScanKindArticle, "ЧК-000012"},
+		{"xr-7", apispec.ScanKindArticle, "ЧК-000007"},
 	}
 	for _, tt := range tests {
 		got, ok := parseScan(tt.raw)
@@ -44,7 +47,7 @@ func TestParseScan(t *testing.T) {
 			t.Errorf("parseScan(%.24q…) = %+v, %v; want %s %s", tt.raw, got, ok, tt.kind, tt.code)
 		}
 	}
-	for _, text := range []string{"тайга", "ЧК-000001", "000001", "водка 0,5"} {
+	for _, text := range []string{"тайга", "ЧК-0000001", "000001", "водка 0,5"} {
 		if got, ok := parseScan(text); ok {
 			t.Errorf("parseScan(%q) = %+v, want plain text", text, got)
 		}

@@ -1061,7 +1061,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Ассортиментная матрица точки */
+        /**
+         * Ассортиментная матрица точки
+         * @description По наименованию и объёму. Следующая страница — параметр after из nextAfter.
+         */
         get: operations["listAssortment"];
         put?: never;
         post?: never;
@@ -1752,10 +1755,10 @@ export interface components {
             variant?: components["schemas"]["Variant"];
         };
         /**
-         * @description Как сервер понял поисковую строку: barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
+         * @description Как сервер понял поисковую строку: article — артикул позиции (ЧК-000001), barcode — штрихкод или GTIN, alcocode — алкокод, egais_mark — марка ЕГАИС старого образца (68 символов, из неё взят алкокод), egais_mark_new — марка нового образца (150 символов, алкокода в ней нет), crpt_code — код «Честного знака» (из него взят GTIN)
          * @enum {string}
          */
-        ScanKind: "barcode" | "alcocode" | "egais_mark" | "egais_mark_new" | "crpt_code";
+        ScanKind: "barcode" | "alcocode" | "egais_mark" | "egais_mark_new" | "crpt_code" | "article";
         /** @description Есть, если поисковая строка похожа на код или скан */
         ScanResult: {
             kind: components["schemas"]["ScanKind"];
@@ -2004,6 +2007,13 @@ export interface components {
         };
         AssortmentList: {
             items: components["schemas"]["AssortmentItem"][];
+            /** @description Сколько вариантов подходит под поиск, на всех страницах */
+            total: number;
+            /**
+             * Format: uuid
+             * @description Если есть — параметр after для следующей страницы
+             */
+            nextAfter?: string;
         };
         AssortmentItemUpdate: {
             /**
@@ -3899,7 +3909,13 @@ export interface operations {
     };
     listAssortment: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки */
+                q?: string;
+                /** @description Вариант, после которого начинается страница */
+                after?: string;
+                limit?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -3908,7 +3924,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Варианты матрицы по наименованию */
+            /** @description Страница матрицы */
             200: {
                 headers: {
                     [name: string]: unknown;

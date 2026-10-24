@@ -45,6 +45,8 @@ func TestResolveCode(t *testing.T) {
 		{"свой штрихкод Code 128", "PK-12", &bottle, apispec.ScanKindBarcode},
 		{"марка нового образца", "10110026167968" + "0118001" + strings.Repeat("A", 129), nil, apispec.ScanKindEgaisMarkNew},
 		{"незнакомый код", "4006381333931", nil, apispec.ScanKindBarcode},
+		// У позиции два варианта: по артикулу найдена позиция, вариант не выбран.
+		{"артикул без ведущих нулей", "чк-" + strings.TrimLeft(strings.TrimPrefix(vodka.Article, "ЧК-"), "0"), nil, apispec.ScanKindArticle},
 	}
 	for _, tt := range tests {
 		r, err := f.svc.Resolve(ctx, tt.raw)
@@ -63,5 +65,10 @@ func TestResolveCode(t *testing.T) {
 		case tt.variant != nil && (r.Variant == nil || r.Variant.ID != tt.variant.ID || r.Product.ID != vodka.ID):
 			t.Errorf("%s: resolution = %+v", tt.name, r)
 		}
+	}
+
+	r, err := f.svc.Resolve(ctx, vodka.Article)
+	if err != nil || r.Product == nil || r.Product.ID != vodka.ID {
+		t.Errorf("article: resolution = %+v, %v", r, err)
 	}
 }

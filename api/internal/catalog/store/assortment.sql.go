@@ -33,6 +33,45 @@ func (q *Queries) CopyAssortment(ctx context.Context, arg CopyAssortmentParams) 
 	return result.RowsAffected(), nil
 }
 
+const countAssortment = `-- name: CountAssortment :one
+select count(*)
+from assortment_matrix a
+join variants v on v.id = a.variant_id
+join products p on p.id = v.product_id
+where a.location_id = $1
+  and (not $2::boolean
+       or p.article ilike '%' || $3::text || '%'
+       or p.search @@ to_tsquery('russian', $4::text)
+       or v.alcocode = $5::text
+       or v.gtin = $6::text
+       or v.id in (select b.variant_id from barcodes b where b.code = $7::text))
+`
+
+type CountAssortmentParams struct {
+	LocationID uuid.UUID
+	Searching  bool
+	Article    *string
+	Words      *string
+	Alcocode   *string
+	Gtin       *string
+	Code       *string
+}
+
+func (q *Queries) CountAssortment(ctx context.Context, arg CountAssortmentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAssortment,
+		arg.LocationID,
+		arg.Searching,
+		arg.Article,
+		arg.Words,
+		arg.Alcocode,
+		arg.Gtin,
+		arg.Code,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAssortmentItem = `-- name: DeleteAssortmentItem :one
 delete from assortment_matrix
 where location_id = $1 and variant_id = $2
@@ -90,8 +129,32 @@ from assortment_matrix a
 join variants v on v.id = a.variant_id
 join products p on p.id = v.product_id
 where a.location_id = $1
-order by p.name, v.volume_ml nulls first, v.container nulls first, v.gift_pack
+  and (not $2::boolean
+       or p.article ilike '%' || $3::text || '%'
+       or p.search @@ to_tsquery('russian', $4::text)
+       or v.alcocode = $5::text
+       or v.gtin = $6::text
+       or v.id in (select b.variant_id from barcodes b where b.code = $7::text))
+  and ($8::uuid is null
+       or (p.name, coalesce(v.volume_ml, 0), v.id) >
+          (select xp.name, coalesce(xv.volume_ml, 0), xv.id
+           from variants xv join products xp on xp.id = xv.product_id
+           where xv.id = $8::uuid))
+order by p.name, coalesce(v.volume_ml, 0), v.id
+limit $9
 `
+
+type ListAssortmentParams struct {
+	LocationID uuid.UUID
+	Searching  bool
+	Article    *string
+	Words      *string
+	Alcocode   *string
+	Gtin       *string
+	Code       *string
+	After      *uuid.UUID
+	MaxRows    int32
+}
 
 type ListAssortmentRow struct {
 	VariantID uuid.UUID
@@ -105,8 +168,20 @@ type ListAssortmentRow struct {
 	MinQty    int32
 }
 
-func (q *Queries) ListAssortment(ctx context.Context, locationID uuid.UUID) ([]ListAssortmentRow, error) {
-	rows, err := q.db.Query(ctx, listAssortment, locationID)
+// В магазине тысячи вариантов, поэтому матрица отдаётся страницами по (наименование, объём, id)
+// после варианта after. Поиск — как в каталоге: часть артикула, слова наименования или код варианта.
+func (q *Queries) ListAssortment(ctx context.Context, arg ListAssortmentParams) ([]ListAssortmentRow, error) {
+	rows, err := q.db.Query(ctx, listAssortment,
+		arg.LocationID,
+		arg.Searching,
+		arg.Article,
+		arg.Words,
+		arg.Alcocode,
+		arg.Gtin,
+		arg.Code,
+		arg.After,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}
