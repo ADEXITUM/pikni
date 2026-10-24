@@ -52,7 +52,8 @@ func TestAssortment(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	items, err := f.svc.Assortment(ctx, lenina)
+	all := catalog.AssortmentFilter{Limit: 50}
+	items, _, err := f.svc.Assortment(ctx, lenina, all)
 	if err != nil || len(items) != 2 || items[0].MinQty != 10 || items[1].MinQty != 2 {
 		t.Fatalf("assortment = %+v, %v", items, err)
 	}
@@ -65,9 +66,27 @@ func TestAssortment(t *testing.T) {
 	if err != nil || added != 1 {
 		t.Fatalf("copy added %d, %v", added, err)
 	}
-	copied, _ := f.svc.Assortment(ctx, oktyabrya)
+	copied, _, _ := f.svc.Assortment(ctx, oktyabrya, all)
 	if len(copied) != 2 || copied[0].MinQty != 3 {
 		t.Errorf("after copy = %+v", copied)
+	}
+
+	// В магазине тысячи вариантов: матрица идёт страницами, total считает все подходящие.
+	page, total, err := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Limit: 1})
+	if err != nil || len(page) != 1 || total != 2 || page[0].VariantID != half {
+		t.Fatalf("first page = %+v, total %d, %v", page, total, err)
+	}
+	next, _, _ := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Limit: 1, After: &page[0].VariantID})
+	if len(next) != 1 || next[0].VariantID != bottle {
+		t.Errorf("second page = %+v", next)
+	}
+	byArticle, total, _ := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Search: vodka.Article, Limit: 50})
+	if len(byArticle) != 2 || total != 2 {
+		t.Errorf("search by article = %+v, total %d", byArticle, total)
+	}
+	none, total, _ := f.svc.Assortment(ctx, oktyabrya, catalog.AssortmentFilter{Search: "коньяк", Limit: 50})
+	if len(none) != 0 || total != 0 {
+		t.Errorf("search by other word = %+v, total %d", none, total)
 	}
 	if _, err := f.svc.CopyAssortment(ctx, lenina, lenina); !errors.Is(err, catalog.ErrSameLocation) {
 		t.Errorf("copy into itself: error = %v", err)

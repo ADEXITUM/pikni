@@ -136,6 +136,19 @@ func (q *Queries) CreateProductLine(ctx context.Context, arg CreateProductLinePa
 	return i, err
 }
 
+const findProductByArticle = `-- name: FindProductByArticle :one
+select id
+from products
+where article = $1
+`
+
+func (q *Queries) FindProductByArticle(ctx context.Context, article string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, findProductByArticle, article)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getProduct = `-- name: GetProduct :one
 select id, article, name, category_id, category_name, kind_code, egais_accounting, abv, crpt_marked, producer_id, producer_name, brand_id, brand_name, product_line_id, line_name, variety, country_code, country_name, origin_region_id, region_name, attributes, is_active, version
 from product_cards

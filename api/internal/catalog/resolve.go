@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
@@ -20,7 +21,8 @@ type Resolution struct {
 
 // Resolve находит вариант по считанному коду: марка старого образца даёт алкокод, код
 // «Честного знака» — GTIN, штрихкод ищется среди штрихкодов и GTIN. Код, который разбор не
-// узнал, всё равно ищется как штрихкод: у своих этикеток бывают короткие номера.
+// узнал, всё равно ищется как штрихкод: у своих этикеток бывают короткие номера. Артикул,
+// набранный вручную, находит позицию; вариант известен, только если он у позиции один.
 func (s *Service) Resolve(ctx context.Context, raw string) (Resolution, error) {
 	var r Resolution
 	var params store.FindVariantByCodeParams
@@ -35,6 +37,15 @@ func (s *Service) Resolve(ctx context.Context, raw string) (Resolution, error) {
 	case scan.Kind == apispec.ScanKindEgaisMarkNew:
 		// Алкокода в марке нового образца нет: найти товар можно только по учёту марок.
 		return Resolution{Scan: &scan}, nil
+	case scan.Kind == apispec.ScanKindArticle:
+		id, err := s.q.FindProductByArticle(ctx, scan.Code)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Resolution{Scan: &scan}, nil
+		}
+		if err != nil {
+			return r, err
+		}
+		return s.resolved(ctx, &scan, id, nil)
 	case scan.Kind == apispec.ScanKindEgaisMark, scan.Kind == apispec.ScanKindAlcocode:
 		params.Alcocode = &scan.Code
 	case scan.Kind == apispec.ScanKindCrptCode:
@@ -54,17 +65,24 @@ func (s *Service) Resolve(ctx context.Context, raw string) (Resolution, error) {
 	if err != nil {
 		return r, err
 	}
-	product, err := s.q.GetProduct(ctx, found.ProductID)
+	return s.resolved(ctx, r.Scan, found.ProductID, &found.ID)
+}
+
+// resolved дополняет найденную позицию карточкой и вариантом. Без variantID вариант берётся,
+// только если он у позиции единственный.
+func (s *Service) resolved(ctx context.Context, scan *Scan, productID uuid.UUID, variantID *uuid.UUID) (Resolution, error) {
+	r := Resolution{Scan: scan}
+	product, err := s.q.GetProduct(ctx, productID)
 	if err != nil {
 		return r, err
 	}
-	variants, err := variantsOf(ctx, s.q, found.ProductID)
+	variants, err := variantsOf(ctx, s.q, productID)
 	if err != nil {
 		return r, err
 	}
 	r.Product = &product
 	for i := range variants {
-		if variants[i].ID == found.ID {
+		if variantID != nil && variants[i].ID == *variantID || variantID == nil && len(variants) == 1 {
 			r.Variant = &variants[i]
 		}
 	}

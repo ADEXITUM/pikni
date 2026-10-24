@@ -64,7 +64,7 @@ const current = computed(
 // На сервер уходят только коды, по которым ищется товар. Короб, имущество, служебный QR и
 // марка нового образца объясняются сразу на устройстве.
 const searchable = (c: RecognizedCode) =>
-  ['product', 'crpt', 'excise_mark'].includes(c.kind) && !c.newMark
+  ['product', 'article', 'crpt', 'excise_mark'].includes(c.kind) && !c.newMark
 
 function settle(entry: Entry, status: Outcome) {
   entry.status = status
@@ -174,22 +174,45 @@ const title = (e: Entry) =>
       "
       data-test="result"
     >
+      <!-- Сверху то, что известно сразу после скана: сам код и его вид. Ответ сервера
+           появляется ниже, в своей строке, и верх карточки не сдвигается. -->
       <v-card-item>
-        <template v-if="outcome(current)" #prepend>
-          <v-icon :icon="outcome(current)!.icon" :color="outcome(current)!.color" size="32" />
+        <template #prepend>
+          <div class="pk-outcome-icon">
+            <v-progress-circular
+              v-if="current.status === 'loading'"
+              indeterminate
+              size="28"
+              width="3"
+            />
+            <v-icon
+              v-else
+              :icon="outcome(current)!.icon"
+              :color="outcome(current)!.color"
+              size="32"
+            />
+          </div>
         </template>
-        <v-card-subtitle>
-          <span
-            v-if="outcome(current)"
-            :class="`text-${outcome(current)!.color} font-weight-bold`"
-            data-test="outcome"
-            >{{ outcome(current)!.word }} · </span
-          >{{ codeKindLabels[current.code.kind] }} · {{ sourceLabels[current.source] }}
-        </v-card-subtitle>
-        <v-card-title class="text-wrap">{{ title(current) }}</v-card-title>
+        <div class="pk-code text-body-1 text-break" data-test="raw">{{ short(current.raw) }}</div>
+        <div class="text-body-2 text-medium-emphasis" data-test="kind">
+          {{ codeKindLabels[current.code.kind] }} · {{ sourceLabels[current.source] }}
+        </div>
       </v-card-item>
       <v-card-text>
-        <div class="pk-code text-medium-emphasis mb-3">{{ short(current.raw) }}</div>
+        <div
+          class="font-weight-bold mb-1"
+          :class="outcome(current) ? `text-${outcome(current)!.color}` : 'text-medium-emphasis'"
+          data-test="outcome"
+        >
+          {{ outcome(current)?.word ?? 'Ищем…' }}
+        </div>
+        <div
+          v-if="current.result?.product"
+          class="text-title-large text-wrap mb-3"
+          data-test="name"
+        >
+          {{ current.result.product.name }}
+        </div>
         <p v-if="current.code.alcocode" class="mb-2">
           Алкокод из марки: <span class="pk-code">{{ current.code.alcocode }}</span>
         </p>
@@ -199,10 +222,8 @@ const title = (e: Entry) =>
           <span class="pk-code">{{ current.code.serial }}</span>
         </p>
 
-        <v-progress-linear v-if="current.status === 'loading'" indeterminate />
-
         <dl
-          v-else-if="current.status === 'found' && current.result?.product"
+          v-if="current.status === 'found' && current.result?.product"
           class="pk-facts"
           data-test="found"
         >
@@ -225,6 +246,10 @@ const title = (e: Entry) =>
               </span>
             </dd>
           </template>
+          <template v-else>
+            <dt>Вариант</dt>
+            <dd class="text-medium-emphasis">несколько — выберите в карточке позиции</dd>
+          </template>
         </dl>
 
         <v-alert
@@ -233,8 +258,13 @@ const title = (e: Entry) =>
           variant="tonal"
           data-test="missing"
         >
-          Такого кода нет в каталоге. Привязать штрихкод к товару можно в карточке позиции, в блоке
-          «Варианты».
+          <template v-if="current.code.kind === 'article'">
+            Позиции с артикулом {{ current.code.code }} в каталоге нет.
+          </template>
+          <template v-else>
+            Такого кода нет в каталоге. Привязать штрихкод к товару можно в карточке позиции, в
+            блоке «Варианты».
+          </template>
         </v-alert>
         <v-alert v-else-if="current.status === 'error'" type="error">{{ current.error }}</v-alert>
         <v-alert
@@ -337,6 +367,15 @@ const title = (e: Entry) =>
 /* Полоса слева — цвет исхода скана; слово и значок дублируют его. */
 .pk-result {
   border-inline-start: 4px solid var(--pk-outcome, transparent);
+}
+
+/* Место под значок исхода занято с самого начала: пока идёт поиск, в нём крутится индикатор. */
+.pk-outcome-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
 }
 
 .pk-facts {

@@ -182,4 +182,18 @@ describe('ScanPage', () => {
     expect(wrapper.find('[data-test="local"]').text()).toContain('SSCC')
     wrapper.unmount()
   })
+
+  it('артикул ищется на сервере; код стоит первой строкой, его вид — под ним', async () => {
+    const wrapper = await mountPage()
+    await wrapper.find('[data-test="manual"] input').setValue('чк-1')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(api.GET).toHaveBeenCalledWith('/codes/resolve', { params: { query: { code: 'чк-1' } } })
+    const card = wrapper.find('[data-test="result"]')
+    expect(card.find('[data-test="raw"]').text()).toBe('чк-1')
+    expect(card.find('[data-test="kind"]').text()).toContain('Артикул')
+    expect(card.find('[data-test="missing"]').text()).toContain('ЧК-000001')
+    wrapper.unmount()
+  })
 })

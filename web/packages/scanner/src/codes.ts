@@ -2,11 +2,11 @@
 // чтобы экран сразу показал, что считано, даже без связи; решение всё равно принимает сервер.
 
 export type CodeKind =
-  'excise_mark' | 'crpt' | 'package' | 'product' | 'asset' | 'service_qr' | 'unknown'
+  'excise_mark' | 'crpt' | 'package' | 'product' | 'article' | 'asset' | 'service_qr' | 'unknown'
 
 export interface RecognizedCode {
   kind: CodeKind
-  // Что искать: штрихкод, GTIN-14, номер марки, SSCC, инвентарный номер или ссылка.
+  // Что искать: штрихкод, GTIN-14, номер марки, SSCC, артикул, инвентарный номер или ссылка.
   code: string
   // Алкокод из марки ЕГАИС старого образца.
   alcocode?: string
@@ -74,6 +74,10 @@ export function recognize(raw: string): RecognizedCode {
     return { kind: 'service_qr', code: s }
   }
   if (/^INV-[0-9A-Z-]{3,}$/i.test(s)) return { kind: 'asset', code: s.toUpperCase() }
+
+  // Артикул набирают вручную — бывает, без ведущих нулей и в латинской раскладке («XR»).
+  const article = /^(?:ЧК|XR)-?(\d{1,6})$/i.exec(s)
+  if (article) return { kind: 'article', code: `ЧК-${article[1]!.padStart(6, '0')}` }
 
   const latin = fixLayout(s).toUpperCase()
   if (/^[0-9A-Z]+$/.test(latin)) {

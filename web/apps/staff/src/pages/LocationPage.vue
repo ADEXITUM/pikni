@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { mdiArrowLeft } from '@mdi/js'
+import { mdiArrowLeft, mdiChevronRight } from '@mdi/js'
 import { api, ApiError, type Location, type LocationKind, type OpeningHours } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { SubmitEventPromise } from 'vuetify'
 
-import AssortmentCard from '@/components/AssortmentCard.vue'
 import OpeningHoursEditor from '@/components/OpeningHoursEditor.vue'
 import { locationKindLabels, russianTimezones, zoneRegisters } from '@/labels'
 import { describeVerdict } from '@/sale'
@@ -47,6 +46,23 @@ const { data: sale } = useQuery({
   },
   enabled: computed(() => !isNew.value),
   refetchInterval: 60_000,
+})
+
+// Сама матрица — на отдельной странице: в магазине тысячи вариантов. Здесь только их число.
+const { data: assortmentTotal } = useQuery({
+  queryKey: ['assortment', id, 'total'],
+  queryFn: async () => {
+    const { data, error } = await api.GET('/locations/{id}/assortment', {
+      params: { path: { id: id.value }, query: { limit: 1 } },
+    })
+    if (error) throw new ApiError(error)
+    return data.total
+  },
+  enabled: computed(() => !isNew.value),
+})
+const assortmentSummary = computed(() => {
+  if (assortmentTotal.value === undefined) return 'Что точка должна держать в наличии'
+  return assortmentTotal.value ? `Вариантов: ${assortmentTotal.value}` : 'Пока пуста'
 })
 
 const { data: subjects } = useQuery({
@@ -328,7 +344,18 @@ async function submit(event: SubmitEventPromise) {
       </div>
     </v-form>
 
-    <AssortmentCard v-if="location" :location-id="location.id" :can-edit="canEdit" class="mt-4" />
+    <v-card
+      v-if="location"
+      class="mt-4"
+      :to="{ name: 'location-assortment', params: { id: location.id } }"
+      data-test="assortment-link"
+    >
+      <v-card-item
+        title="Ассортиментная матрица"
+        :subtitle="assortmentSummary"
+        :append-icon="mdiChevronRight"
+      />
+    </v-card>
   </v-container>
 </template>
 

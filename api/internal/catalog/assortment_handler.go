@@ -15,15 +15,32 @@ func toAssortmentItem(a store.ListAssortmentRow) apispec.AssortmentItem {
 }
 
 func (h *Handler) ListAssortment(ctx context.Context, req apispec.ListAssortmentRequestObject) (apispec.ListAssortmentResponseObject, error) {
-	rows, err := h.svc.Assortment(ctx, req.ID)
+	p := req.Params
+	limit := defaultProductPage
+	if p.Limit != nil {
+		limit = min(max(*p.Limit, 1), maxProductPage)
+	}
+	f := AssortmentFilter{After: p.After, Limit: int32(limit + 1)}
+	if p.Q != nil {
+		f.Search = *p.Q
+	}
+	rows, total, err := h.svc.Assortment(ctx, req.ID, f)
 	if err != nil {
 		return nil, problem(err)
 	}
-	items, err := list(rows, nil, toAssortmentItem)
-	if err != nil {
-		return nil, err
+
+	// Запрошена лишняя строка: если она пришла, есть следующая страница.
+	page := apispec.ListAssortment200JSONResponse{
+		Items: make([]apispec.AssortmentItem, 0, min(len(rows), limit)), Total: int(total),
 	}
-	return apispec.ListAssortment200JSONResponse{Items: items}, nil
+	for i, r := range rows {
+		if i == limit {
+			page.NextAfter = &page.Items[limit-1].VariantID
+			break
+		}
+		page.Items = append(page.Items, toAssortmentItem(r))
+	}
+	return page, nil
 }
 
 func (h *Handler) SetAssortmentItem(ctx context.Context, req apispec.SetAssortmentItemRequestObject) (apispec.SetAssortmentItemResponseObject, error) {

@@ -1,4 +1,4 @@
-import { api, type AssortmentItem } from '@pikni/api'
+import { api, type AssortmentItem, type Permission } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -7,9 +7,10 @@ import { defineComponent } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { VSelect } from 'vuetify/components'
 
-import { makeLocation } from '@/__tests__/fixtures'
+import { makeLocation, makeMe } from '@/__tests__/fixtures'
+import { meQuery } from '@/session'
 
-import AssortmentCard from '../AssortmentCard.vue'
+import AssortmentPage from '../AssortmentPage.vue'
 
 type ApiModule = typeof import('@pikni/api')
 
@@ -43,15 +44,21 @@ const half: AssortmentItem = {
   minQty: 12,
 }
 
-async function mountCard(canEdit = true) {
+async function mountPage(permissions: Permission[] = ['refs.view', 'refs.edit']) {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/products/:id', name: 'product', component: { render: () => null } }],
+    routes: [
+      { path: '/locations/:id/assortment', component: AssortmentPage },
+      { path: '/locations/:id', name: 'location', component: { render: () => null } },
+      { path: '/products/:id', name: 'product', component: { render: () => null } },
+    ],
   })
-  const wrapper = mount(AssortmentCard, {
-    props: { locationId: 'mg-1', canEdit },
+  await router.push('/locations/mg-1/assortment')
+  const queryClient = new QueryClient()
+  queryClient.setQueryData(meQuery.queryKey, makeMe({ permissions }))
+  const wrapper = mount(AssortmentPage, {
     global: {
-      plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient: new QueryClient() }]],
+      plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient }]],
       stubs: { VDialog: DialogStub },
     },
   })
@@ -59,8 +66,9 @@ async function mountCard(canEdit = true) {
   return wrapper
 }
 
-describe('AssortmentCard', () => {
+describe('AssortmentPage', () => {
   beforeEach(() => {
+    vi.mocked(api.GET).mockReset()
     vi.mocked(api.GET).mockImplementation(((path: string) =>
       Promise.resolve({
         data:
@@ -71,7 +79,7 @@ describe('AssortmentCard', () => {
                   makeLocation({ id: 'mg-2', code: 'МГ-02', name: '50 лет Октября' }),
                 ],
               }
-            : { items: [half] },
+            : { items: [half], total: 1 },
         response: new Response(),
       })) as never)
     const ok = Promise.resolve({ data: { added: 5 }, response: new Response() })
@@ -80,17 +88,31 @@ describe('AssortmentCard', () => {
     vi.mocked(api.DELETE).mockReturnValue(ok as never)
   })
 
-  it('без права — только просмотр', async () => {
-    const wrapper = await mountCard(false)
+  it('без права — только просмотр; видно точку и число вариантов', async () => {
+    const wrapper = await mountPage(['refs.view'])
     const row = wrapper.find('[data-test="assortment-v1"]').text()
     expect(row).toContain('ЧК-000001')
     expect(row).toContain('0,5 л, стекло')
     expect(row).toContain('12')
+    expect(wrapper.text()).toContain('МГ-01 · Ленина')
+    expect(wrapper.find('[data-test="assortment-total"]').text()).toBe('Вариантов: 1')
     expect(wrapper.find('[data-test="assortment-add"]').exists()).toBe(false)
   })
 
+  it('поиск уходит на сервер, по Enter — сразу', async () => {
+    const wrapper = await mountPage()
+    const input = wrapper.find('[data-test="assortment-search"] input')
+    await input.setValue('тайга')
+    await input.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(api.GET).toHaveBeenCalledWith('/locations/{id}/assortment', {
+      params: { path: { id: 'mg-1' }, query: { q: 'тайга', after: undefined } },
+    })
+    expect(wrapper.find('[data-test="assortment-total"]').text()).toBe('Найдено: 1')
+  })
+
   it('минимум меняется в таблице, строка удаляется, матрица копируется', async () => {
-    const wrapper = await mountCard()
+    const wrapper = await mountPage()
 
     const qty = wrapper.find('[data-test="assortment-min"] input')
     await qty.setValue('24')
