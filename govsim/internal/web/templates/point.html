@@ -1,0 +1,25 @@
+{{template "head" .}}
+<h1>{{.P.Name}}</h1>
+<p class="lead">ФСРАР ID <span class="code">{{.P.FSRARID}}</span> · <a href="/ui/journal?fsrar={{.P.FSRARID}}">журнал документов</a></p>
+<h2>Регистры продукции без марок</h2>
+<table>
+  <tr><th>Продукция</th><th>Алкокод</th><th>Регистр</th><th>Количество</th></tr>
+  {{range .Rests}}<tr><td>{{.Name}}</td><td class="code">{{.Alcocode}}</td><td>{{if eq .Register 1}}1 — склад{{else}}2 — торговый зал{{end}}</td><td>{{.Qty}}</td></tr>
+  {{else}}<tr><td colspan="4">Пусто</td></tr>{{end}}
+</table>
+<div class="card">
+  <b>Расхождение для сверки.</b> Задать остаток на регистре в обход документов — сверка «Пикни» его найдёт.
+  <form class="inline" method="post" action="/ui/points/{{.P.FSRARID}}/rests">
+    <select name="alcocode">{{range .Products}}{{if eq .Accounting "quantity"}}<option value="{{.Alcocode}}">{{.Name}}</option>{{end}}{{end}}</select>
+    <select name="register"><option value="1">регистр 1</option><option value="2">регистр 2</option></select>
+    <input type="number" name="qty" min="0" value="0" style="width:6em">
+    <button>Задать</button>
+  </form>
+</div>
+<h2>Марки на балансе · {{len .Marks}}</h2>
+<table>
+  <tr><th>Марка</th><th>Продукция</th></tr>
+  {{range .Marks}}<tr><td class="code"><a href="/ui/marks?code={{.Code}}">{{.Code}}</a></td><td>{{.Name}}</td></tr>
+  {{else}}<tr><td colspan="2">Нет марок</td></tr>{{end}}
+</table>
+{{template "foot"}}

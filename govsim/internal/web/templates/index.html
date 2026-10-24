@@ -1,0 +1,24 @@
+{{template "head" .}}
+<h1>Участники и сценарии</h1>
+<p class="lead">Точки сети и поставщики. У каждой точки свой УТМ: его можно «выключить», чтобы показать работу «Пикни» без связи с ЕГАИС, или задать задержку ответов.</p>
+<table>
+  <tr><th>ФСРАР ID</th><th>Участник</th><th>Тип</th><th>УТМ</th><th>Сценарии</th></tr>
+  {{range .Participants}}
+  <tr>
+    <td class="code">{{.FSRARID}}</td>
+    <td>{{if ne .Kind "supplier"}}<a href="/ui/points/{{.FSRARID}}">{{.Name}}</a>{{else}}{{.Name}}{{end}}<br><small>{{.Address}}</small></td>
+    <td>{{kind .Kind}}</td>
+    <td>{{if .UTMDown}}<span class="down">недоступен</span>{{else}}<span class="ok">работает</span>{{end}}{{if .DelaySeconds}}, задержка {{.DelaySeconds}} с{{end}}</td>
+    <td>
+      {{if ne .Kind "supplier"}}
+      <form class="inline" method="post" action="/ui/participants/{{.FSRARID}}/scenario">
+        <label><input type="checkbox" name="utm_down" {{if .UTMDown}}checked{{end}}> УТМ выключен</label>
+        <label>задержка, с <input type="number" name="delay" min="0" max="3600" value="{{.DelaySeconds}}" style="width:5em"></label>
+        <button>Сохранить</button>
+      </form>
+      {{end}}
+    </td>
+  </tr>
+  {{end}}
+</table>
+{{template "foot"}}

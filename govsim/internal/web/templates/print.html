@@ -1,0 +1,26 @@
+{{template "head" .}}
+<h1 class="noprint">{{.S.Number}}: {{.S.Supplier}} → {{.S.Recipient}}</h1>
+<p class="lead noprint">Короба с тем, что в них лежит на самом деле. Распечатайте на А4 или сканируйте с экрана: сначала этикетку короба, затем марки или коды бутылок.</p>
+<style>
+  .box { background: #fff; border: 2px solid #333; border-radius: 6px; padding: 12px; margin-bottom: 18px; break-inside: avoid; }
+  .units { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .unit { border: 1px dashed #999; padding: 6px; text-align: center; font-size: 11px; }
+  .unit img { display: block; margin: 4px auto; image-rendering: pixelated; }
+</style>
+{{range .S.Print}}
+<div class="box">
+  <div><b>Короб</b> <span class="code">{{.Code}}</span></div>
+  <img src="{{sscc .Code}}" alt="SSCC {{.Code}}">
+  <div class="units">
+    {{range .Units}}
+    <div class="unit">
+      <div>{{.Name}}</div>
+      {{if .Mark}}<img src="{{datamatrix .Mark}}" alt="марка" width="110" height="110"><div class="code">{{.Mark}}</div>{{end}}
+      {{if .Crpt}}<img src="{{datamatrix .Crpt}}" alt="код «Честного знака»" width="110" height="110"><div>«Честный знак»</div>{{end}}
+      {{if .Barcode}}<img src="{{ean13 .Barcode}}" alt="EAN-13" width="140" height="44"><div class="code">{{.Barcode}}</div>{{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{template "foot"}}
