@@ -92,6 +92,18 @@ const router = createRouter({
       meta: { title: 'Документ', permission: 'availability.view', scans: true },
     },
     {
+      path: '/availability',
+      name: 'availability',
+      component: () => import('@/pages/AvailabilityPage.vue'),
+      meta: { title: 'Наличие по сети', permission: 'availability.view', scans: true },
+    },
+    {
+      path: '/availability/:productId',
+      name: 'availability-card',
+      component: () => import('@/pages/AvailabilityCardPage.vue'),
+      meta: { title: 'Наличие', permission: 'availability.view' },
+    },
+    {
       path: '/stock',
       name: 'stock',
       component: () => import('@/pages/StockPage.vue'),

@@ -9,6 +9,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
+	"github.com/ADEXITUM/pikni/api/internal/availability"
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
 	"github.com/ADEXITUM/pikni/api/internal/crpt"
 	"github.com/ADEXITUM/pikni/api/internal/documents"
@@ -28,6 +29,7 @@ import (
 type (
 	auditHandler     = audit.Handler
 	authHandler      = auth.Handler
+	availHandler     = availability.Handler
 	catalogHandler   = catalog.Handler
 	documentsHandler = documents.Handler
 	locationsHandler = locations.Handler
@@ -41,6 +43,7 @@ type (
 type API struct {
 	*auditHandler
 	*authHandler
+	*availHandler
 	*catalogHandler
 	*documentsHandler
 	*locationsHandler
@@ -74,6 +77,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 	api := &API{
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
+		availHandler:     availability.NewHandler(availability.NewService(pool, mk)),
 		catalogHandler:   catalog.NewHandler(cat),
 		documentsHandler: documents.NewHandler(docs),
 		locationsHandler: locations.NewHandler(locs),

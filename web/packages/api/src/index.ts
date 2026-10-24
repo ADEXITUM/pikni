@@ -85,3 +85,8 @@ export class ApiError extends Error {
 export type PosDevice = components['schemas']['PosDevice']
 export type PosDeviceKey = components['schemas']['PosDeviceKey']
 export { createLive, live, type Live, type LiveEvent } from './live'
+export type AvailabilityCard = components['schemas']['AvailabilityCard']
+export type AvailabilityCell = components['schemas']['AvailabilityCell']
+export type AvailabilityItem = components['schemas']['AvailabilityItem']
+export type AvailabilityLocation = components['schemas']['AvailabilityLocation']
+export type SimilarItem = components['schemas']['SimilarItem']

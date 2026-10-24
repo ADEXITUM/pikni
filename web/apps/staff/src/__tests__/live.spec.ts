@@ -42,9 +42,9 @@ describe('live', () => {
         return s as unknown as WebSocket
       },
     )
-    const doc = vi.fn()
-    const both = vi.fn()
-    const reconnected = vi.fn()
+    const doc = vi.fn<(e: unknown) => void>()
+    const both = vi.fn<(e: unknown) => void>()
+    const reconnected = vi.fn<() => void>()
     live.onReconnect(reconnected)
     live.subscribe('doc:1', doc)
     live.subscribe('doc:1', both)

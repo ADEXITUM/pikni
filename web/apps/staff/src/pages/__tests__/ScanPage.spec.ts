@@ -1,4 +1,5 @@
 import { api, type CodeResolution, type Permission } from '@pikni/api'
+import { createPinia } from 'pinia'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -64,13 +65,18 @@ async function mountPage(permissions: Permission[] = ['refs.view', 'refs.edit'],
     routes: [
       { path: '/scan', name: 'scan', component: ScanPage },
       { path: '/products/:id', name: 'product', component: { render: () => null } },
+      {
+        path: '/availability/:productId',
+        name: 'availability-card',
+        component: { render: () => null },
+      },
     ],
   })
   await router.push(path)
   const wrapper = mount(ScanPage, {
     global: {
-      plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient }]],
-      stubs: { ScanCamera: CameraStub },
+      plugins: [createPikniVuetify(), router, createPinia(), [VueQueryPlugin, { queryClient }]],
+      stubs: { ScanCamera: CameraStub, SimilarProducts: true },
     },
     attachTo: document.body,
   })

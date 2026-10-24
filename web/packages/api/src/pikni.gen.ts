@@ -1403,6 +1403,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Наличие по сети — поиск
+         * @description Позиции с остатками: в точках фильтра (scopeQty), по сети (networkQty) и в текущей точке (hereQty). Фильтры по точкам задают, где считать остаток и что значит «только в наличии».
+         */
+        get: operations["searchAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/availability/{productId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Карточка наличия позиции
+         * @description Таблица «вариант × точка» — в зале, на складе, в резерве, в пути — и точки для карты.
+         */
+        get: operations["getAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/availability/variants/{variantId}/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Похожие товары
+         * @description Три подборки (НЛ-6): другой объём или тара позиции, другие разновидности линейки и аналоги — тот же вид продукции и объём, цена в пределах ±15 %, в наличии в текущей точке.
+         */
+        get: operations["getSimilar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stock/balances": {
         parameters: {
             query?: never;
@@ -1630,6 +1690,115 @@ export interface components {
             permissions: components["schemas"]["Permission"][];
             /** @description Точки, с которыми работает пользователь. Для ролей уровня сети – все точки */
             locationIds: string[];
+        };
+        AvailabilityItem: {
+            /** Format: uuid */
+            productId: string;
+            name: string;
+            categoryName: string;
+            kindCode?: string;
+            accounting?: components["schemas"]["EgaisAccounting"];
+            /** Format: double */
+            abv?: number;
+            brandName?: string;
+            countryName: string;
+            lineName?: string;
+            variety?: string;
+            variants: number;
+            /**
+             * Format: double
+             * @description Розничная цена, ₽ — наименьшая среди вариантов
+             */
+            minPrice?: number;
+            /** Format: double */
+            maxPrice?: number;
+            /** @description Остаток в точках фильтра */
+            scopeQty: number;
+            networkQty: number;
+            hereQty: number;
+        };
+        AvailabilityPage: {
+            items: components["schemas"]["AvailabilityItem"][];
+            total: number;
+        };
+        AvailabilityAttribute: {
+            code: string;
+            name: string;
+            /** @description Значение для показа — с единицей измерения */
+            value: string;
+        };
+        AvailabilityVariant: {
+            /** Format: uuid */
+            id: string;
+            article: string;
+            /** @example 0,5 л, стекло */
+            label: string;
+            volumeMl?: number;
+            /** Format: double */
+            price?: number;
+        };
+        AvailabilityLocation: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            city: string;
+            kind: components["schemas"]["LocationKind"];
+            /** Format: double */
+            lat?: number;
+            /** Format: double */
+            lon?: number;
+        };
+        AvailabilityCell: {
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            locationId: string;
+            /** @description В торговом зале */
+            floor: number;
+            /** @description На складе магазина или распределительном складе */
+            storage: number;
+            reserved: number;
+            inTransit: number;
+        };
+        AvailabilityCard: {
+            /** Format: uuid */
+            productId: string;
+            name: string;
+            categoryName: string;
+            kindCode?: string;
+            accounting?: components["schemas"]["EgaisAccounting"];
+            /** Format: double */
+            abv?: number;
+            brandName?: string;
+            countryName: string;
+            lineName?: string;
+            variety?: string;
+            crptMarked: boolean;
+            attributes: components["schemas"]["AvailabilityAttribute"][];
+            variants: components["schemas"]["AvailabilityVariant"][];
+            locations: components["schemas"]["AvailabilityLocation"][];
+            /** @description Только ячейки, где что-то есть */
+            cells: components["schemas"]["AvailabilityCell"][];
+        };
+        SimilarItem: {
+            /** Format: uuid */
+            variantId: string;
+            /** Format: uuid */
+            productId: string;
+            name: string;
+            label: string;
+            /** Format: double */
+            price?: number;
+            hereQty: number;
+            networkQty: number;
+        };
+        SimilarGroups: {
+            /** @description Другой объём или тара той же позиции */
+            pack: components["schemas"]["SimilarItem"][];
+            /** @description Другие разновидности той же линейки */
+            line: components["schemas"]["SimilarItem"][];
+            analogs: components["schemas"]["SimilarItem"][];
         };
         /** @enum {string} */
         LocationKind: "warehouse" | "store";
@@ -5136,6 +5305,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    searchAvailability: {
+        parameters: {
+            query?: {
+                /** @description Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки */
+                q?: string;
+                /** @description Категория вместе с подкатегориями */
+                categoryId?: string;
+                kindCode?: string;
+                /** @description Бренд */
+                brandId?: string;
+                countryCode?: string;
+                volumeMl?: number;
+                abvFrom?: number;
+                abvTo?: number;
+                /** @description Розничная цена от, ₽ */
+                priceFrom?: number;
+                priceTo?: number;
+                city?: string;
+                /** @description Точка */
+                locationId?: string;
+                locationKind?: components["schemas"]["LocationKind"];
+                /** @description Только то, что есть в точках фильтра */
+                inStock?: boolean;
+                /** @description Характеристики категории, JSON: значение — точное совпадение, объект {"min", "max"} — диапазон числа. Например {"color": "красное", "age": {"min": 5}} */
+                attrs?: string;
+                /** @description Текущая точка пользователя — для столбца «здесь» */
+                here?: string;
+                sort?: "name" | "price" | "stock" | "new";
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница позиций */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityPage"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Карточка наличия */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSimilar: {
+        parameters: {
+            query?: {
+                /** @description Текущая точка — для наличия аналогов «здесь» */
+                here?: string;
+            };
+            header?: never;
+            path: {
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Подборки */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarGroups"];
                 };
             };
             default: components["responses"]["Problem"];
