@@ -185,7 +185,7 @@ openapi/
 | `document_packages` | `document_id`, `code` (штрихкод короба или палеты из ТТН), `parent_code`, `expected` jsonb (марки или строки внутри), `status` (expected, scanned, opened, missing) — для приёмки по коробам и выборочно |
 | `document_approvals` | `document_id`, `action` (post, reverse), `requested_by`, `decided_by`, `decision`, `decided_at`, `comment` |
 | `doc_counters` | `prefix`, `year`, `last_no` — нумерация без пропусков в транзакции |
-| `scans` | `id` (UUID с устройства — ключ идемпотентности), `document_id`, `zone_id`, `user_id`, `device_id`, `source` (camera, wedge, manual, paired), `raw`, `code_kind` (ean, excise_mark, crpt, package, asset), `parsed` jsonb, `variant_id`, `mark_code`, `package_code`, `qty`, `status` (accepted, unknown, foreign, duplicate, rejected), `scanned_at`, `received_at`, `undone_at` |
+| `scans` | `id` (UUID с устройства — ключ идемпотентности), `document_id`, `user_id`, `source` (camera, wedge, manual), `raw`, `code_kind` (вид кода по разбору сервера), `variant_id`, `mark_code` (текст марки ЕГАИС), `crpt_code` (GTIN и серийный номер кода «Честного знака»), `qty`, `status` (accepted, selected — выбран товар с марками, unknown, foreign, duplicate, rejected), `reason` (причина для пользователя), `scanned_at`, `received_at`, `undone_at`. Марка и код «Честного знака» засчитываются в документе один раз (частичные уникальные индексы). Поля зоны, устройства и короба добавят ревизия и приёмка |
 | `stocktake_zones` | `document_id`, `zone_id`, `name`, `status`, `assigned_to` |
 | `stock_moves` (регистр) | `id` bigserial, `document_id`, `line_id`, `variant_id`, `location_id`, `zone_id`, `bucket` (on_hand, in_transit, deficit), `qty` (со знаком), `cost_amount` (со знаком), `doc_date`, `posted_at` |
 | `stock_balances` | PK (`variant_id`, `zone_id`), `location_id`, `on_hand`, `reserved`, `in_transit`, `deficit` (п. 3.4), `updated_at` |
@@ -364,7 +364,9 @@ COMMIT
 Документ «Ввод начальных остатков» — один на точку при запуске системы, по сути первая ревизия:
 - создаёт управляющий или кладовщик точки, количество считается сканированием; для продукции с марками начальные марки приходят из ЕГАИС (запрос остатков) и подтверждаются сканом;
 - себестоимость подставляется из справочной закупочной цены варианта: её ведут руководитель и бухгалтер, кладовщик и управляющий сумм не видят;
-- проводит руководитель или бухгалтер после проверки, проведение задаёт начальную среднюю себестоимость.
+- проводит руководитель или бухгалтер после проверки (право `opening.post`), проведение задаёт начальную среднюю себестоимость;
+- документ — один на зону (уникальный индекс): у магазина отдельно вводятся склад и торговый зал. Повторный ввод исказил бы учёт, остатки потом исправляет ревизия;
+- марка нового образца алкокода не содержит: сначала сканируется штрихкод бутылки (скан «выбран товар»), следующие марки относятся к нему (решение 0036).
 
 ### 3.4 Продажа при нулевом учётном остатке
 
