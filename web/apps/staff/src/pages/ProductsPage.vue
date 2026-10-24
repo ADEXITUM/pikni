@@ -3,7 +3,7 @@ import { mdiFileUploadOutline, mdiFilterRemoveOutline, mdiMagnify, mdiPlus } fro
 import { api, ApiError, type Product } from '@pikni/api'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { categoryItems } from '@/categories'
 import ImportDialog from '@/components/ImportDialog.vue'
@@ -12,6 +12,7 @@ import { brandsQuery, categoriesQuery } from '@/queries'
 import { useMe } from '@/session'
 
 const router = useRouter()
+const route = useRoute()
 const queryClient = useQueryClient()
 const importOpen = ref(false)
 const { data: me } = useMe()
@@ -31,6 +32,16 @@ function applySearch() {
   clearTimeout(timer)
   search.value = (filters.search ?? '').trim()
 }
+// Поиск из шапки приложения приходит параметром q.
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q !== 'string') return
+    filters.search = q
+    applySearch()
+  },
+  { immediate: true },
+)
 watch(
   () => filters.search,
   () => {

@@ -66,4 +66,13 @@ describe('createWedgeDetector', () => {
     expect(input.value).toBe('черновик')
     expect(onInput).toHaveBeenCalled()
   })
+
+  it('с ignoreFields скан в поле ввода остаётся обычным вводом', () => {
+    const input = document.createElement('input')
+    const onScan = vi.fn<(raw: string) => void>()
+    const detector = createWedgeDetector({ onScan, ignoreFields: true })
+    const end = press(detector, chars('4006381333931'), 10, input)
+    press(detector, ['Enter'], 0, input, end)
+    expect(onScan).not.toHaveBeenCalled()
+  })
 })

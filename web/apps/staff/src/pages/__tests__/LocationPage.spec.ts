@@ -88,7 +88,10 @@ describe('LocationPage', () => {
     expect(sale).toContain('местное время 20:30')
     expect(sale).toContain('можно до 21:00')
     expect(sale).toContain('нельзя весь день: День знаний')
-    expect(wrapper.find('[data-test="name"] input').attributes('disabled')).toBeDefined()
+    // Только чтение, а не серые выключенные поля: значения остаются контрастными.
+    const name = wrapper.find('[data-test="name"] input')
+    expect(name.attributes('readonly')).toBeDefined()
+    expect(name.attributes('disabled')).toBeUndefined()
     expect(wrapper.find('[data-test="save"]').exists()).toBe(false)
   })
 

@@ -12,7 +12,8 @@ import {
 import { api, ApiError, type CodeResolution } from '@pikni/api'
 import type { RecognizedCode, ScanSource } from '@pikni/scanner'
 import type { SoundEvent } from '@pikni/ui'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import ScanCamera from '@/components/ScanCamera.vue'
 import { playFeedback } from '@/feedback'
@@ -100,6 +101,19 @@ const { submit, forget } = useScanner(async ({ event, code }) => {
     settle(entry, 'error')
   }
 })
+
+// Код в адресе — скан ручным сканером на другом экране: шапка приложения прислала его сюда.
+const route = useRoute()
+const router = useRouter()
+watch(
+  () => route.query.code,
+  (code) => {
+    if (typeof code !== 'string' || !code) return
+    submit(code, 'wedge')
+    void router.replace({ name: 'scan' })
+  },
+  { immediate: true },
+)
 
 // Ошибочный скан убирается из списка, а тот же код можно сразу считать снова.
 function undo(entry: Entry) {

@@ -338,7 +338,7 @@ async function submit(event: SubmitEventPromise) {
       {{ loadError?.message }}
     </v-alert>
 
-    <v-form v-if="isNew || product" :disabled="!canEdit" @submit.prevent="submit">
+    <v-form v-if="isNew || product" :readonly="!canEdit" @submit.prevent="submit">
       <v-card title="Основное" class="mb-4">
         <v-card-text>
           <v-row density="compact">

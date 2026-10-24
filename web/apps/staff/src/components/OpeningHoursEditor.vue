@@ -4,7 +4,8 @@ import type { OpeningHours } from '@pikni/api'
 
 import { weekdays, type Weekday } from '@/hours'
 
-defineProps<{ disabled?: boolean }>()
+// readonly — просмотр без права правки: значения читаются, но не меняются.
+defineProps<{ readonly?: boolean }>()
 const hours = defineModel<OpeningHours>({ required: true })
 
 function toggle(day: Weekday, working: boolean | null) {
@@ -30,7 +31,7 @@ function copyMonday() {
       <v-switch
         :model-value="hours[day.key] !== undefined"
         :label="day.title"
-        :disabled="disabled"
+        :readonly="readonly"
         class="pk-day__switch"
         @update:model-value="toggle(day.key, $event)"
       />
@@ -40,7 +41,7 @@ function copyMonday() {
           type="time"
           label="с"
           density="compact"
-          :disabled="disabled"
+          :readonly="readonly"
           @update:model-value="setTime(day.key, 'open', $event)"
         />
         <v-text-field
@@ -48,14 +49,14 @@ function copyMonday() {
           type="time"
           label="до"
           density="compact"
-          :disabled="disabled"
+          :readonly="readonly"
           @update:model-value="setTime(day.key, 'close', $event)"
         />
       </template>
       <span v-else class="text-medium-emphasis pk-day__off">выходной</span>
     </div>
     <v-btn
-      v-if="!disabled"
+      v-if="!readonly"
       variant="text"
       size="small"
       :prepend-icon="mdiContentCopy"

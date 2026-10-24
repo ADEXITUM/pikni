@@ -258,7 +258,7 @@ async function submit(event: SubmitEventPromise) {
       </v-list>
     </v-card>
 
-    <v-form v-if="isNew || location" :disabled="!canEdit" @submit.prevent="submit">
+    <v-form v-if="isNew || location" :readonly="!canEdit" @submit.prevent="submit">
       <v-card title="Основное" class="mb-4">
         <v-card-text>
           <v-row density="compact">
@@ -361,7 +361,7 @@ async function submit(event: SubmitEventPromise) {
 
       <v-card title="Режим работы" class="mb-4">
         <v-card-text>
-          <OpeningHoursEditor v-model="form.openingHours" :disabled="!canEdit" />
+          <OpeningHoursEditor v-model="form.openingHours" :readonly="!canEdit" />
         </v-card-text>
       </v-card>
 
