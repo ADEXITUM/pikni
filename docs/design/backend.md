@@ -144,7 +144,7 @@ openapi/
 |---|---|
 | `users` | `login` (уник.), `full_name`, `phone`, `role` (admin, manager, accountant, store_manager, storekeeper, cashier), `password_hash`, `pin_hash` (вход на кассе), `must_change_password`, `totp_secret_enc`, `totp_enabled`, `is_blocked`, `failed_attempts`, `locked_until` |
 | `user_locations` | `user_id`, `location_id` — точки пользователя (для ролей с ограничением «Т») |
-| `sessions` | `token_hash` (уник.), `user_id`, `pos_device_id` (для сессий кассира), `csrf_token`, `created_at`, `last_seen_at`, `expires_at`, `ip`, `user_agent`, `revoked_at` |
+| `sessions` | `token_hash` (уник.), `user_id`, `csrf_token`, `created_at`, `last_seen_at`, `expires_at`, `ip`, `user_agent`, `revoked_at` |
 | `one_time_tokens` | `kind` (qr_login, pairing, mfa), `token_hash`, `user_id`, `payload` jsonb, `expires_at`, `used_at` |
 | `api_keys` | `name`, `prefix`, `key_hash`, `scopes` text[], `created_by`, `last_used_at`, `revoked_at` |
 | `audit_log` | `id` bigserial, `at`, `user_id`, `session_id`, `pos_device_id`, `api_key_id`, `ip`, `action`, `entity_type`, `entity_id`, `data` jsonb |
@@ -198,9 +198,10 @@ openapi/
 
 | Таблица | Ключевые поля |
 |---|---|
-| `pos_devices` | `location_id`, `name`, `key_prefix`, `key_hash`, `last_seen_at`, `catalog_version`, `revoked_at` |
-| `pos_shifts` | `device_id`, `cashier_id`, `number`, `opened_at`, `closed_at`, `status` (open, closed, auto_closed), `totals` jsonb, `sale_document_id` |
-| `pos_receipts` | `id` (UUID с кассы — ключ идемпотентности), `shift_id`, `number`, `kind` (sale, return), `return_of`, `created_on_device_at`, `received_at`, `total`, `payment` (cash, card), `age_confirmed`, `egais_qr`, `egais_state`, `reservation_id` |
+| `pos_devices` | `location_id`, `name`, `key_prefix`, `key_hash` (SHA-256 секрета), `created_by`, `last_seen_at`, `revoked_at` |
+| `pos_sessions` | `device_id`, `user_id`, `token_hash`, `expires_at` (сутки), `revoked_at` — вход кассира по PIN (решение 0039) |
+| `pos_shifts` | `device_id`, `cashier_id`, `number`, `opened_at`, `closed_at`, `status` (open, closed, auto_closed), `sale_document_id`; одна открытая смена на кассу — частичный уникальный индекс |
+| `pos_receipts` | `id` (UUID с кассы — ключ идемпотентности), `shift_id`, `number`, `kind` (sale, return), `return_of`, `created_on_device_at`, `received_at`, `total`, `payment` (cash, card), `age_confirmed`, `egais_qr`, `offline` |
 | `pos_receipt_lines` | `receipt_id`, `line_no`, `variant_id`, `qty`, `price`, `mark_code`, `crpt_code` |
 
 **Обмен с внешними системами**
@@ -265,9 +266,9 @@ create table stock_balances (
   check (reserved <= on_hand)
 );
 
--- марка может быть продана только один раз: в строках чеков продажи марка уникальна
-create unique index pos_receipt_lines_mark_sold
-  on pos_receipt_lines (mark_code) where mark_code is not null and qty > 0;
+-- марка продаётся один раз: её статус в excise_marks меняется в транзакции чека под блокировкой
+-- строки марки; уникального индекса в строках чеков нет — возвращённую бутылку можно продать снова
+-- (решение 0039)
 
 -- регистр движений, история марок и журнал действий: только добавление
 create function forbid_change() returns trigger language plpgsql as $$
@@ -303,7 +304,7 @@ create trigger audit_log_append_only before update or delete on audit_log
 | Передача в зал / из зала | − склад магазина, + торговый зал | для продукции без марок — перевод между регистрами склада и зала |
 | Перемещение: отгрузка | − on_hand у отправителя; + in_transit у получателя; марки → in_transit | ТТН от отправителя |
 | Перемещение: приёмка | − in_transit; + on_hand на принятое. Недостача остаётся в пути и списывается актом с утверждением | акт подтверждения или расхождения от получателя |
-| Продажа (закрытие смены) | − on_hand в торговом зале | чеки с марками уже отправлены при продаже; для пива — акт списания из зала «Реализация» |
+| Продажа (каждый чек; документ «Продажа» на смену) | − on_hand в торговом зале, товар без марок — сверх остатка в недостачу к разбору; марка → sold | чек с марками — синхронно при продаже; для пива — акт списания из зала «Реализация» при закрытии смены |
 | Возврат от покупателя | + on_hand в торговом зале; марка → in_stock | возврат марки на баланс (в имитаторе — чек возврата) |
 | Возврат поставщику, списание | − on_hand; марки → returned или written_off | ТТН возврата; акт списания |
 | Ревизия (корректировка) | ± on_hand на разницу «факт − учёт» | акты постановки на баланс и списания |
