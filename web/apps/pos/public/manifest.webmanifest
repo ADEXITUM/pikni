@@ -1,0 +1,10 @@
+{
+  "name": "Пикни · Касса",
+  "short_name": "Касса",
+  "start_url": "/pos/",
+  "scope": "/pos/",
+  "display": "standalone",
+  "background_color": "#FFFDF8",
+  "theme_color": "#221D17",
+  "icons": [{ "src": "/pos/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

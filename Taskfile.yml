@@ -134,11 +134,24 @@ tasks:
 
   dev:web:
     internal: true
+    deps:
+      - task: dev:staff
+        vars: { HTTPS: '{{.HTTPS}}' }
+      - dev:pos
+
+  dev:staff:
+    internal: true
     dir: web
     env:
       PIKNI_HTTPS: '{{.HTTPS}}'
     cmds:
       - npm run dev:staff
+
+  dev:pos:
+    internal: true
+    dir: web
+    cmds:
+      - npm run dev:pos
 
   gen:
     desc: Сгенерировать код из OpenAPI и SQL
@@ -152,6 +165,7 @@ tasks:
     dir: api
     cmds:
       - go tool oapi-codegen -config oapi-codegen.yaml ../openapi/pikni.yaml
+      - go tool oapi-codegen -config oapi-codegen-pos.yaml ../openapi/pos.yaml
 
   gen:sqlc:
     internal: true
@@ -204,6 +218,8 @@ tasks:
     cmds:
       - npm run type-check -w @pikni/staff
       - npm run lint:check -w @pikni/staff
+      - npm run type-check -w @pikni/pos
+      - npm run lint:check -w @pikni/pos
       - npx --prefix apps/staff prettier --check .
 
   check:

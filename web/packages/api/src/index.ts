@@ -81,3 +81,6 @@ export class ApiError extends Error {
     this.name = 'ApiError'
   }
 }
+
+export type PosDevice = components['schemas']['PosDevice']
+export type PosDeviceKey = components['schemas']['PosDeviceKey']

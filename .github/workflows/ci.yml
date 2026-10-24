@@ -69,9 +69,12 @@ jobs:
       - run: npm ci
       - run: npm run type-check -w @pikni/staff
       - run: npm run lint:check -w @pikni/staff
+      - run: npm run type-check -w @pikni/pos
+      - run: npm run lint:check -w @pikni/pos
       - run: npx --prefix apps/staff prettier --check .
       - run: npm test
       - run: npm run build-only -w @pikni/staff
+      - run: npm run build-only -w @pikni/pos
       - run: npm audit --omit=dev --audit-level=high
 
   generated:

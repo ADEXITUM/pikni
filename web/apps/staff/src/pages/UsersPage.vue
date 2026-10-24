@@ -2,6 +2,7 @@
 import {
   mdiAccountLockOutline,
   mdiAccountLockOpenOutline,
+  mdiDialpad,
   mdiDotsVertical,
   mdiKeyChange,
   mdiLogoutVariant,
@@ -14,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import PinDialog from '@/components/PinDialog.vue'
 import TemporaryPasswordDialog from '@/components/TemporaryPasswordDialog.vue'
 import UserFormDialog from '@/components/UserFormDialog.vue'
 import { roleLabels } from '@/labels'
@@ -68,6 +70,9 @@ function status(u: User) {
 const formOpen = ref(false)
 const editing = ref<User | null>(null)
 const issued = ref<{ login: string; password: string } | null>(null)
+const pinFor = ref<User | null>(null)
+// PIN нужен тем, кто продаёт на кассе (право pos.sell).
+const sellers: User['role'][] = ['cashier', 'store_manager']
 
 function openForm(user: User | null) {
   editing.value = user
@@ -212,6 +217,12 @@ function unblock(u: User) {
                 @click="pending = actions.reset(item)"
               />
               <v-list-item
+                v-if="sellers.includes(item.role)"
+                :prepend-icon="mdiDialpad"
+                title="PIN для кассы"
+                @click="pinFor = item"
+              />
+              <v-list-item
                 :prepend-icon="mdiLogoutVariant"
                 title="Завершить сеансы"
                 @click="pending = actions.endSessions(item)"
@@ -237,6 +248,7 @@ function unblock(u: User) {
 
     <UserFormDialog v-model="formOpen" :user="editing" @created="onCreated" @saved="refresh" />
     <TemporaryPasswordDialog v-model="issued" />
+    <PinDialog v-model="pinFor" />
     <ConfirmDialog
       v-model="confirmOpen"
       :title="pending?.title ?? ''"

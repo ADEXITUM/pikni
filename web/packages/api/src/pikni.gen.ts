@@ -242,6 +242,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Задать PIN для входа на кассе
+         * @description 4–6 цифр. Кассир входит на кассе по логину и PIN; PIN хранится хешем, как пароль.
+         */
+        put: operations["setUserPin"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pos-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Кассы */
+        get: operations["listPosDevices"];
+        put?: never;
+        /**
+         * Зарегистрировать кассу
+         * @description Касса привязывается к магазину. Ключ кассы показывается один раз — его вводят в кассовой программе или сканируют QR-код. В базе хранится только хеш ключа.
+         */
+        post: operations["createPosDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pos-devices/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отключить кассу
+         * @description Ключ перестаёт действовать сразу; потерянную или заменённую кассу регистрируют заново.
+         */
+        post: operations["revokePosDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit/export": {
         parameters: {
             query?: never;
@@ -1417,7 +1478,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -1512,6 +1573,37 @@ export interface components {
         };
         TemporaryPassword: {
             temporaryPassword: string;
+        };
+        PinRequest: {
+            pin: string;
+        };
+        PosDevice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            locationCode: string;
+            locationName: string;
+            /** @example Касса 1 */
+            name: string;
+            /** @description Начало ключа — чтобы отличить кассы, сам ключ не хранится */
+            keyPrefix: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            /** Format: date-time */
+            revokedAt?: string;
+        };
+        NewPosDevice: {
+            /** Format: uuid */
+            locationId: string;
+            name: string;
+        };
+        PosDeviceKey: {
+            device: components["schemas"]["PosDevice"];
+            /** @description Ключ кассы, показывается один раз */
+            key: string;
         };
         LoginRequest: {
             /** @example petrova */
@@ -3057,6 +3149,98 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Сеансы завершены */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setUserPin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinRequest"];
+            };
+        };
+        responses: {
+            /** @description PIN задан */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPosDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Зарегистрированные кассы всех точек */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosDevice"][];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createPosDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPosDevice"];
+            };
+        };
+        responses: {
+            /** @description Касса и её ключ */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PosDeviceKey"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    revokePosDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Касса отключена */
             204: {
                 headers: {
                     [name: string]: unknown;
