@@ -9,7 +9,7 @@ import (
 
 func toAssortmentItem(a store.ListAssortmentRow) apispec.AssortmentItem {
 	return apispec.AssortmentItem{
-		VariantID: a.VariantID, ProductID: a.ProductID, Article: a.Article, Name: a.Name, VolumeMl: a.VolumeMl,
+		VariantID: a.VariantID, ProductID: a.ProductID, Article: a.Article, Name: a.Name, VolumeMl: a.VolumeMl, NetWeightG: a.NetWeightG,
 		Container: (*apispec.Container)(a.Container), GiftPack: a.GiftPack, IsActive: a.IsActive, MinQty: a.MinQty,
 	}
 }

@@ -21,6 +21,9 @@ dist/
 # Результаты тестов
 test-results/
 playwright-report/
+# Вход и видео камеры, которые готовит global-setup сквозных тестов
+**/e2e/.auth/
+**/e2e/.cache/
 
 # Редакторы и ОС
 .idea/

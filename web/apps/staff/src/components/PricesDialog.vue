@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
+import { confirm } from '@/confirm'
 import { formatDateTime } from '@/format'
 import { formatPrice, variantLabel } from '@/products'
 
@@ -70,6 +71,16 @@ const { mutate: remove, error: removeError } = useMutation({
   onSuccess: done,
 })
 
+async function askRemove(p: { id: string; price: number; validFrom: string }) {
+  const ok = await confirm({
+    title: 'Отменить назначенную цену?',
+    text: `Цена ${formatPrice(p.price)} с ${formatDateTime(p.validFrom)} не вступит в силу.`,
+    confirmText: 'Отменить цену',
+    danger: true,
+  })
+  if (ok) remove(p.id)
+}
+
 const failure = computed(() => error.value ?? removeError.value)
 
 watch(open, (isOpen) => {
@@ -80,7 +91,21 @@ watch(open, (isOpen) => {
 })
 
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) mutate()
+  if (!(await event).valid || !props.variant) return
+  const current = kind.value === 'retail' ? props.variant.retailPrice : props.variant.purchasePrice
+  const next = Number(form.price.replace(',', '.'))
+  const label = kind.value === 'retail' ? 'Розничная цена' : 'Закупочная цена'
+  const ok = await confirm({
+    title: `${props.variant.article} · ${variantLabel(props.variant)}`,
+    text: form.validFrom
+      ? `Новая цена начнёт действовать ${formatDateTime(new Date(form.validFrom).toISOString())}.`
+      : 'Новая цена начнёт действовать сразу.',
+    changes: [
+      { label, old: current === undefined ? '—' : formatPrice(current), new: formatPrice(next) },
+    ],
+    confirmText: 'Назначить',
+  })
+  if (ok) mutate()
 }
 </script>
 
@@ -94,7 +119,7 @@ async function submit(event: SubmitEventPromise) {
       <v-card-text>
         <p
           v-if="kind === 'retail' && variant?.minPrice"
-          class="text-body-2 mb-3"
+          class="text-body-medium mb-3"
           data-test="min-price"
         >
           МРЦ сейчас: {{ formatPrice(variant.minPrice) }}. Дешевле продавать нельзя.
@@ -133,7 +158,7 @@ async function submit(event: SubmitEventPromise) {
           {{ failure instanceof ApiError ? failure.message : 'Нет связи с сервером' }}
         </v-alert>
 
-        <div class="text-subtitle-2 mt-4 mb-1">История</div>
+        <div class="text-title-small mt-4 mb-1">История</div>
         <v-list v-if="history?.length" density="compact" data-test="price-history">
           <v-list-item
             v-for="p in history"
@@ -149,12 +174,12 @@ async function submit(event: SubmitEventPromise) {
                 variant="text"
                 size="small"
                 title="Отменить назначенную цену"
-                @click="remove(p.id)"
+                @click="askRemove(p)"
               />
             </template>
           </v-list-item>
         </v-list>
-        <p v-else class="text-body-2 text-medium-emphasis">Цен ещё не было</p>
+        <p v-else class="text-body-medium text-medium-emphasis">Цен ещё не было</p>
       </v-card-text>
       <v-card-actions>
         <v-spacer />

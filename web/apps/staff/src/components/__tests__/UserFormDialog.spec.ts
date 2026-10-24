@@ -2,12 +2,14 @@ import { api, type Location, type Me, type User } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { VSelect } from 'vuetify/components'
 
 import { makeLocation } from '@/__tests__/fixtures'
 import { meQuery } from '@/session'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import UserFormDialog from '../UserFormDialog.vue'
 
@@ -81,6 +83,12 @@ async function mountDialog(user: User | null) {
 }
 
 describe('UserFormDialog', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   beforeEach(() => {
     vi.mocked(api.GET).mockResolvedValue({
       data: { items: locations },
@@ -98,12 +106,16 @@ describe('UserFormDialog', () => {
     const wrapper = await mountDialog(cashier)
 
     expect(wrapper.find('[data-test="locations"]').exists()).toBe(true)
+    await wrapper.find('[data-test="full-name"] input').setValue('Кассир Иванова')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
+    expect(confirmed.asked[0]?.changes).toEqual([
+      { label: 'ФИО', old: 'Кассир', new: 'Кассир Иванова' },
+    ])
     expect(api.PUT).toHaveBeenCalledWith('/users/{id}', {
       params: { path: { id: 'u-1' } },
-      body: { fullName: 'Кассир', role: 'cashier', locationIds: ['mg-1'], version: 3 },
+      body: { fullName: 'Кассир Иванова', role: 'cashier', locationIds: ['mg-1'], version: 3 },
     })
     expect(wrapper.emitted('saved')?.[0]).toEqual([{ ...cashier, version: 4 }])
   })
@@ -120,6 +132,7 @@ describe('UserFormDialog', () => {
     } as never)
     const wrapper = await mountDialog(cashier)
 
+    await wrapper.find('[data-test="full-name"] input').setValue('Кассир Иванова')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 

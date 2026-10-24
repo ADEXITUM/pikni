@@ -8,7 +8,7 @@ import (
 )
 
 func toCategory(c store.Category) apispec.Category {
-	return apispec.Category{ID: c.ID, ParentID: c.ParentID, Name: c.Name, Depth: int32(c.Depth), Sort: c.Sort, IsActive: c.IsActive}
+	return apispec.Category{ID: c.ID, ParentID: c.ParentID, Name: c.Name, Depth: int32(c.Depth), Sort: c.Sort, IsActive: c.IsActive, Alcohol: c.Alcohol}
 }
 
 func toCategoryAttribute(a store.CategoryAttribute) apispec.CategoryAttribute {

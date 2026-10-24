@@ -2,9 +2,11 @@ import { api, type ImportReport } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { VFileInput } from 'vuetify/components'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import ImportDialog from '../ImportDialog.vue'
 
@@ -27,10 +29,12 @@ const report = (r: Partial<ImportReport>): ImportReport => ({
   committed: false,
   rows: 2,
   products: 1,
+  existing: 0,
   variants: 2,
   newProducers: ['ООО «Тайга»'],
   newBrands: [],
   newLines: [],
+  changes: [],
   errors: [],
   ...r,
 })
@@ -50,6 +54,12 @@ async function openWithFile() {
 }
 
 describe('ImportDialog', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   beforeEach(() => vi.mocked(api.POST).mockReset())
 
   it('ошибки по строкам не дают загрузить', async () => {
@@ -81,7 +91,46 @@ describe('ImportDialog', () => {
     await flushPromises()
 
     expect(api.POST).toHaveBeenLastCalledWith('/catalog/import', expect.anything())
-    expect(wrapper.find('[data-test="import-done"]').text()).toContain('Загружено позиций: 1')
+    expect(wrapper.find('[data-test="import-done"]').text()).toContain('Новых позиций: 1')
     expect(wrapper.emitted('imported')).toHaveLength(1)
+  })
+
+  it('отличия от каталога решаются по одному: на сервер уходят только взятые из файла', async () => {
+    const changes = [
+      {
+        key: '2:price',
+        row: 2,
+        product: 'Тайга',
+        variant: '0,5 л',
+        field: 'Цена',
+        old: '449,00 ₽',
+        new: '479,00 ₽',
+      },
+      { key: '2:abv', row: 2, product: 'Тайга', field: 'Крепость', old: '40 %', new: '41 %' },
+    ]
+    vi.mocked(api.POST)
+      .mockResolvedValueOnce({
+        data: report({ products: 0, existing: 1, variants: 0, newProducers: [], changes }),
+        response: new Response(),
+      } as never)
+      .mockResolvedValueOnce({
+        data: report({ committed: true }),
+        response: new Response(),
+      } as never)
+    const wrapper = await openWithFile()
+
+    const abv = wrapper.find('[data-test="change-2:abv"]')
+    expect(abv.text()).toContain('40 %')
+    await abv
+      .findAll('button')
+      .find((b) => b.text() === 'Каталог')!
+      .trigger('click')
+    await wrapper.find('[data-test="import-run"]').trigger('click')
+    await flushPromises()
+
+    const init = vi.mocked(api.POST).mock.calls[1]![1] as unknown as {
+      bodySerializer: () => FormData
+    }
+    expect(JSON.parse(String(init.bodySerializer().get('accept')))).toEqual(['2:price'])
   })
 })

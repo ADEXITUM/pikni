@@ -39,7 +39,7 @@ const themePreference = computed<ThemePreference>({
   <v-menu v-if="me" :close-on-content-click="false">
     <template #activator="{ props }">
       <v-btn v-bind="props" icon :title="me.fullName" data-test="user-menu">
-        <v-avatar color="primary" size="34" class="text-body-2 font-weight-bold">{{
+        <v-avatar color="primary" size="34" class="text-body-medium font-weight-bold">{{
           initials
         }}</v-avatar>
       </v-btn>
@@ -49,7 +49,7 @@ const themePreference = computed<ThemePreference>({
       <v-card-item :title="me.fullName" :subtitle="roleLabels[me.role]" />
       <v-divider />
       <v-card-text>
-        <div class="text-caption text-medium-emphasis mb-2">Тема</div>
+        <div class="text-body-small text-medium-emphasis mb-2">Тема</div>
         <v-btn-toggle
           v-model="themePreference"
           mandatory

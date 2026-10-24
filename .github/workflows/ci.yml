@@ -78,3 +78,69 @@ jobs:
         run: npm ci && npm run gen
       - name: Nothing changed
         run: git diff --exit-code
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pikni
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pikni"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://pikni_app:pikni_app@localhost:5432/pikni?sslmode=disable
+      DATABASE_MIGRATOR_URL: postgres://pikni_owner:pikni_owner@localhost:5432/pikni?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Database roles
+        run: sh api/db/initdb/10-roles.sh
+        env:
+          PGHOST: localhost
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: pikni
+          PIKNI_OWNER_PASSWORD: pikni_owner
+          PIKNI_APP_PASSWORD: pikni_app
+      - name: Migrations, demo data and the e2e admin
+        working-directory: api
+        env:
+          PGPASSWORD: pikni_owner
+        run: |
+          go run ./cmd/migrate
+          psql -h localhost -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f db/seed/dev.sql
+          go run ./cmd/admin import-catalog -file db/seed/catalog.csv
+          psql -h localhost -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f db/seed/matrix.sql
+          echo "E2E_TEMP_PASSWORD=$(go run ./cmd/admin create-admin -login e2e | sed -n 's/^Temporary password for e2e: //p')" >> "$GITHUB_ENV"
+      - name: API server
+        working-directory: api
+        run: |
+          go build -o "$RUNNER_TEMP/pikni-api" ./cmd/api
+          "$RUNNER_TEMP/pikni-api" > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:8080/readyz && break; sleep 1; done
+      - run: npm ci
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web/apps/staff
+      - run: npx playwright test
+        working-directory: web/apps/staff
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            web/apps/staff/playwright-report
+            ${{ runner.temp }}/api.log

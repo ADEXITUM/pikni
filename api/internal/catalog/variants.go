@@ -20,6 +20,9 @@ import (
 var (
 	ErrVariantExists    = errors.New("variant already exists")
 	ErrVolumeRequired   = errors.New("EGAIS product variant needs a volume")
+	ErrVolumeAndWeight  = errors.New("variant has either a volume or a net weight")
+	ErrWeightForEgais   = errors.New("EGAIS product packaging is a volume")
+	ErrInvalidWeight    = errors.New("net weight must be from 1 g to 100 kg")
 	ErrUnknownVolume    = errors.New("volume is not in the reference book")
 	ErrInvalidContainer = errors.New("unknown container")
 	ErrAlcocodeNotEgais = errors.New("alcocode is only for EGAIS products")
@@ -40,6 +43,7 @@ type Variant struct {
 // VariantSpec — что задаёт новый вариант.
 type VariantSpec struct {
 	VolumeMl       *int32
+	NetWeightG     *int32
 	Container      *string
 	GiftPack       bool
 	Alcocode, GTIN *string
@@ -167,7 +171,8 @@ func (s *Service) createVariants(ctx context.Context, productID uuid.UUID, specs
 
 func hasVariant(existing []store.Variant, spec VariantSpec) bool {
 	for _, v := range existing {
-		if samePtr(v.VolumeMl, spec.VolumeMl) && samePtr(v.Container, spec.Container) && v.GiftPack == spec.GiftPack {
+		if samePtr(v.VolumeMl, spec.VolumeMl) && samePtr(v.NetWeightG, spec.NetWeightG) &&
+			samePtr(v.Container, spec.Container) && v.GiftPack == spec.GiftPack {
 			return true
 		}
 	}
@@ -182,7 +187,14 @@ func variantParams(p store.GetVariantProductRow, spec VariantSpec) (store.Create
 	if spec.Container != nil && containerNames[*spec.Container] == "" {
 		return store.CreateVariantParams{}, ErrInvalidContainer
 	}
-	if p.KindCode != nil && spec.VolumeMl == nil {
+	switch {
+	case spec.VolumeMl != nil && spec.NetWeightG != nil:
+		return store.CreateVariantParams{}, ErrVolumeAndWeight
+	case spec.NetWeightG != nil && (*spec.NetWeightG < 1 || *spec.NetWeightG > 100000):
+		return store.CreateVariantParams{}, ErrInvalidWeight
+	case p.KindCode != nil && spec.NetWeightG != nil:
+		return store.CreateVariantParams{}, ErrWeightForEgais
+	case p.KindCode != nil && spec.VolumeMl == nil:
 		return store.CreateVariantParams{}, ErrVolumeRequired
 	}
 	alcocode, gtin, err := variantCodes(p, spec.Alcocode, spec.GTIN)
@@ -190,7 +202,7 @@ func variantParams(p store.GetVariantProductRow, spec VariantSpec) (store.Create
 		return store.CreateVariantParams{}, err
 	}
 	return store.CreateVariantParams{
-		ProductID: p.ID, VolumeMl: spec.VolumeMl, Container: spec.Container, GiftPack: spec.GiftPack,
+		ProductID: p.ID, VolumeMl: spec.VolumeMl, NetWeightG: spec.NetWeightG, Container: spec.Container, GiftPack: spec.GiftPack,
 		Alcocode: alcocode, Gtin: gtin,
 	}, nil
 }
@@ -221,11 +233,18 @@ func variantWriteError(err error) error {
 	return fmt.Errorf("write variant: %w", err)
 }
 
-// variantLabel — подпись варианта для журнала: «0,5 л, стекло, подарочная упаковка».
+// variantLabel — подпись варианта для журнала: «0,5 л, стекло, подарочная упаковка», «70 г».
 func variantLabel(v store.Variant) string {
 	var parts []string
+	decimal := func(n float64) string { return strings.Replace(strconv.FormatFloat(n, 'f', -1, 64), ".", ",", 1) }
 	if v.VolumeMl != nil {
-		parts = append(parts, strings.Replace(strconv.FormatFloat(float64(*v.VolumeMl)/1000, 'f', -1, 64), ".", ",", 1)+" л")
+		parts = append(parts, decimal(float64(*v.VolumeMl)/1000)+" л")
+	}
+	switch {
+	case v.NetWeightG != nil && *v.NetWeightG >= 1000:
+		parts = append(parts, decimal(float64(*v.NetWeightG)/1000)+" кг")
+	case v.NetWeightG != nil:
+		parts = append(parts, strconv.Itoa(int(*v.NetWeightG))+" г")
 	}
 	if v.Container != nil {
 		parts = append(parts, containerNames[*v.Container])
@@ -234,7 +253,7 @@ func variantLabel(v store.Variant) string {
 		parts = append(parts, "подарочная упаковка")
 	}
 	if len(parts) == 0 {
-		return "без объёма и тары"
+		return "без фасовки"
 	}
 	return strings.Join(parts, ", ")
 }

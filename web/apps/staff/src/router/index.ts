@@ -1,12 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { queryClient } from '@/query'
-import { sessionGuard } from '@/session'
+import { homeRoute, meQuery, sessionGuard } from '@/session'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', redirect: '/locations' },
+    // Стартовый экран по роли: в магазине — сканер, в офисе сети — каталог.
+    {
+      path: '/',
+      name: 'home',
+      component: { render: () => null },
+      beforeEnter: async () => ({ name: homeRoute(await queryClient.ensureQueryData(meQuery)) }),
+    },
     {
       path: '/login',
       name: 'login',

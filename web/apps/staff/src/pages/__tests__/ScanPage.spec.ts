@@ -56,16 +56,17 @@ const CameraStub = {
   emits: ['scan', 'close'],
 }
 
-async function mountPage(permissions: Permission[] = ['refs.view', 'refs.edit']) {
+async function mountPage(permissions: Permission[] = ['refs.view', 'refs.edit'], path = '/scan') {
   const queryClient = new QueryClient()
   queryClient.setQueryData(meQuery.queryKey, makeMe({ permissions }))
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/scan', component: ScanPage },
+      { path: '/scan', name: 'scan', component: ScanPage },
       { path: '/products/:id', name: 'product', component: { render: () => null } },
     ],
   })
+  await router.push(path)
   const wrapper = mount(ScanPage, {
     global: {
       plugins: [createPikniVuetify(), router, [VueQueryPlugin, { queryClient }]],
@@ -217,6 +218,15 @@ describe('ScanPage', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(wrapper.find('[data-test="missing"]').text()).toContain('Сообщите руководителю')
+    wrapper.unmount()
+  })
+
+  it('код из адреса — скан на другом экране — разбирается сразу, адрес очищается', async () => {
+    const wrapper = await mountPage(undefined, '/scan?code=2900000000025')
+    expect(api.GET).toHaveBeenCalledWith('/codes/resolve', {
+      params: { query: { code: '2900000000025' } },
+    })
+    expect(wrapper.find('[data-test="kind"]').text()).toContain('сканер')
     wrapper.unmount()
   })
 })

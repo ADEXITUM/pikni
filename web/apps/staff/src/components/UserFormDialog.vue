@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 import type { SubmitEventPromise } from 'vuetify'
 
+import { confirmChanges, diffFields } from '@/confirm'
 import { networkRoles, roleLabels } from '@/labels'
 import { locationsQuery } from '@/queries'
 import { useMe } from '@/session'
@@ -65,8 +66,29 @@ watch(open, (isOpen) => {
   locationIds.value = [...(props.user?.locationIds ?? [])]
 })
 
+const describe = (v: { fullName: string; role: Role; locationIds: string[] }) => ({
+  fullName: v.fullName.trim(),
+  role: roleLabels[v.role],
+  locations: networkRoles.has(v.role)
+    ? 'вся сеть'
+    : v.locationIds.map((id) => locations.value?.find((l) => l.id === id)?.code ?? id).sort(),
+})
+
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) mutate()
+  if (!(await event).valid) return
+  if (props.user) {
+    const changes = diffFields(
+      describe(props.user),
+      describe({ fullName: fullName.value, role: role.value, locationIds: locationIds.value }),
+      { fullName: 'ФИО', role: 'Роль', locations: 'Точки' },
+    )
+    if (!changes.length) {
+      open.value = false
+      return
+    }
+    if (!(await confirmChanges(`Изменить сотрудника ${props.user.login}?`, changes))) return
+  }
+  mutate()
 }
 </script>
 

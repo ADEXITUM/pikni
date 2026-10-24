@@ -1043,7 +1043,7 @@ export interface paths {
         put?: never;
         /**
          * Импорт номенклатуры
-         * @description Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется.
+         * @description Всё или ничего (НСИ-7) — если хоть в одной строке ошибка, ничего не сохраняется. Позиции, которые уже есть в каталоге, не дублируются: из расхождений с файлом применяются только перечисленные в accept.
          */
         post: operations["runImport"];
         delete?: never;
@@ -1580,15 +1580,21 @@ export interface components {
              * @description Родитель; без него — категория верхнего уровня. После создания не меняется.
              */
             parentId?: string;
+            /** @description Алкогольная продукция; задаётся только у категории верхнего уровня, подкатегории наследуют */
+            alcohol?: boolean;
         };
         CategoryUpdate: components["schemas"]["CategoryFields"] & {
             isActive: boolean;
+            /** @description Меняется только у категории верхнего уровня — вместе со всеми подкатегориями */
+            alcohol?: boolean;
         };
         Category: components["schemas"]["CategoryFields"] & {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             parentId?: string;
+            /** @description Алкогольная продукция — есть вид продукции ЕГАИС, крепость, алкокод и МРЦ */
+            alcohol: boolean;
             /** Format: int32 */
             depth: number;
             isActive: boolean;
@@ -1801,6 +1807,12 @@ export interface components {
              * @example 500
              */
             volumeMl?: number;
+            /**
+             * Format: int32
+             * @description Масса нетто в граммах — фасовка сопутствующих товаров; вместе с объёмом не указывается
+             * @example 70
+             */
+            netWeightG?: number;
             container?: components["schemas"]["Container"];
             giftPack: boolean;
         };
@@ -1986,11 +1998,38 @@ export interface components {
             rows: number;
             /** @description Позиций создано (или будет создано) */
             products: number;
+            /** @description Позиций, которые уже есть в каталоге (производитель и наименование совпали) */
+            existing: number;
             variants: number;
             newProducers: string[];
             newBrands: string[];
             newLines: string[];
+            changes: components["schemas"]["ImportChange"][];
             errors: components["schemas"]["ImportError"][];
+        };
+        /** @description Расхождение файла с каталогом у позиции или варианта, которые уже есть. Как конфликт при слиянии веток: пользователь выбирает, оставить значение каталога или взять из файла. */
+        ImportChange: {
+            /**
+             * @description Строка и поле; одинаков при предпросмотре и загрузке того же файла
+             * @example 12:price
+             */
+            key: string;
+            row: number;
+            product: string;
+            /** @description Подпись варианта, если расхождение в варианте */
+            variant?: string;
+            /** @example Цена */
+            field: string;
+            /**
+             * @description Значение в каталоге
+             * @example 459,00 ₽
+             */
+            old: string;
+            /**
+             * @description Значение в файле
+             * @example 479,00 ₽
+             */
+            new: string;
         };
         AssortmentItem: {
             /** Format: uuid */
@@ -2001,6 +2040,8 @@ export interface components {
             name: string;
             /** Format: int32 */
             volumeMl?: number;
+            /** Format: int32 */
+            netWeightG?: number;
             container?: components["schemas"]["Container"];
             giftPack: boolean;
             /** @description false — позиция или вариант в архиве */
@@ -3894,6 +3935,11 @@ export interface operations {
                      * @description XLSX или CSV по шаблону, до 5 МБ и 5000 строк
                      */
                     file: string;
+                    /**
+                     * @description JSON-массив ключей расхождений из предпросмотра, которые взять из файла; остальные остаются как в каталоге
+                     * @example ["12:price", "12:abv"]
+                     */
+                    accept?: string;
                 };
             };
         };

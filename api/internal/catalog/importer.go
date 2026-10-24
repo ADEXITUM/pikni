@@ -59,6 +59,7 @@ var importColumns = []importColumn{
 	{"region", "Регион происхождения", "Из справочника регионов", false, true},
 	{"attributes", "Характеристики", "Сырьё: пшеница; Фильтрация: угольная", false, true},
 	{"volume", "Объём, л", "Из справочника объёмов, например 0,5", false, false},
+	{"weight", "Масса нетто, г", "Для сопутствующих товаров вместо объёма, например 70", false, false},
 	{"container", "Тара", "стекло, ПЭТ или банка", false, false},
 	{"gift", "Подарочная упаковка", "да или нет", false, false},
 	{"alcocode", "Алкокод", "19 цифр", false, false},
@@ -69,18 +70,20 @@ var importColumns = []importColumn{
 }
 
 // variantColumns — если в строке заполнена хоть одна из них, строка добавляет вариант.
-var variantColumns = []string{"volume", "container", "gift", "alcocode", "gtin", "barcode", "price", "purchase"}
+var variantColumns = []string{"volume", "weight", "container", "gift", "alcocode", "gtin", "barcode", "price", "purchase"}
 
 type ImportError struct {
 	Row     int
 	Message string
 }
 
+// ImportReport — итог импорта. Products — позиций создано, Existing — найдено в каталоге.
 type ImportReport struct {
-	Committed                         bool
-	Rows, Products, Variants          int
-	NewProducers, NewBrands, NewLines []string
-	Errors                            []ImportError
+	Committed                          bool
+	Rows, Products, Existing, Variants int
+	NewProducers, NewBrands, NewLines  []string
+	Changes                            []ImportChange
+	Errors                             []ImportError
 }
 
 type importRow struct {
@@ -310,6 +313,13 @@ type groupImport struct {
 	lk       *importLookups
 	setBy    *uuid.UUID
 	variants int
+	existing bool
+
+	// accept — какие расхождения взять из файла; changes — все найденные расхождения.
+	accept  map[string]bool
+	changes []ImportChange
+	// current — варианты позиции, которая уже была в каталоге.
+	current []Variant
 
 	producers map[string]store.Producer
 	brands    map[string]store.Brand
@@ -477,7 +487,7 @@ func (g *groupImport) productFields(ctx context.Context, r importRow) (apispec.P
 	return f, nil
 }
 
-func (g *groupImport) variant(ctx context.Context, productID uuid.UUID, r importRow) error {
+func (g *groupImport) variant(ctx context.Context, product store.ProductCard, r importRow) error {
 	v := r.v
 	if !slices.ContainsFunc(variantColumns, func(c string) bool { return v[c] != "" }) {
 		return nil
@@ -491,6 +501,14 @@ func (g *groupImport) variant(ctx context.Context, productID uuid.UUID, r import
 		ml := int32(math.Round(*litres * 1000))
 		spec.VolumeMl = &ml
 	}
+	grams, err := decimal(v["weight"], "Масса нетто")
+	if err != nil {
+		return err
+	}
+	if grams != nil {
+		g := int32(math.Round(*grams))
+		spec.NetWeightG = &g
+	}
 	if v["container"] != "" {
 		c, ok := containerCodes[strings.ToLower(v["container"])]
 		if !ok {
@@ -502,7 +520,31 @@ func (g *groupImport) variant(ctx context.Context, productID uuid.UUID, r import
 		return err
 	}
 	spec.Alcocode, spec.GTIN = textOrNil(v["alcocode"]), textOrNil(v["gtin"])
-	created, err := g.svc.CreateVariant(ctx, productID, spec)
+	var prices [2]*int64
+	for i, column := range []string{"price", "purchase"} {
+		price, err := decimal(v[column], "Цена")
+		if err != nil {
+			return err
+		}
+		if price != nil {
+			k := toKopecks(*price)
+			prices[i] = &k
+		}
+	}
+
+	// Вариант с той же фасовкой уже есть — сверяем его, а не создаём второй.
+	for _, existing := range g.current {
+		if hasVariant([]store.Variant{existing.Variant}, spec) {
+			if code := v["barcode"]; code != "" && !hasBarcode(existing, code) {
+				if _, err := g.svc.AddBarcode(ctx, existing.ID, &code); err != nil {
+					return err
+				}
+			}
+			return g.mergeVariant(ctx, product, existing, spec, r, prices)
+		}
+	}
+
+	created, err := g.svc.CreateVariant(ctx, product.ID, spec)
 	if err != nil {
 		return err
 	}
@@ -512,16 +554,9 @@ func (g *groupImport) variant(ctx context.Context, productID uuid.UUID, r import
 			return err
 		}
 	}
-	for _, p := range []struct {
-		column string
-		kind   apispec.PriceKind
-	}{{"price", apispec.PriceKindRetail}, {"purchase", apispec.PriceKindPurchase}} {
-		price, err := decimal(v[p.column], "Цена")
-		if err != nil {
-			return err
-		}
-		if price != nil {
-			if _, err := g.svc.SetPrice(ctx, created.ID, p.kind, toKopecks(*price), nil, g.setBy); err != nil {
+	for i, kind := range []apispec.PriceKind{apispec.PriceKindRetail, apispec.PriceKindPurchase} {
+		if prices[i] != nil {
+			if _, err := g.svc.SetPrice(ctx, created.ID, kind, *prices[i], nil, g.setBy); err != nil {
 				return err
 			}
 		}
@@ -529,24 +564,43 @@ func (g *groupImport) variant(ctx context.Context, productID uuid.UUID, r import
 	return nil
 }
 
-// run создаёт позицию по первой строке группы и варианты по всем строкам.
+func hasBarcode(v Variant, code string) bool {
+	return slices.ContainsFunc(v.Barcodes, func(b store.Barcode) bool { return b.Code == code })
+}
+
+// run создаёт позицию по первой строке группы или находит её в каталоге (производитель и
+// наименование) и сверяет; затем добавляет или сверяет варианты по всем строкам.
 func (g *groupImport) run(ctx context.Context, rows []importRow) error {
 	first := rows[0]
-	f, err := g.productFields(ctx, first)
-	if err != nil {
-		return &rowError{first.num, err}
-	}
-	p, err := g.svc.CreateProduct(ctx, f)
-	if err != nil {
-		return &rowError{first.num, err}
-	}
 	for _, r := range rows {
 		for _, c := range importColumns {
 			if c.product && !strings.EqualFold(r.v[c.key], first.v[c.key]) {
 				return &rowError{r.num, issuef("«%s» отличается от строки %d, хотя позиция та же", c.title, first.num)}
 			}
 		}
-		if err := g.variant(ctx, p.ID, r); err != nil {
+	}
+	f, err := g.productFields(ctx, first)
+	if err != nil {
+		return &rowError{first.num, err}
+	}
+	var p store.ProductCard
+	id, err := g.svc.q.FindProductByProducerName(ctx, store.FindProductByProducerNameParams{
+		ProducerID: f.ProducerID, Name: strings.TrimSpace(f.Name),
+	})
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		p, err = g.svc.CreateProduct(ctx, f)
+	case err == nil:
+		g.existing = true
+		if p, err = g.mergeProduct(ctx, id, f, first); err == nil {
+			g.current, err = variantsOf(ctx, g.svc.q, id)
+		}
+	}
+	if err != nil {
+		return &rowError{first.num, err}
+	}
+	for _, r := range rows {
+		if err := g.variant(ctx, p, r); err != nil {
 			return &rowError{r.num, err}
 		}
 	}
@@ -557,8 +611,13 @@ func (g *groupImport) run(ctx context.Context, rows []importRow) error {
 // сохраняется в своей точке сохранения: ошибка откатывает только её, и проверка идёт дальше,
 // чтобы показать ошибки всех строк сразу. В конце транзакция фиксируется, только если ошибок
 // нет и это не предпросмотр. Номера артикулов из последовательности при откате не возвращаются.
-func (s *Service) Import(ctx context.Context, fileName string, data []byte, commit bool, setBy *uuid.UUID) (ImportReport, error) {
-	report := ImportReport{NewProducers: []string{}, NewBrands: []string{}, NewLines: []string{}, Errors: []ImportError{}}
+//
+// Позиции, которые уже есть в каталоге, не дублируются: расхождения с файлом попадают в
+// Changes, а применяются только те, ключи которых переданы в accept.
+func (s *Service) Import(ctx context.Context, fileName string, data []byte, commit bool, setBy *uuid.UUID, accept map[string]bool) (ImportReport, error) {
+	report := ImportReport{
+		NewProducers: []string{}, NewBrands: []string{}, NewLines: []string{}, Changes: []ImportChange{}, Errors: []ImportError{},
+	}
 	rows, err := readImportFile(fileName, data)
 	if err != nil {
 		return report, err
@@ -592,7 +651,7 @@ func (s *Service) Import(ctx context.Context, fileName string, data []byte, comm
 
 	for _, k := range order {
 		g := &groupImport{
-			lk: lk, setBy: setBy,
+			lk: lk, setBy: setBy, accept: accept,
 			producers: map[string]store.Producer{}, brands: map[string]store.Brand{}, lines: map[string]store.ProductLine{},
 		}
 		err := pgx.BeginFunc(ctx, tx, func(sp pgx.Tx) error {
@@ -610,8 +669,13 @@ func (s *Service) Import(ctx context.Context, fileName string, data []byte, comm
 		if err != nil {
 			return report, err
 		}
-		report.Products++
+		if g.existing {
+			report.Existing++
+		} else {
+			report.Products++
+		}
 		report.Variants += g.variants
+		report.Changes = append(report.Changes, g.changes...)
 		for k, p := range g.producers {
 			lk.producers[k] = p
 			report.NewProducers = append(report.NewProducers, p.Name)
@@ -654,9 +718,9 @@ func ImportTemplate() (*bytes.Buffer, error) {
 	}
 	example := [][]string{
 		{"Водка «Тайга» классическая", "Крепкий алкоголь / Водка", "200", "40", "нет", "ООО «Тайга»", "Тайга", "Тайга", "классическая", "643", "",
-			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,5", "стекло", "нет", "", "", "", "449,90", "310"},
+			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,5", "", "стекло", "нет", "", "", "", "449,90", "310"},
 		{"Водка «Тайга» классическая", "Крепкий алкоголь / Водка", "200", "40", "нет", "ООО «Тайга»", "Тайга", "Тайга", "классическая", "643", "",
-			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,7", "стекло", "нет", "", "", "", "629", "430"},
+			"Сырьё: смесь зерновых; Фильтрация: угольная", "0,7", "", "стекло", "нет", "", "", "", "629", "430"},
 	}
 	last, _ := excelize.ColumnNumberToName(len(importColumns))
 	if err := f.SetColStyle(sheet, "A:"+last, text); err != nil {

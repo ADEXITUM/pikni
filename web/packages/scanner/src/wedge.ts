@@ -8,6 +8,9 @@ export interface WedgeOptions {
   // Наибольший интервал между символами скана, мс.
   maxInterval?: number
   minLength?: number
+  // ignoreFields — скан в поле ввода остаётся обычным вводом: так работает глобальный
+  // перехват в шапке, а поиск, куда навели фокус, получает код как набранный текст.
+  ignoreFields?: boolean
 }
 
 type Field = HTMLInputElement | HTMLTextAreaElement
@@ -15,7 +18,12 @@ type Field = HTMLInputElement | HTMLTextAreaElement
 const isField = (t: EventTarget | null): t is Field =>
   t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement
 
-export function createWedgeDetector({ onScan, maxInterval = 35, minLength = 6 }: WedgeOptions) {
+export function createWedgeDetector({
+  onScan,
+  maxInterval = 35,
+  minLength = 6,
+  ignoreFields = false,
+}: WedgeOptions) {
   let buffer = ''
   let last = -Infinity
   // Поле, в которое успели попасть символы скана, и его значение до скана.
@@ -23,6 +31,7 @@ export function createWedgeDetector({ onScan, maxInterval = 35, minLength = 6 }:
   let before = ''
 
   return (e: KeyboardEvent, now = performance.now()) => {
+    if (ignoreFields && isField(e.target)) return
     const fast = now - last <= maxInterval
 
     if (e.key === 'Enter') {

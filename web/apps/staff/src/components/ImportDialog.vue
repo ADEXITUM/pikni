@@ -4,6 +4,8 @@ import { api, ApiError, type ImportReport } from '@pikni/api'
 import { useMutation } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 
+import { confirm } from '@/confirm'
+
 const open = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ imported: [] }>()
 
@@ -11,10 +13,19 @@ const file = ref<File | null>(null)
 const preview = ref<ImportReport>()
 const done = ref<ImportReport>()
 
+// Расхождения с каталогом решаются, как конфликты при слиянии: по каждому — оставить значение
+// каталога или взять из файла. По умолчанию — из файла: ради этого прайс обычно и загружают.
+const takeNew = ref<Record<string, boolean>>({})
+const accepted = computed(() => Object.keys(takeNew.value).filter((k) => takeNew.value[k]))
+function takeAll(value: boolean) {
+  takeNew.value = Object.fromEntries((preview.value?.changes ?? []).map((c) => [c.key, value]))
+}
+
 // Сервер ничего не хранит между шагами: для загрузки тот же файл отправляется ещё раз.
 async function send(path: '/catalog/import/preview' | '/catalog/import') {
   const form = new FormData()
   form.append('file', file.value!)
+  if (path === '/catalog/import') form.append('accept', JSON.stringify(accepted.value))
   const { data, error } = await api.POST(path, {
     body: { file: '' },
     bodySerializer: () => form,
@@ -30,7 +41,10 @@ const {
   reset: resetCheck,
 } = useMutation({
   mutationFn: () => send('/catalog/import/preview'),
-  onSuccess: (r) => (preview.value = r),
+  onSuccess: (r) => {
+    preview.value = r
+    takeAll(true)
+  },
 })
 
 const {
@@ -65,10 +79,34 @@ watch(open, (isOpen) => {
   done.value = undefined
 })
 
+// Перед загрузкой — итог: сколько создаётся и какие значения каталога меняются.
+async function askLoad() {
+  const r = preview.value
+  if (!r) return
+  const byKey = new Map(r.changes.map((c) => [c.key, c]))
+  const ok = await confirm({
+    title: 'Загрузить файл в каталог?',
+    text: `Новых позиций: ${r.products}, новых вариантов: ${r.variants}, изменится значений: ${accepted.value.length}.`,
+    changes: accepted.value.slice(0, 20).map((k) => {
+      const c = byKey.get(k)!
+      return {
+        label: `${c.product}${c.variant ? ', ' + c.variant : ''}: ${c.field}`,
+        old: c.old,
+        new: c.new,
+      }
+    }),
+    confirmText: 'Загрузить',
+  })
+  if (ok) load()
+}
+
 const failure = computed(() => checkError.value ?? loadError.value)
-const canLoad = computed(
-  () => preview.value && preview.value.errors.length === 0 && preview.value.products > 0,
-)
+const canLoad = computed(() => {
+  const r = preview.value
+  return (
+    r && r.errors.length === 0 && (r.products > 0 || r.variants > 0 || accepted.value.length > 0)
+  )
+})
 const created = (r: ImportReport) =>
   [
     r.newProducers.length && `производители: ${r.newProducers.join(', ')}`,
@@ -78,18 +116,20 @@ const created = (r: ImportReport) =>
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="720">
+  <v-dialog v-model="open" max-width="960">
     <v-card title="Импорт номенклатуры">
       <v-card-text>
         <template v-if="done">
           <v-alert type="success" variant="tonal" data-test="import-done">
-            Загружено позиций: {{ done.products }}, вариантов: {{ done.variants }}.
+            Новых позиций: {{ done.products }}, новых вариантов: {{ done.variants }}, изменено
+            значений: {{ accepted.length }}.
           </v-alert>
         </template>
         <template v-else>
-          <p class="text-body-2 mb-3">
+          <p class="text-body-medium mb-3">
             Заполните шаблон: одна строка — позиция с одним вариантом. Перед загрузкой система
-            проверит каждую строку. Если хоть в одной ошибка, не загрузится ничего.
+            проверит каждую строку. Если хоть в одной ошибка, не загрузится ничего. Позиции, которые
+            уже есть в каталоге, не дублируются: отличия покажутся списком.
           </p>
           <v-btn
             :prepend-icon="mdiFileDownloadOutline"
@@ -115,10 +155,68 @@ const created = (r: ImportReport) =>
           <template v-if="preview">
             <div class="d-flex flex-wrap ga-2 my-3" data-test="import-summary">
               <v-chip size="small">строк: {{ preview.rows }}</v-chip>
-              <v-chip size="small">позиций: {{ preview.products }}</v-chip>
-              <v-chip size="small">вариантов: {{ preview.variants }}</v-chip>
+              <v-chip size="small">новых позиций: {{ preview.products }}</v-chip>
+              <v-chip size="small">уже в каталоге: {{ preview.existing }}</v-chip>
+              <v-chip size="small">новых вариантов: {{ preview.variants }}</v-chip>
             </div>
-            <p v-if="created(preview).length" class="text-body-2 mb-3">
+            <template v-if="preview.changes.length && !preview.errors.length">
+              <div class="d-flex flex-wrap align-center ga-2 mb-2">
+                <span class="text-title-small"
+                  >Отличия от каталога: {{ preview.changes.length }}</span
+                >
+                <v-spacer />
+                <v-btn size="small" variant="tonal" data-test="take-all-new" @click="takeAll(true)">
+                  Всё из файла
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  data-test="take-all-old"
+                  @click="takeAll(false)"
+                >
+                  Всё оставить
+                </v-btn>
+              </div>
+              <v-table density="compact" class="mb-3" data-test="import-changes">
+                <thead>
+                  <tr>
+                    <th>Строка</th>
+                    <th>Позиция</th>
+                    <th>Поле</th>
+                    <th>В каталоге</th>
+                    <th>В файле</th>
+                    <th>Что оставить</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in preview.changes" :key="c.key" :data-test="`change-${c.key}`">
+                    <td>{{ c.row }}</td>
+                    <td>
+                      {{ c.product }}
+                      <div v-if="c.variant" class="text-body-small text-medium-emphasis">
+                        {{ c.variant }}
+                      </div>
+                    </td>
+                    <td>{{ c.field }}</td>
+                    <td :class="{ 'text-disabled': takeNew[c.key] }">{{ c.old }}</td>
+                    <td :class="{ 'text-disabled': !takeNew[c.key] }">{{ c.new }}</td>
+                    <td>
+                      <v-btn-toggle
+                        v-model="takeNew[c.key]"
+                        mandatory
+                        density="compact"
+                        divided
+                        variant="outlined"
+                      >
+                        <v-btn :value="false" size="small">Каталог</v-btn>
+                        <v-btn :value="true" size="small">Файл</v-btn>
+                      </v-btn-toggle>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </template>
+            <p v-if="created(preview).length" class="text-body-medium mb-3">
               Будут созданы — {{ created(preview).join('; ') }}. Проверьте, нет ли опечаток.
             </p>
             <template v-if="preview.errors.length">
@@ -152,7 +250,7 @@ const created = (r: ImportReport) =>
           :disabled="!canLoad"
           :loading="loading"
           data-test="import-run"
-          @click="load()"
+          @click="askLoad()"
         >
           Загрузить
         </v-btn>

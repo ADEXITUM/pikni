@@ -7,7 +7,9 @@ import { useRoute, useRouter } from 'vue-router'
 import type { SubmitEventPromise } from 'vuetify'
 
 import { categoryItems, schemaOf } from '@/categories'
+import UnsavedBar from '@/components/UnsavedBar.vue'
 import VariantsCard from '@/components/VariantsCard.vue'
+import { confirmChanges, diffFields, display } from '@/confirm'
 import {
   accountingLabels,
   attributeValues,
@@ -25,6 +27,7 @@ import {
   productLinesQuery,
 } from '@/queries'
 import { useMe } from '@/session'
+import { useUnsavedGuard } from '@/unsaved'
 
 const route = useRoute()
 const router = useRouter()
@@ -76,25 +79,27 @@ const form = reactive({
 })
 const dropped = ref<string[]>([])
 
+const formOf = (p: Product): typeof form => ({
+  name: p.name,
+  categoryId: p.categoryId,
+  kindCode: p.kindCode ?? null,
+  abv: p.abv ?? '',
+  crptMarked: p.crptMarked,
+  producerId: p.producerId,
+  brandId: p.brandId ?? null,
+  productLineId: p.productLineId ?? null,
+  variety: p.variety ?? '',
+  countryCode: p.countryCode,
+  originRegionId: p.originRegionId ?? null,
+  attributes: { ...p.attributes },
+  isActive: p.isActive,
+})
+
 watch(
   product,
   (p) => {
     if (!p) return
-    Object.assign(form, {
-      name: p.name,
-      categoryId: p.categoryId,
-      kindCode: p.kindCode ?? null,
-      abv: p.abv ?? '',
-      crptMarked: p.crptMarked,
-      producerId: p.producerId,
-      brandId: p.brandId ?? null,
-      productLineId: p.productLineId ?? null,
-      variety: p.variety ?? '',
-      countryCode: p.countryCode,
-      originRegionId: p.originRegionId ?? null,
-      attributes: { ...p.attributes },
-      isActive: p.isActive,
-    })
+    Object.assign(form, formOf(p))
     dropped.value = []
   },
   { immediate: true },
@@ -164,11 +169,20 @@ const visibleSchema = computed(() =>
   schema.value.filter((a) => a.isActive || !isEmpty(form.attributes[a.code])),
 )
 
+// Вид продукции и крепость есть только у алкогольных категорий: в табаке и снеках их нет.
+const isAlcohol = computed(
+  () => categories.value.find((c) => c.id === form.categoryId)?.alcohol ?? true,
+)
+
 function changeCategory(next: string | null) {
   const fitted = fitAttributes(form.attributes, schema.value, schemaFor(next))
   form.categoryId = next
   form.attributes = fitted.values
   dropped.value = fitted.dropped
+  if (!isAlcohol.value) {
+    form.kindCode = null
+    form.abv = ''
+  }
 }
 
 const optionItems = (a: CategoryAttribute) =>
@@ -242,12 +256,65 @@ async function reload() {
   await refetch()
 }
 
+// Как форма выглядит для человека: по этим значениям видно, есть ли правка, и окно
+// подтверждения показывает «было — станет».
+const changeLabels = {
+  name: 'Наименование',
+  category: 'Категория',
+  kind: 'Вид продукции',
+  abv: 'Крепость',
+  crpt: 'Честный знак',
+  producer: 'Производитель',
+  brand: 'Бренд',
+  line: 'Линейка',
+  variety: 'Разновидность',
+  country: 'Страна',
+  region: 'Регион происхождения',
+  attributes: 'Характеристики',
+  active: 'Используется',
+}
+const nameIn = (list: { id: string; name: string }[] | undefined, id: string | null) =>
+  list?.find((x) => x.id === id)?.name
+function describe(f: typeof form): Record<string, unknown> {
+  const abv = String(f.abv ?? '').trim()
+  return {
+    name: f.name.trim(),
+    category: nameIn(categories.value, f.categoryId),
+    kind: f.kindCode,
+    abv: abv && `${abv.replace('.', ',')} %`,
+    crpt: f.crptMarked,
+    producer: nameIn(producers.value, f.producerId),
+    brand: nameIn(brands.value, f.brandId),
+    line: nameIn(lines.value, f.productLineId),
+    variety: f.variety.trim(),
+    country: countries.value?.find((c) => c.code === f.countryCode)?.name,
+    region: nameIn(regions.value, f.originRegionId),
+    attributes: schemaFor(f.categoryId)
+      .filter((a) => !isEmpty(f.attributes[a.code]))
+      .map((a) => `${a.name}: ${display(f.attributes[a.code])}`)
+      .join('; '),
+    active: f.isActive,
+  }
+}
+const changes = computed(() =>
+  product.value ? diffFields(describe(formOf(product.value)), describe(form), changeLabels) : [],
+)
+const dirty = computed(() => !isNew.value && canEdit.value && changes.value.length > 0)
+useUnsavedGuard(dirty, 'карточке позиции')
+
+function discard() {
+  if (product.value) Object.assign(form, formOf(product.value))
+  dropped.value = []
+}
+
 const title = computed(() =>
   isNew.value ? 'Новая позиция' : product.value ? product.value.name : '',
 )
 
 async function submit(event: SubmitEventPromise) {
-  if ((await event).valid) save()
+  if (!(await event).valid) return
+  if (!isNew.value && !(await confirmChanges('Сохранить изменения позиции?', changes.value))) return
+  save()
 }
 </script>
 
@@ -260,7 +327,7 @@ async function submit(event: SubmitEventPromise) {
         :to="{ name: 'products' }"
         title="К списку товаров"
       />
-      <h1 class="text-h5">{{ title }}</h1>
+      <h1 class="text-headline-small">{{ title }}</h1>
     </div>
     <div class="d-flex flex-wrap ga-2 mb-4">
       <v-chip size="small" data-test="accounting">{{ accounting }}</v-chip>
@@ -271,7 +338,7 @@ async function submit(event: SubmitEventPromise) {
       {{ loadError?.message }}
     </v-alert>
 
-    <v-form v-if="isNew || product" :disabled="!canEdit" @submit.prevent="submit">
+    <v-form v-if="isNew || product" :readonly="!canEdit" @submit.prevent="submit">
       <v-card title="Основное" class="mb-4">
         <v-card-text>
           <v-row density="compact">
@@ -293,7 +360,7 @@ async function submit(event: SubmitEventPromise) {
                 @update:model-value="changeCategory"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col v-if="isAlcohol" cols="12" md="6">
               <v-autocomplete
                 v-model="form.kindCode"
                 :items="kindOptions"
@@ -304,7 +371,7 @@ async function submit(event: SubmitEventPromise) {
                 data-test="kind"
               />
             </v-col>
-            <v-col cols="12" sm="4" md="3">
+            <v-col v-if="isAlcohol" cols="12" sm="4" md="3">
               <v-text-field
                 v-model="form.abv"
                 label="Крепость"
@@ -402,10 +469,10 @@ async function submit(event: SubmitEventPromise) {
             У новой категории нет характеристик: {{ dropped.join(', ') }}. Их значения будут убраны
             при сохранении.
           </v-alert>
-          <p v-if="!form.categoryId" class="text-body-2 text-medium-emphasis">
+          <p v-if="!form.categoryId" class="text-body-medium text-medium-emphasis">
             Набор характеристик зависит от категории
           </p>
-          <p v-else-if="!visibleSchema.length" class="text-body-2 text-medium-emphasis">
+          <p v-else-if="!visibleSchema.length" class="text-body-medium text-medium-emphasis">
             У категории нет характеристик
           </p>
           <v-row v-else density="compact">
@@ -449,11 +516,12 @@ async function submit(event: SubmitEventPromise) {
         </template>
       </v-alert>
 
-      <div v-if="canEdit" class="d-flex justify-end">
+      <div v-if="canEdit && isNew" class="d-flex justify-end">
         <v-btn type="submit" color="primary" size="large" :loading="saving" data-test="save">
-          {{ isNew ? 'Добавить позицию' : 'Сохранить' }}
+          Добавить позицию
         </v-btn>
       </div>
+      <UnsavedBar v-if="dirty" :saving="saving" @discard="discard" />
     </v-form>
 
     <VariantsCard
@@ -464,7 +532,7 @@ async function submit(event: SubmitEventPromise) {
       :show-cost="showCost"
       class="mt-4"
     />
-    <p v-else-if="isNew" class="text-body-2 text-medium-emphasis mt-4">
+    <p v-else-if="isNew" class="text-body-medium text-medium-emphasis mt-4">
       Варианты — объёмы и тару — можно добавить после сохранения позиции.
     </p>
   </v-container>

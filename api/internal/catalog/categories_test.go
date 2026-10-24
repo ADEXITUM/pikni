@@ -43,7 +43,9 @@ func TestSeededCategoryTree(t *testing.T) {
 		}
 	}
 	whisky, strong := byName["Виски"], byName["Крепкий алкоголь"]
-	if roots != 5 || whisky.Depth != 2 || whisky.ParentID == nil || *whisky.ParentID != strong.ID {
+	// Признак алкоголя наследуется от категории верхнего уровня; у табака и снеков его нет.
+	if roots != 6 || whisky.Depth != 2 || whisky.ParentID == nil || *whisky.ParentID != strong.ID ||
+		!whisky.Alcohol || byName["Снеки"].Alcohol || byName["Сигареты"].Alcohol {
 		t.Errorf("roots = %d, whisky = %+v", roots, whisky)
 	}
 

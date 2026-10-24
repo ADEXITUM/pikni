@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { mdiDotsHorizontal } from '@mdi/js'
-import { computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js'
+import { listenWedge } from '@pikni/scanner'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 
 import LocationPicker from '@/components/LocationPicker.vue'
@@ -12,6 +13,7 @@ import { canOpen, useMe } from '@/session'
 import { useCurrentLocation } from '@/stores/currentLocation'
 
 const router = useRouter()
+const route = useRoute()
 const { xs, mdAndUp } = useDisplay()
 const { data: me } = useMe()
 const current = useCurrentLocation()
@@ -21,11 +23,35 @@ watch(me, (m) => m && current.restore(m), { immediate: true })
 const items = computed(() => {
   const user = me.value
   if (!user) return []
-  return navItems.filter((item) => canOpen(user, router.resolve({ name: item.route })))
+  return navItems.filter(
+    (item) =>
+      canOpen(user, router.resolve({ name: item.route })) &&
+      (!item.forEditors || user.permissions.includes('refs.edit')),
+  )
 })
 // В нижней панели помещается четыре кнопки: если разделов больше, последняя — «Ещё».
 const bottomItems = computed(() => (items.value.length > 4 ? items.value.slice(0, 3) : items.value))
 const moreItems = computed(() => items.value.slice(bottomItems.value.length))
+
+// Поиск из шапки ведёт в каталог; скан ручным сканером на любом экране открывает «Сканер»
+// с этим кодом. На самом «Сканере» и в полях ввода скан обрабатывают они сами.
+const query = ref('')
+function search() {
+  const q = query.value.trim()
+  if (!q) return
+  query.value = ''
+  void router.push({ name: 'products', query: { q } })
+}
+let stopWedge: (() => void) | undefined
+onMounted(() => {
+  stopWedge = listenWedge({
+    ignoreFields: true,
+    onScan: (code) => {
+      if (route.name !== 'scan' && me.value) void router.push({ name: 'scan', query: { code } })
+    },
+  })
+})
+onBeforeUnmount(() => stopWedge?.())
 </script>
 
 <template>
@@ -35,6 +61,26 @@ const moreItems = computed(() => items.value.slice(bottomItems.value.length))
     </template>
     <LocationPicker />
     <v-spacer />
+    <v-text-field
+      v-if="mdAndUp"
+      v-model="query"
+      :prepend-inner-icon="mdiMagnify"
+      placeholder="Товар: название, артикул или штрихкод"
+      density="compact"
+      variant="solo-filled"
+      flat
+      hide-details
+      class="pk-search mr-2"
+      data-test="global-search"
+      @keydown.enter="search"
+    />
+    <v-btn
+      v-else
+      :icon="mdiMagnify"
+      :to="{ name: 'products' }"
+      variant="text"
+      aria-label="Поиск товара"
+    />
     <template #append>
       <UserMenu />
     </template>
@@ -77,3 +123,9 @@ const moreItems = computed(() => items.value.slice(bottomItems.value.length))
     </v-menu>
   </v-bottom-navigation>
 </template>
+
+<style scoped>
+.pk-search {
+  max-width: 420px;
+}
+</style>

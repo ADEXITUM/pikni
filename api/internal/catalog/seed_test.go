@@ -30,11 +30,11 @@ func TestDemoSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := catalog.NewService(db.App).Import(ctx, "catalog.csv", data, true, nil)
+	report, err := catalog.NewService(db.App).Import(ctx, "catalog.csv", data, true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !report.Committed || report.Products != 34 || report.Variants != 46 {
+	if !report.Committed || report.Products != 36 || report.Variants != 48 {
 		t.Fatalf("demo catalog: %+v", report)
 	}
 	exec("../../db/seed/matrix.sql")

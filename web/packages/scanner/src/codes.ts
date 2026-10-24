@@ -91,6 +91,12 @@ export function recognize(raw: string): RecognizedCode {
   const crpt = parseCrpt(s)
   if (crpt) return { kind: 'crpt', code: crpt.gtin, serial: crpt.serial }
 
+  // Код сигаретной пачки — 29 символов без разделителей: GTIN (14 цифр), серийный номер (7),
+  // максимальная розничная цена в закодированном виде (4) и код проверки (4).
+  if (/^\d{14}[!-~]{15}$/.test(s) && gs1Valid(s.slice(0, 14))) {
+    return { kind: 'crpt', code: s.slice(0, 14), serial: s.slice(14, 21) }
+  }
+
   if (/^00\d{18}$/.test(s) && gs1Valid(s.slice(2))) return { kind: 'package', code: s.slice(2) }
 
   if (/^\d+$/.test(s)) {

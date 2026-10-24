@@ -31,7 +31,7 @@ func TestImportTemplate(t *testing.T) {
 	data := file.Bytes()
 
 	// Пример из шаблона загружается как есть: две строки — одна позиция с двумя вариантами.
-	preview, err := svc.Import(ctx, "шаблон.xlsx", data, false, nil)
+	preview, err := svc.Import(ctx, "шаблон.xlsx", data, false, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestImportTemplate(t *testing.T) {
 		t.Fatalf("preview saved %d products", n)
 	}
 
-	report, err := svc.Import(ctx, "шаблон.xlsx", data, true, nil)
+	report, err := svc.Import(ctx, "шаблон.xlsx", data, true, nil, nil)
 	if err != nil || !report.Committed {
 		t.Fatalf("commit = %+v, %v", report, err)
 	}
@@ -70,7 +70,7 @@ func TestImportErrors(t *testing.T) {
 		"Вино «Тихое»;Вино / Тихое;401;13;ООО «Лоза»;;643;;0,375;стекло;;200\n" +
 		"Пиво;Пивные напитки;500;4,5;ООО «Пиво»;;643;;0,5;банка;;80\n"
 
-	report, err := svc.Import(ctx, "товары.csv", []byte(csv), true, nil)
+	report, err := svc.Import(ctx, "товары.csv", []byte(csv), true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,14 +101,14 @@ func TestImportErrors(t *testing.T) {
 		t.Errorf("failed import left %d products and %d producers", count(t, db, "products"), count(t, db, "producers"))
 	}
 
-	if _, err := svc.Import(ctx, "товары.csv", []byte("Наименование;Цена\nВодка;100\n"), false, nil); err == nil ||
+	if _, err := svc.Import(ctx, "товары.csv", []byte("Наименование;Цена\nВодка;100\n"), false, nil, nil); err == nil ||
 		!strings.Contains(err.Error(), "«Категория»") {
 		t.Errorf("missing columns: error = %v", err)
 	}
-	if _, err := svc.Import(ctx, "товары.pdf", []byte("x"), false, nil); !errors.Is(err, catalog.ErrImportFormat) {
+	if _, err := svc.Import(ctx, "товары.pdf", []byte("x"), false, nil, nil); !errors.Is(err, catalog.ErrImportFormat) {
 		t.Errorf("pdf: error = %v", err)
 	}
-	if _, err := svc.Import(ctx, "товары.csv", []byte(header), false, nil); !errors.Is(err, catalog.ErrImportEmpty) {
+	if _, err := svc.Import(ctx, "товары.csv", []byte(header), false, nil, nil); !errors.Is(err, catalog.ErrImportEmpty) {
 		t.Errorf("header only: error = %v", err)
 	}
 }

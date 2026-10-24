@@ -2,10 +2,12 @@ import { api } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 
 import { makeAttribute } from '@/__tests__/fixtures'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import AttributeDialog from '../AttributeDialog.vue'
 
@@ -37,6 +39,12 @@ async function openDialog(props: InstanceType<typeof AttributeDialog>['$props'])
 }
 
 describe('AttributeDialog', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   beforeEach(() => {
     const ok = Promise.resolve({ data: {}, response: new Response() })
     vi.mocked(api.POST).mockReturnValue(ok as never)

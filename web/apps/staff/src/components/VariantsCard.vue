@@ -4,6 +4,7 @@ import { api, ApiError, type Variant } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
+import { confirm } from '@/confirm'
 import BarcodeDialog from '@/components/BarcodeDialog.vue'
 import PricesDialog from '@/components/PricesDialog.vue'
 import VariantDialog from '@/components/VariantDialog.vue'
@@ -70,6 +71,15 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
   },
   onSettled: refresh,
 })
+
+async function askRemoveBarcode(v: Variant, code: string) {
+  const ok = await confirm({
+    title: 'Удалить штрихкод?',
+    text: `Штрихкод ${code} отвяжется от варианта ${v.article} · ${variantLabel(v)}: сканер перестанет его узнавать.`,
+    danger: true,
+  })
+  if (ok) removeBarcode(code)
+}
 </script>
 
 <template>
@@ -111,7 +121,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
       </v-alert>
 
       <v-progress-linear v-if="isPending" indeterminate />
-      <p v-else-if="!variants?.length" class="text-body-2 text-medium-emphasis">
+      <p v-else-if="!variants?.length" class="text-body-medium text-medium-emphasis">
         Вариантов пока нет. Без варианта позицию нельзя принять на склад и продать.
       </p>
       <v-table v-else density="comfortable">
@@ -150,7 +160,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
                   :closable="canEdit"
                   :title="b.kind === 'internal' ? 'Внутренний штрихкод' : undefined"
                   :data-test="`barcode-${b.code}`"
-                  @click:close="removeBarcode(b.code)"
+                  @click:close="askRemoveBarcode(v, b.code)"
                 >
                   {{ b.code }}
                 </v-chip>
@@ -174,7 +184,7 @@ const { mutate: removeBarcode, error: removeError } = useMutation({
                       : '—'
                 }}
               </v-btn>
-              <div v-if="belowMin(v)" class="text-caption text-error" data-test="below-min">
+              <div v-if="belowMin(v)" class="text-body-small text-error" data-test="below-min">
                 ниже МРЦ {{ formatPrice(v.minPrice!) }}
               </div>
             </td>

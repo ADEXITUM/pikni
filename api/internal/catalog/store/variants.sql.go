@@ -36,24 +36,26 @@ func (q *Queries) CreateBarcode(ctx context.Context, arg CreateBarcodeParams) (B
 }
 
 const createVariant = `-- name: CreateVariant :one
-insert into variants (product_id, volume_ml, container, gift_pack, alcocode, gtin)
-values ($1, $2, $3, $4, $5, $6)
-returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article
+insert into variants (product_id, volume_ml, net_weight_g, container, gift_pack, alcocode, gtin)
+values ($1, $2, $3, $4, $5, $6, $7)
+returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g
 `
 
 type CreateVariantParams struct {
-	ProductID uuid.UUID
-	VolumeMl  *int32
-	Container *string
-	GiftPack  bool
-	Alcocode  *string
-	Gtin      *string
+	ProductID  uuid.UUID
+	VolumeMl   *int32
+	NetWeightG *int32
+	Container  *string
+	GiftPack   bool
+	Alcocode   *string
+	Gtin       *string
 }
 
 func (q *Queries) CreateVariant(ctx context.Context, arg CreateVariantParams) (Variant, error) {
 	row := q.db.QueryRow(ctx, createVariant,
 		arg.ProductID,
 		arg.VolumeMl,
+		arg.NetWeightG,
 		arg.Container,
 		arg.GiftPack,
 		arg.Alcocode,
@@ -71,6 +73,7 @@ func (q *Queries) CreateVariant(ctx context.Context, arg CreateVariantParams) (V
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.Article,
+		&i.NetWeightG,
 	)
 	return i, err
 }
@@ -130,7 +133,7 @@ func (q *Queries) FindVariantByCode(ctx context.Context, arg FindVariantByCodePa
 }
 
 const getVariant = `-- name: GetVariant :one
-select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article
+select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g
 from variants
 where id = $1
 for update
@@ -150,6 +153,7 @@ func (q *Queries) GetVariant(ctx context.Context, id uuid.UUID) (Variant, error)
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.Article,
+		&i.NetWeightG,
 	)
 	return i, err
 }
@@ -213,10 +217,10 @@ func (q *Queries) ListProductBarcodes(ctx context.Context, productID uuid.UUID) 
 }
 
 const listProductVariants = `-- name: ListProductVariants :many
-select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article
+select id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g
 from variants
 where product_id = $1
-order by volume_ml nulls first, container nulls first, gift_pack
+order by volume_ml nulls first, net_weight_g nulls first, container nulls first, gift_pack
 `
 
 func (q *Queries) ListProductVariants(ctx context.Context, productID uuid.UUID) ([]Variant, error) {
@@ -239,6 +243,7 @@ func (q *Queries) ListProductVariants(ctx context.Context, productID uuid.UUID) 
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.Article,
+			&i.NetWeightG,
 		); err != nil {
 			return nil, err
 		}
@@ -265,7 +270,7 @@ const updateVariant = `-- name: UpdateVariant :one
 update variants
 set alcocode = $1, gtin = $2, is_active = $3
 where id = $4
-returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article
+returning id, product_id, volume_ml, container, gift_pack, alcocode, gtin, is_active, created_at, article, net_weight_g
 `
 
 type UpdateVariantParams struct {
@@ -294,6 +299,7 @@ func (q *Queries) UpdateVariant(ctx context.Context, arg UpdateVariantParams) (V
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.Article,
+		&i.NetWeightG,
 	)
 	return i, err
 }

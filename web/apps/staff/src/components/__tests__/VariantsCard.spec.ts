@@ -2,8 +2,10 @@ import { api, type Variant } from '@pikni/api'
 import { createPikniVuetify } from '@pikni/ui'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
+
+import { autoConfirm } from '@/__tests__/confirm'
 
 import VariantsCard from '../VariantsCard.vue'
 
@@ -54,6 +56,12 @@ async function mountCard(canEdit = true, showCost = false) {
 }
 
 describe('VariantsCard', () => {
+  let confirmed: ReturnType<typeof autoConfirm>
+  beforeEach(() => {
+    confirmed = autoConfirm()
+  })
+  afterEach(() => confirmed.stop())
+
   beforeEach(() => {
     vi.mocked(api.GET).mockImplementation(((path: string) =>
       Promise.resolve({

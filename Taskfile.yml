@@ -80,9 +80,20 @@ tasks:
       - task: migrate
       - task: dev:run
 
+  dev:https:
+    desc: Как dev, но фронтенд по HTTPS и виден в локальной сети — для камеры на телефоне
+    cmds:
+      - task: up
+      - task: migrate
+      - task: dev:run
+        vars: { HTTPS: '1' }
+
   dev:run:
     internal: true
-    deps: [dev:api, dev:web]
+    deps:
+      - dev:api
+      - task: dev:web
+        vars: { HTTPS: '{{.HTTPS}}' }
 
   dev:api:
     internal: true
@@ -97,6 +108,8 @@ tasks:
   dev:web:
     internal: true
     dir: web
+    env:
+      PIKNI_HTTPS: '{{.HTTPS}}'
     cmds:
       - npm run dev:staff
 
@@ -140,6 +153,12 @@ tasks:
     dir: web
     cmds:
       - npm test
+
+  e2e:
+    desc: 'Сквозные тесты Playwright; нужен запущенный task dev, первый раз — E2E_TEMP_PASSWORD'
+    dir: web/apps/staff
+    cmds:
+      - npx playwright test
 
   lint:
     desc: Проверки кода сервера и фронтенда

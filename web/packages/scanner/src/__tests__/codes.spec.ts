@@ -20,6 +20,10 @@ describe('recognize', () => {
     ['0177207000002463655', { kind: 'product', code: '0177207000002463655' }],
     ['PK-BOX-0001', { kind: 'product' }],
     ['inv-0042', { kind: 'asset', code: 'INV-0042' }],
+    [
+      '04601234567893' + 'aB3%x-1' + 'AbC1' + '7q=+',
+      { kind: 'crpt', code: '04601234567893', serial: 'aB3%x-1' },
+    ],
     ['ЧК-000001', { kind: 'article', code: 'ЧК-000001' }],
     ['чк12', { kind: 'article', code: 'ЧК-000012' }],
     ['xr-7', { kind: 'article', code: 'ЧК-000007' }],

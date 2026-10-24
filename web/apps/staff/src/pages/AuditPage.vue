@@ -94,7 +94,7 @@ const headers = [
 <template>
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
-      <h1 class="text-h5 flex-grow-1">Журнал действий</h1>
+      <h1 class="text-headline-small flex-grow-1">Журнал действий</h1>
       <v-btn :href="exportUrl" :prepend-icon="mdiMicrosoftExcel" variant="tonal" data-test="export">
         Выгрузить в Excel
       </v-btn>

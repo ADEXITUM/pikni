@@ -24,6 +24,8 @@ var (
 	ErrInvalidOptions       = errors.New("options must be non-empty and unique")
 	ErrOptionRemoved        = errors.New("options can be archived but not removed")
 	ErrNoActiveOptions      = errors.New("enum attribute needs an active option")
+	ErrAlcoholInherited     = errors.New("alcohol flag is set on the top-level category")
+	ErrAlcoholProducts      = errors.New("category tree has alcohol products")
 )
 
 const maxCategoryDepth = 3
@@ -46,7 +48,7 @@ func (s *Service) Categories(ctx context.Context) (CategoryTree, error) {
 }
 
 func categoryFields(c store.Category) map[string]any {
-	return map[string]any{"name": c.Name, "parentId": c.ParentID, "sort": c.Sort, "isActive": c.IsActive}
+	return map[string]any{"name": c.Name, "parentId": c.ParentID, "sort": c.Sort, "isActive": c.IsActive, "alcohol": c.Alcohol}
 }
 
 // CreateCategory блокирует родителя (GetCategory читает for update), чтобы его не отправили
@@ -71,7 +73,8 @@ func (s *Service) CreateCategory(ctx context.Context, f apispec.NewCategory) (st
 				return change{}, ErrInactiveParent
 			}
 		}
-		c, err := q.CreateCategory(ctx, store.CreateCategoryParams{ParentID: f.ParentID, Name: n, Sort: f.Sort})
+		alcohol := f.Alcohol != nil && *f.Alcohol
+		c, err := q.CreateCategory(ctx, store.CreateCategoryParams{ParentID: f.ParentID, Name: n, Sort: f.Sort, Alcohol: alcohol})
 		saved = c
 		return change{id: c.ID.String(), after: categoryFields(c)}, err
 	})
@@ -107,6 +110,25 @@ func (s *Service) UpdateCategory(ctx context.Context, id uuid.UUID, f apispec.Ca
 			}
 			if !parent.IsActive {
 				return change{}, ErrInactiveParent
+			}
+		}
+		// Признак алкоголя — у категории верхнего уровня; снять его нельзя, пока в ветке есть
+		// позиции с видом продукции или крепостью.
+		if f.Alcohol != nil && *f.Alcohol != old.Alcohol {
+			if old.ParentID != nil {
+				return change{}, ErrAlcoholInherited
+			}
+			if !*f.Alcohol {
+				busy, err := q.CategoryTreeHasAlcoholProducts(ctx, id)
+				if err != nil {
+					return change{}, err
+				}
+				if busy {
+					return change{}, ErrAlcoholProducts
+				}
+			}
+			if err := q.SetCategoryTreeAlcohol(ctx, store.SetCategoryTreeAlcoholParams{ID: id, Alcohol: *f.Alcohol}); err != nil {
+				return change{}, err
 			}
 		}
 		saved, err = q.UpdateCategory(ctx, store.UpdateCategoryParams{ID: id, Name: n, Sort: f.Sort, IsActive: f.IsActive})

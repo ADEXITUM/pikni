@@ -8,6 +8,8 @@ import {
   type Router,
 } from 'vue-router'
 
+import { networkRoles } from '@/labels'
+
 declare module 'vue-router' {
   interface RouteMeta {
     title?: string
@@ -45,6 +47,12 @@ export function useLogout() {
     client.clear()
     await router.replace({ name: 'login' })
   }
+}
+
+// homeRoute — стартовый экран: у сотрудников магазина — сканер, у ролей сети — каталог.
+// Без сессии guard и так уведёт на вход.
+export function homeRoute(me: Me | null): 'scan' | 'products' {
+  return me && networkRoles.has(me.role) ? 'products' : 'scan'
 }
 
 // Только путь внутри приложения: ссылка вида /login?redirect=//evil.example не уведёт на чужой сайт.
