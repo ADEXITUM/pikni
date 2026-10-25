@@ -37,10 +37,8 @@ tasks:
     desc: Применить миграции схемы (и завести базу имитатора, если её ещё нет)
     cmds:
       - task: govsim:db
-      - cmd: go run ./cmd/migrate
-        dir: api
-      - cmd: go run ./cmd/govsim migrate
-        dir: govsim
+      - cmd: cd api && go run ./cmd/migrate
+      - cmd: cd govsim && go run ./cmd/govsim migrate
 
   govsim:db:
     internal: true
@@ -102,14 +100,10 @@ tasks:
       - task: demo:recreate
       - task: migrate
       - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
-      - cmd: go run ./cmd/admin import-catalog -file db/seed/catalog-full.csv
-        dir: api
-      - cmd: mkdir -p ../.demo && go run ./cmd/admin seed-demo-year -days {{.DAYS}} -rests ../.demo/rests.json
-        dir: api
-      - cmd: go run ./cmd/admin seed-users
-        dir: api
-      - cmd: go run ./cmd/govsim seed -catalog ../api/db/seed/catalog-full.csv && go run ./cmd/govsim seed-rests -file ../.demo/rests.json
-        dir: govsim
+      - cmd: cd api && go run ./cmd/admin import-catalog -file db/seed/catalog-full.csv
+      - cmd: cd api && mkdir -p ../.demo && go run ./cmd/admin seed-demo-year -days {{.DAYS}} -rests ../.demo/rests.json
+      - cmd: cd api && go run ./cmd/admin seed-users
+      - cmd: cd govsim && go run ./cmd/govsim seed -catalog ../api/db/seed/catalog-full.csv && go run ./cmd/govsim seed-rests -file ../.demo/rests.json
       - '{{.COMPOSE}} exec -T postgres pg_dump -U postgres -Fc pikni > .demo/pikni.dump'
       - '{{.COMPOSE}} exec -T postgres pg_dump -U postgres -Fc govsim > .demo/govsim.dump'
 
@@ -137,6 +131,59 @@ tasks:
         alter default privileges for role pikni_owner in schema public grant select, insert, update, delete on tables to pikni_app;
         alter default privileges for role pikni_owner in schema public grant usage, select on sequences to pikni_app;
         SQL
+
+  # Нагрузка (П-33, решения 0063 и 0064). Графики — в Grafana (task dev OBS=1), дашборд «Пикни».
+  load:
+    desc: 'Нагрузка на запущенный task dev: 80 сотрудников и 20 касс, минута (DURATION=60s)'
+    dir: api
+    cmds:
+      - go run ./cmd/loadtest -url http://localhost:8080 -login director -password 'Пикни-демо-2026' -users 80 -tills 20 -d {{.DURATION | default "60s"}}
+
+  federal:build:
+    desc: Федеральная сеть на 3000 магазинов в отдельной базе pikni_fed (около 40 минут и 16 ГБ)
+    prompt: База pikni_fed будет пересоздана (около 16 ГБ на диске). Продолжить?
+    env:
+      DATABASE_URL: postgres://pikni_app:pikni_app@localhost:5432/pikni_fed?sslmode=disable
+      DATABASE_MIGRATOR_URL: postgres://pikni_owner:pikni_owner@localhost:5432/pikni_fed?sslmode=disable
+    cmds:
+      - task: up
+      - |
+        {{.COMPOSE}} exec -T postgres psql -U postgres -q -v ON_ERROR_STOP=1 <<'SQL'
+        drop database if exists pikni_fed with (force);
+        create database pikni_fed owner pikni_owner;
+        \c pikni_fed
+        alter default privileges for role pikni_owner in schema public grant select, insert, update, delete on tables to pikni_app;
+        alter default privileges for role pikni_owner in schema public grant usage, select on sequences to pikni_app;
+        SQL
+      - cd api && go run ./cmd/migrate
+      - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni_fed -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
+      - cd api && go run ./cmd/admin import-catalog -file db/seed/catalog-full.csv
+      - cd api && go run ./cmd/admin seed-federal -stores 3000
+      - cd api && go run ./cmd/admin seed-users
+
+  federal:api:
+    desc: API на федеральной базе на :8081, телеметрия — в Grafana task dev OBS=1
+    dir: api
+    env:
+      DATABASE_URL: postgres://pikni_app:pikni_app@localhost:5432/pikni_fed?sslmode=disable&pool_max_conns=40
+      HTTP_ADDR: localhost:8081
+      EGAIS_URL: ''
+      LOG_FORMAT: text
+      LOG_LEVEL: warn
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318
+      OTEL_METRIC_EXPORT_INTERVAL: '10000'
+    cmds:
+      - go run ./cmd/api
+
+  load:stocktake:
+    desc: 'Федеральная ревизия на task federal:api: SCANNERS=2000 сотрудников сканируют, DURATION=3m'
+    dir: api
+    env:
+      DATABASE_URL: postgres://pikni_app:pikni_app@localhost:5432/pikni_fed?sslmode=disable
+    cmds:
+      - cmd: mkdir -p ../.demo && go run ./cmd/admin seed-load -stocktakes 500 -scanners 10000 -file ../.demo/load-fed.json
+        if: '[ ! -f ../.demo/load-fed.json ]'
+      - go run ./cmd/loadtest -url http://localhost:8081 -plan ../.demo/load-fed.json -scanners {{.SCANNERS | default "2000"}} -d {{.DURATION | default "3m"}} -ramp 1m
 
   scenario:
     desc: 'Состояние для проверки руками: task scenario -- list | all | stocktake-counting'

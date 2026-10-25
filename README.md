@@ -60,6 +60,7 @@ task scenario -- all              # применить все (или одно: 
 
 | Документ | Содержание |
 |---|---|
+| [docs/guide.md](docs/guide.md) | Как запустить, потрогать руками, показать и замерить |
 | [docs/tz.md](docs/tz.md) | Техническое задание (ГОСТ 34.602-2020) |
 | [docs/plan.md](docs/plan.md) | План итераций |
 | [docs/design/backend.md](docs/design/backend.md) | Сервер: модули, модель данных, учёт, ЕГАИС, кассовый API |

@@ -7,6 +7,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/ADEXITUM/pikni/api/internal/platform/httpx"
 )
 
 // Metrics регистрирует бизнес-метрики (п. 4.1.5): чеки и сканы — счётчики (в Grafana — в минуту),
@@ -36,6 +38,31 @@ func Metrics(pool *pgxpool.Pool) error {
 	}
 	jobs, err := m.Int64ObservableGauge("pikni.jobs.waiting", metric.WithDescription("Фоновых задач в очереди"))
 	if err != nil {
+		return err
+	}
+	inFlight, err := m.Int64ObservableGauge("pikni.http.in_flight", metric.WithDescription("Запросов в обработке"))
+	if err != nil {
+		return err
+	}
+	conns, err := m.Int64ObservableGauge("pikni.db.connections", metric.WithDescription("Соединения с базой: занятые, свободные, предел пула"))
+	if err != nil {
+		return err
+	}
+	waits, err := m.Int64ObservableCounter("pikni.db.acquire_waits", metric.WithDescription("Сколько раз запрос ждал свободного соединения"))
+	if err != nil {
+		return err
+	}
+	// Пул и очередь запросов — без обращения к базе, поэтому отдельным обработчиком: они видны,
+	// даже когда база перегружена и запрос бизнес-метрик не успевает.
+	if _, err := m.RegisterCallback(func(_ context.Context, o metric.Observer) error {
+		st := pool.Stat()
+		o.ObserveInt64(inFlight, httpx.InFlight.Load())
+		o.ObserveInt64(conns, int64(st.AcquiredConns()), metric.WithAttributes(attribute.String("state", "acquired")))
+		o.ObserveInt64(conns, int64(st.IdleConns()), metric.WithAttributes(attribute.String("state", "idle")))
+		o.ObserveInt64(conns, int64(st.MaxConns()), metric.WithAttributes(attribute.String("state", "max")))
+		o.ObserveInt64(waits, st.EmptyAcquireCount())
+		return nil
+	}, inFlight, conns, waits); err != nil {
 		return err
 	}
 	_, err = m.RegisterCallback(func(ctx context.Context, o metric.Observer) error {

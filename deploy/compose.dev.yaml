@@ -30,6 +30,11 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
       - "127.0.0.1:4318:4318"
+    # Дашборд «Пикни» и правила оповещений — те же, что на сервере.
+    volumes:
+      - ./grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/pikni.yaml:ro
+      - ./grafana/dashboards:/otel-lgtm/pikni-dashboards:ro
+      - ./grafana/alerting/pikni-rules.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/pikni-rules.yaml:ro
 
 volumes:
   pgdata:
