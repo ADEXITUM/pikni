@@ -17,6 +17,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
 	"github.com/ADEXITUM/pikni/api/internal/demo"
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
+	"github.com/ADEXITUM/pikni/api/internal/seed"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
@@ -24,7 +25,8 @@ const usage = `usage:
   pikni-admin create-admin -login <login> [-name <full name>]
   pikni-admin reset-password -login <login>
   pikni-admin import-catalog -file <catalog.xlsx|catalog.csv> [-if-empty]
-  pikni-admin seed-demo-year [-days 365]`
+  pikni-admin seed-demo-year [-days 365]
+  pikni-admin gen-catalog -file <catalog.csv>`
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -46,6 +48,11 @@ func run(args []string) error {
 	ifEmpty := flags.Bool("if-empty", false, "import-catalog: skip if the catalog already has products")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
+	}
+
+	// Каталог генерируется без базы: результат — файл для import-catalog.
+	if cmd == "gen-catalog" {
+		return genCatalog(*file)
 	}
 
 	cfg, err := app.LoadConfig()
@@ -121,4 +128,24 @@ func importCatalog(ctx context.Context, pool *pgxpool.Pool, file string, ifEmpty
 	}
 	fmt.Printf("Imported %d products with %d variants.\n", report.Products, report.Variants)
 	return nil
+}
+
+func genCatalog(file string) error {
+	if file == "" {
+		return errors.New("gen-catalog: -file is required")
+	}
+	items, err := seed.Catalog()
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	if err := seed.WriteCSV(f, items); err != nil {
+		_ = f.Close()
+		return err
+	}
+	fmt.Printf("Catalog: %d variants written to %s.\n", len(items), file)
+	return f.Close()
 }
