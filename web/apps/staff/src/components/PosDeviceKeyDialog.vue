@@ -3,6 +3,7 @@ import { mdiCheck, mdiContentCopy } from '@mdi/js'
 import type { PosDeviceKey } from '@pikni/api'
 import { qrSvg } from '@pikni/scanner'
 import { computed, ref, watch } from 'vue'
+import QrCode from '@/components/QrCode.vue'
 
 const issued = defineModel<PosDeviceKey | null>({ required: true })
 const copied = ref(false)
@@ -34,7 +35,9 @@ async function copy() {
           Откройте кассовую программу и отсканируйте QR-код камерой или вставьте ключ вручную.
         </p>
         <!-- eslint-disable-next-line vue/no-v-html -- SVG собран нашим кодом из ключа -->
-        <div v-if="qr" class="pk-qr mb-4" data-test="device-qr" v-html="qr" />
+        <div class="d-flex justify-center mb-4">
+          <QrCode :svg="qr" :size="220" data-test="device-qr" />
+        </div>
         <div class="d-flex align-center ga-2 mb-4">
           <code class="pk-key flex-grow-1" data-test="device-key">{{ issued.key }}</code>
           <v-btn
@@ -58,17 +61,6 @@ async function copy() {
 </template>
 
 <style scoped>
-.pk-qr {
-  display: flex;
-  justify-content: center;
-}
-.pk-qr :deep(svg) {
-  width: 200px;
-  height: 200px;
-  background: #fff;
-  padding: 8px;
-  border-radius: 8px;
-}
 .pk-key {
   font-size: 0.85rem;
   word-break: break-all;

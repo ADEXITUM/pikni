@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 
 import BarChart from '@/components/BarChart.vue'
+import LocationSelect from '@/components/LocationSelect.vue'
 import { formatPrice } from '@/products'
 import { useLocationChoice } from '@/stock'
 
@@ -109,9 +110,9 @@ const tiles = computed(() => {
         <v-btn :value="30">30 дней</v-btn>
         <v-btn :value="90">90 дней</v-btn>
       </v-btn-toggle>
-      <v-select
+      <LocationSelect
         v-model="location"
-        :items="places.items.value"
+        :locations="places.options.value"
         label="Вся сеть"
         clearable
         density="compact"

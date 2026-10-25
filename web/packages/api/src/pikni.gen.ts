@@ -288,7 +288,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Сотрудники */
+        /**
+         * Сотрудники
+         * @description Поиск по логину и ФИО, фильтры и страница; total — сколько найдено всего.
+         */
         get: operations["listUsers"];
         put?: never;
         /**
@@ -2835,6 +2838,7 @@ export interface components {
             createdAt: string;
         };
         UserList: {
+            total: number;
             items: components["schemas"]["User"][];
         };
         NewUser: {
@@ -2943,8 +2947,13 @@ export interface components {
                 /** Format: int64 */
                 sizeBytes?: number;
             };
-            /** @description Расхождения остатков с суммой движений (должно быть 0) */
+            /** @description Расхождения остатков с суммой движений (должно быть 0) по последней проверке */
             integrityProblems: number;
+            /**
+             * Format: date-time
+             * @description Когда была последняя проверка целостности (фоновая задача раз в час); нет — ещё не было
+             */
+            integrityCheckedAt?: string;
             unconfirmedTtn: number;
             openShifts: number;
             /**
@@ -3047,6 +3056,8 @@ export interface components {
             code: string;
             name: string;
             city: string;
+            subjectCode: string;
+            address?: string;
             kind: components["schemas"]["LocationKind"];
             /** Format: double */
             lat?: number;
@@ -5255,14 +5266,22 @@ export interface operations {
     };
     listUsers: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                role?: components["schemas"]["Role"];
+                locationId?: string;
+                status?: "active" | "blocked" | "temporary";
+                sort?: "name" | "-name" | "login" | "-login" | "role" | "-role" | "created" | "-created";
+                offset?: number;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Все сотрудники по алфавиту */
+            /** @description Страница сотрудников */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8369,6 +8388,8 @@ export interface operations {
                 category?: components["parameters"]["AssetCategoryCode"];
                 status?: components["parameters"]["AssetStatusParam"];
                 q?: components["parameters"]["AssetQuery"];
+                offset?: number;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -8384,6 +8405,10 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: components["schemas"]["Asset"][];
+                        /** @description Объектов по фильтру на всех страницах */
+                        total: number;
+                        /** Format: int64 */
+                        totalCostKopecks: number;
                     };
                 };
             };

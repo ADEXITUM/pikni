@@ -16,6 +16,7 @@ import { categoryItems } from '@/categories'
 import { formatPrice } from '@/products'
 import { brandsQuery, categoriesQuery } from '@/queries'
 import { useLocationChoice } from '@/stock'
+import LocationSelect from '@/components/LocationSelect.vue'
 
 // Каталог отчётов (ОТ-1, ОТ-2): выбрать отчёт, задать параметры, посмотреть на экране или
 // получить файл. Тяжёлый отчёт за длинный период формируется в фоне (ОТ-3).
@@ -76,6 +77,14 @@ function params(): ReportParams {
 }
 
 const table = ref<ReportTable>()
+// Отчёт бывает на 20 тысяч строк: на экране — страницами по 100, итоги — по всем строкам.
+const perPage = 100
+const page = ref(1)
+watch(table, () => (page.value = 1))
+const pages = computed(() => Math.ceil((table.value?.rows.length ?? 0) / perPage))
+const pageRows = computed(
+  () => table.value?.rows.slice((page.value - 1) * perPage, page.value * perPage) ?? [],
+)
 const error = ref<string>()
 const info = ref<string>()
 const running = ref(false)
@@ -206,10 +215,10 @@ const numeric = (c: ReportColumn) => c.kind !== 'text' && c.kind !== 'date'
               density="compact"
               hide-details
             />
-            <v-select
+            <LocationSelect
               v-if="has('locations')"
               v-model="form.locationIds"
-              :items="places.items.value"
+              :locations="places.options.value"
               label="Точки — все доступные"
               multiple
               chips
@@ -304,7 +313,7 @@ const numeric = (c: ReportColumn) => c.kind !== 'text' && c.kind !== 'date'
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(r, i) in table.rows" :key="i">
+                    <tr v-for="(r, i) in pageRows" :key="(page - 1) * perPage + i">
                       <td
                         v-for="(c, j) in table.columns"
                         :key="j"
@@ -327,9 +336,20 @@ const numeric = (c: ReportColumn) => c.kind !== 'text' && c.kind !== 'date'
                   </tfoot>
                 </v-table>
               </div>
-              <p class="text-body-small text-medium-emphasis mt-2">
-                Строк: {{ table.rows.length }}
-              </p>
+              <div class="d-flex flex-wrap align-center ga-3 mt-2">
+                <span class="text-body-small text-medium-emphasis"
+                  >Строк: {{ table.rows.length }}</span
+                >
+                <v-spacer />
+                <v-pagination
+                  v-if="pages > 1"
+                  v-model="page"
+                  :length="pages"
+                  :total-visible="7"
+                  density="compact"
+                  data-test="report-pages"
+                />
+              </div>
             </template>
           </template>
         </template>

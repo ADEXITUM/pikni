@@ -55,16 +55,33 @@ func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool, q: store.New(pool)}
 }
 
-func (s *Service) List(ctx context.Context) ([]User, error) {
-	rows, err := s.q.ListUsers(ctx)
+// Filter — поиск и страница списка сотрудников; Limit 0 — без ограничения.
+type Filter struct {
+	Q, Role, Status *string
+	LocationID      *uuid.UUID
+	Sort            string
+	Offset, Limit   int32
+}
+
+// List — страница сотрудников по фильтру и сколько найдено всего.
+func (s *Service) List(ctx context.Context, f Filter) ([]User, int, error) {
+	if f.Sort == "" {
+		f.Sort = "name"
+	}
+	total, err := s.q.CountUsers(ctx, store.CountUsersParams{Q: f.Q, Role: f.Role, LocationID: f.LocationID, Status: f.Status})
 	if err != nil {
-		return nil, fmt.Errorf("list users: %w", err)
+		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+	rows, err := s.q.ListUsers(ctx, store.ListUsersParams{Q: f.Q, Role: f.Role, LocationID: f.LocationID, Status: f.Status,
+		Sort: f.Sort, RowOffset: f.Offset, MaxRows: f.Limit})
+	if err != nil {
+		return nil, 0, fmt.Errorf("list users: %w", err)
 	}
 	users := make([]User, len(rows))
 	for i, r := range rows {
 		users[i] = User(r)
 	}
-	return users, nil
+	return users, int(total), nil
 }
 
 func (s *Service) Create(ctx context.Context, login string, p Profile) (User, string, error) {

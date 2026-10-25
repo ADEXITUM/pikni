@@ -27,6 +27,38 @@ func (q *Queries) AddUserLocations(ctx context.Context, arg AddUserLocationsPara
 	return err
 }
 
+const countUsers = `-- name: CountUsers :one
+select count(*)::int from users u
+where ($1::text is null or u.login ilike '%' || $1::text || '%'
+       or u.full_name ilike '%' || $1::text || '%')
+  and ($2::text is null or u.role = $2::text)
+  and ($3::uuid is null
+       or exists (select 1 from user_locations ul where ul.user_id = u.id and ul.location_id = $3::uuid))
+  and ($4::text is null
+       or $4::text = 'blocked' and u.is_blocked
+       or $4::text = 'active' and not u.is_blocked and not u.must_change_password
+       or $4::text = 'temporary' and u.must_change_password and not u.is_blocked)
+`
+
+type CountUsersParams struct {
+	Q          *string
+	Role       *string
+	LocationID *uuid.UUID
+	Status     *string
+}
+
+func (q *Queries) CountUsers(ctx context.Context, arg CountUsersParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countUsers,
+		arg.Q,
+		arg.Role,
+		arg.LocationID,
+		arg.Status,
+	)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createUser = `-- name: CreateUser :one
 insert into users (login, full_name, role, password_hash)
 values ($1, $2, $3, $4)
@@ -132,8 +164,37 @@ select u.id, u.login, u.full_name, u.role, u.is_blocked, u.must_change_password,
        u.version, u.created_at,
        array(select location_id from user_locations where user_id = u.id order by location_id)::uuid[] as location_ids
 from users u
-order by u.full_name, u.login
+where ($1::text is null or u.login ilike '%' || $1::text || '%'
+       or u.full_name ilike '%' || $1::text || '%')
+  and ($2::text is null or u.role = $2::text)
+  and ($3::uuid is null
+       or exists (select 1 from user_locations ul where ul.user_id = u.id and ul.location_id = $3::uuid))
+  and ($4::text is null
+       or $4::text = 'blocked' and u.is_blocked
+       or $4::text = 'active' and not u.is_blocked and not u.must_change_password
+       or $4::text = 'temporary' and u.must_change_password and not u.is_blocked)
+order by
+    case when $5::text = 'login' then u.login end,
+    case when $5::text = '-login' then u.login end desc,
+    case when $5::text = 'role' then u.role end,
+    case when $5::text = '-role' then u.role end desc,
+    case when $5::text = 'created' then u.created_at end,
+    case when $5::text = '-created' then u.created_at end desc,
+    case when $5::text = '-name' then u.full_name end desc,
+    u.full_name, u.login
+offset $6
+limit nullif($7::int, 0)
 `
+
+type ListUsersParams struct {
+	Q          *string
+	Role       *string
+	LocationID *uuid.UUID
+	Status     *string
+	Sort       string
+	RowOffset  int32
+	MaxRows    int32
+}
 
 type ListUsersRow struct {
 	ID                 uuid.UUID
@@ -148,8 +209,17 @@ type ListUsersRow struct {
 	LocationIDs        []uuid.UUID
 }
 
-func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
-	rows, err := q.db.Query(ctx, listUsers)
+// Поиск, фильтры и страница: сотрудников федеральной сети — тысячи (решение 0064).
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
+	rows, err := q.db.Query(ctx, listUsers,
+		arg.Q,
+		arg.Role,
+		arg.LocationID,
+		arg.Status,
+		arg.Sort,
+		arg.RowOffset,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}

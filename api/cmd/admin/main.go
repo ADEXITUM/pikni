@@ -29,6 +29,7 @@ const usage = `usage:
   pikni-admin seed-demo-year [-days 365] [-small МГ-02] [-rests rests.json]
   pikni-admin gen-catalog -file <catalog.csv>
   pikni-admin seed-users
+  pikni-admin seed-assets
   pikni-admin scenario <name|all|list>
   pikni-admin seed-federal [-stores 3000] [-small-share 0.1]
   pikni-admin seed-load [-stocktakes 500] [-scanners 10000] -file <plan.json>`
@@ -119,6 +120,13 @@ func run(args []string) error {
 			fmt.Printf("%-14s %-14s %s\n", a.Login, a.Role, a.Location)
 		}
 		fmt.Printf("Password: %s, cashier PIN: %s\n", seed.Password, seed.PIN)
+		return nil
+	case "seed-assets":
+		n, err := demo.Assets(ctx, pool)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Assets registered: %d\n", n)
 		return nil
 	case "seed-demo-year":
 		return seedDemoYear(ctx, pool, *days, *small, *rests)

@@ -138,7 +138,8 @@ func (h *Handler) GetAvailability(ctx context.Context, req apispec.GetAvailabili
 	}
 	for i, l := range c.Locations {
 		out.Locations[i] = apispec.AvailabilityLocation{
-			ID: l.ID, Code: l.Code, Name: l.Name, City: l.City, Kind: apispec.LocationKind(l.Kind), Lat: l.Lat, Lon: l.Lon,
+			ID: l.ID, Code: l.Code, Name: l.Name, City: l.City, SubjectCode: l.SubjectCode, Address: l.Address,
+			Kind: apispec.LocationKind(l.Kind), Lat: l.Lat, Lon: l.Lon,
 		}
 	}
 	for i, cell := range c.Cells {

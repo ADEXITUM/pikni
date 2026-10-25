@@ -19,6 +19,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import StocktakeNewDialog from '@/components/StocktakeNewDialog.vue'
+import LocationSelect from '@/components/LocationSelect.vue'
 import { formatDateTime } from '@/format'
 import {
   documentKindLabels,
@@ -273,9 +274,9 @@ const zones = (d: (typeof items.value)[number]) =>
             Один документ на зону: сосчитайте товар сканированием, бутылки с марками — по маркам.
             Провести документ может руководитель или бухгалтер.
           </p>
-          <v-select
+          <LocationSelect
             v-model="opening.selectedId.value"
-            :items="opening.items.value"
+            :locations="opening.options.value"
             label="Точка"
             class="mb-2"
             @update:model-value="openingZone = zoneItems[0]?.value"
@@ -308,9 +309,9 @@ const zones = (d: (typeof items.value)[number]) =>
             Отсканируйте марки и товар, для боя прикрепите фото. Списание вступит в силу после
             утверждения руководителем, затем в ЕГАИС уйдёт акт списания.
           </p>
-          <v-select
+          <LocationSelect
             v-model="writeoff.selectedId.value"
-            :items="writeoff.items.value"
+            :locations="writeoff.options.value"
             label="Точка"
             class="mb-2"
             @update:model-value="writeoffZone = writeoffZones[0]?.value"
@@ -344,9 +345,9 @@ const zones = (d: (typeof items.value)[number]) =>
     <v-dialog v-model="transferOpen" max-width="480" @after-leave="reset()">
       <v-card title="Передача товара">
         <v-card-text>
-          <v-select
+          <LocationSelect
             v-model="transfer.selectedId.value"
-            :items="transfer.items.value"
+            :locations="transfer.options.value"
             label="Магазин"
             class="mb-2"
           />

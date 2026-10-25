@@ -110,11 +110,24 @@ func filter(location, responsible *uuid.UUID, category *string, status *apispec.
 
 func (h *Handler) ListAssets(ctx context.Context, req apispec.ListAssetsRequestObject) (apispec.ListAssetsResponseObject, error) {
 	p := req.Params
-	rows, err := h.svc.List(ctx, filter(p.LocationID, p.ResponsibleID, p.Category, p.Status, p.Q))
+	f := filter(p.LocationID, p.ResponsibleID, p.Category, p.Status, p.Q)
+	f.Limit = 50
+	if p.Limit != nil {
+		f.Limit = int32(*p.Limit)
+	}
+	if p.Offset != nil {
+		f.Offset = int32(*p.Offset)
+	}
+	rows, err := h.svc.List(ctx, f)
 	if err != nil {
 		return nil, problem(err)
 	}
-	out := apispec.ListAssets200JSONResponse{Items: make([]apispec.Asset, len(rows))}
+	totals, err := h.svc.Totals(ctx, f)
+	if err != nil {
+		return nil, problem(err)
+	}
+	out := apispec.ListAssets200JSONResponse{Items: make([]apispec.Asset, len(rows)), Total: int(totals.Total),
+		TotalCostKopecks: totals.CostKopecks}
 	for i, r := range rows {
 		out.Items[i] = toAPI(store.GetAssetRow(r))
 	}

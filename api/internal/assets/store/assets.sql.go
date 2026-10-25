@@ -183,6 +183,47 @@ func (q *Queries) AuditResults(ctx context.Context, id uuid.UUID) ([]AuditResult
 	return items, nil
 }
 
+const countAssets = `-- name: CountAssets :one
+select count(*)::integer as total, coalesce(sum(a.cost * 100), 0)::bigint as cost_kopecks
+from assets a
+where ($1::uuid[] is null or a.location_id = any($1::uuid[]))
+  and ($2::uuid is null or a.location_id = $2::uuid)
+  and ($3::uuid is null or a.responsible_id = $3::uuid)
+  and ($4::text is null or a.category_code = $4::text)
+  and (case when $5::text is null then a.status <> 'written_off' else a.status = $5::text end)
+  and ($6::text is null or a.number ilike '%' || $6::text || '%'
+       or a.name ilike '%' || $6::text || '%' or a.serial ilike '%' || $6::text || '%')
+`
+
+type CountAssetsParams struct {
+	LocationIDs   []uuid.UUID
+	LocationID    *uuid.UUID
+	ResponsibleID *uuid.UUID
+	CategoryCode  *string
+	Status        *string
+	Q             *string
+}
+
+type CountAssetsRow struct {
+	Total       int32
+	CostKopecks int64
+}
+
+// Итог ведомости по тому же фильтру, что ListAssets: число объектов и стоимость.
+func (q *Queries) CountAssets(ctx context.Context, arg CountAssetsParams) (CountAssetsRow, error) {
+	row := q.db.QueryRow(ctx, countAssets,
+		arg.LocationIDs,
+		arg.LocationID,
+		arg.ResponsibleID,
+		arg.CategoryCode,
+		arg.Status,
+		arg.Q,
+	)
+	var i CountAssetsRow
+	err := row.Scan(&i.Total, &i.CostKopecks)
+	return i, err
+}
+
 const createAsset = `-- name: CreateAsset :one
 insert into assets (number, name, category_code, serial, accepted_at, cost, location_id, responsible_id)
 values ('INV-' || lpad(nextval('asset_number_seq')::text, 6, '0'), $1, $2, $3, $4,
@@ -499,6 +540,8 @@ where ($1::uuid[] is null or a.location_id = any($1::uuid[]))
   and ($6::text is null or a.number ilike '%' || $6::text || '%'
        or a.name ilike '%' || $6::text || '%' or a.serial ilike '%' || $6::text || '%')
 order by l.code, a.number
+offset $7
+limit nullif($8::int, 0)
 `
 
 type ListAssetsParams struct {
@@ -508,6 +551,8 @@ type ListAssetsParams struct {
 	CategoryCode  *string
 	Status        *string
 	Q             *string
+	RowOffset     int32
+	MaxRows       int32
 }
 
 type ListAssetsRow struct {
@@ -539,6 +584,8 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 		arg.CategoryCode,
 		arg.Status,
 		arg.Q,
+		arg.RowOffset,
+		arg.MaxRows,
 	)
 	if err != nil {
 		return nil, err

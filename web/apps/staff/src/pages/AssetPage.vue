@@ -15,6 +15,7 @@ import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AssetFormDialog from '@/components/AssetFormDialog.vue'
+import LocationSelect from '@/components/LocationSelect.vue'
 import { assetStatusColors, assetStatusLabels, describeEvent } from '@/assets'
 import { confirm } from '@/confirm'
 import { formatDate, formatDateTime } from '@/format'
@@ -331,9 +332,9 @@ async function printLabel() {
       <v-dialog v-model="moveOpen" max-width="480">
         <v-card title="Переместить, сменить МОЛ">
           <v-card-text>
-            <v-select
+            <LocationSelect
               v-model="moveTo"
-              :items="target.items.value"
+              :locations="target.options.value"
               label="Точка"
               class="mb-2"
               @update:model-value="moveResponsible = null"

@@ -200,6 +200,26 @@ func (g *gen) setup(ctx context.Context) error {
 }
 
 func (g *gen) points(ctx context.Context, small []string) ([]*point, []*point, error) {
+	stores, whs, err := g.existing(ctx, small)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(whs) == 0 {
+		return nil, nil, errors.New("no warehouses: load dev.sql first")
+	}
+	for _, s := range stores {
+		// Магазин снабжает ближайший склад.
+		s.wh = nearest(s, whs)
+		s.wh.stores = append(s.wh.stores, s)
+		if err := g.staff(ctx, s); err != nil {
+			return nil, nil, err
+		}
+	}
+	return stores, whs, nil
+}
+
+// existing — действующие магазины и склады из базы; small — коды магазинов у дома.
+func (g *gen) existing(ctx context.Context, small []string) ([]*point, []*point, error) {
 	rows, err := g.pool.Query(ctx, `select l.id, l.code, l.kind, l.timezone, coalesce(l.lat, 0)::float8, coalesce(l.lon, 0)::float8,
 		(select id from zones where location_id = l.id and kind in ('backroom', 'warehouse') order by kind limit 1),
 		coalesce((select id from zones where location_id = l.id and kind = 'floor'), '00000000-0000-0000-0000-000000000000')
@@ -234,18 +254,11 @@ func (g *gen) points(ctx context.Context, small []string) ([]*point, []*point, e
 		}
 		stores = append(stores, p)
 	}
-	if len(whs) == 0 {
-		return nil, nil, errors.New("no warehouses: load dev.sql first")
-	}
-	for _, s := range stores {
-		// Магазин снабжает ближайший склад.
-		s.wh = slices.MinFunc(whs, func(a, b *point) int { return cmp.Compare(dist(s, a), dist(s, b)) })
-		s.wh.stores = append(s.wh.stores, s)
-		if err := g.staff(ctx, s); err != nil {
-			return nil, nil, err
-		}
-	}
 	return stores, whs, nil
+}
+
+func nearest(p *point, list []*point) *point {
+	return slices.MinFunc(list, func(a, b *point) int { return cmp.Compare(dist(p, a), dist(p, b)) })
 }
 
 func dist(a, b *point) float64 { return math.Hypot(a.lat-b.lat, a.lon-b.lon) }

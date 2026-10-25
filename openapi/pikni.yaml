@@ -393,11 +393,50 @@ paths:
     get:
       operationId: listUsers
       summary: Сотрудники
+      description: Поиск по логину и ФИО, фильтры и страница; total — сколько найдено всего.
       tags: [users]
       x-permission: users.view
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            $ref: "#/components/schemas/Role"
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, blocked, temporary]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, -name, login, -login, role, -role, created, -created]
+            default: name
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
       responses:
         "200":
-          description: Все сотрудники по алфавиту
+          description: Страница сотрудников
           content:
             application/json:
               schema:
@@ -3653,6 +3692,19 @@ paths:
         - $ref: "#/components/parameters/AssetCategoryCode"
         - $ref: "#/components/parameters/AssetStatusParam"
         - $ref: "#/components/parameters/AssetQuery"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
       responses:
         "200":
           description: Объекты
@@ -3660,12 +3712,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items]
+                required: [items, total, totalCostKopecks]
                 properties:
                   items:
                     type: array
                     items:
                       $ref: "#/components/schemas/Asset"
+                  total:
+                    type: integer
+                    description: Объектов по фильтру на всех страницах
+                  totalCostKopecks:
+                    type: integer
+                    format: int64
         default:
           $ref: "#/components/responses/Problem"
     post:
@@ -4870,8 +4928,10 @@ components:
 
     UserList:
       type: object
-      required: [items]
+      required: [items, total]
       properties:
+        total:
+          type: integer
         items:
           type: array
           items:
@@ -5089,7 +5149,11 @@ components:
               format: int64
         integrityProblems:
           type: integer
-          description: Расхождения остатков с суммой движений (должно быть 0)
+          description: Расхождения остатков с суммой движений (должно быть 0) по последней проверке
+        integrityCheckedAt:
+          type: string
+          format: date-time
+          description: Когда была последняя проверка целостности (фоновая задача раз в час); нет — ещё не было
         unconfirmedTtn:
           type: integer
         openShifts:
@@ -5268,7 +5332,7 @@ components:
 
     AvailabilityLocation:
       type: object
-      required: [id, code, name, city, kind]
+      required: [id, code, name, city, subjectCode, kind]
       properties:
         id:
           type: string
@@ -5278,6 +5342,10 @@ components:
         name:
           type: string
         city:
+          type: string
+        subjectCode:
+          type: string
+        address:
           type: string
         kind:
           $ref: "#/components/schemas/LocationKind"

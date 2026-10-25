@@ -63,20 +63,22 @@ func (q *Queries) AvailabilityCells(ctx context.Context, productID uuid.UUID) ([
 }
 
 const availabilityLocations = `-- name: AvailabilityLocations :many
-select id, code, name, city, kind, lat, lon
+select id, code, name, city, subject_code, address, kind, lat, lon
 from locations
 where is_active
 order by city, kind desc, code
 `
 
 type AvailabilityLocationsRow struct {
-	ID   uuid.UUID
-	Code string
-	Name string
-	City string
-	Kind string
-	Lat  *float64
-	Lon  *float64
+	ID          uuid.UUID
+	Code        string
+	Name        string
+	City        string
+	SubjectCode string
+	Address     *string
+	Kind        string
+	Lat         *float64
+	Lon         *float64
 }
 
 func (q *Queries) AvailabilityLocations(ctx context.Context) ([]AvailabilityLocationsRow, error) {
@@ -93,6 +95,8 @@ func (q *Queries) AvailabilityLocations(ctx context.Context) ([]AvailabilityLoca
 			&i.Code,
 			&i.Name,
 			&i.City,
+			&i.SubjectCode,
+			&i.Address,
 			&i.Kind,
 			&i.Lat,
 			&i.Lon,

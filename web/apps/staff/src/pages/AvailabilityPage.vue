@@ -4,6 +4,7 @@ import { api, ApiError, type AvailabilityItem, type CategoryAttribute } from '@p
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 
 import {
   type AvailabilityFilters,
@@ -61,6 +62,17 @@ const { data: kinds } = useQuery(productKindsQuery)
 const { data: brands } = useQuery(brandsQuery)
 const { data: countries } = useQuery(countriesQuery)
 
+// Сотруднику точки сначала показывается его город; «Вся сеть» — расширенный поиск.
+const hereLocation = computed(() => (locations.value ?? []).find((l) => l.id === here.value))
+const nearCity = computed(() =>
+  !filters.value.network && !filters.value.city && !filters.value.locationId
+    ? hereLocation.value?.city
+    : undefined,
+)
+function setNetwork(network: boolean) {
+  update({ network, city: undefined, locationId: undefined })
+}
+
 const cities = computed(() =>
   [...new Set((locations.value ?? []).filter((l) => l.isActive).map((l) => l.city))].sort(),
 )
@@ -115,7 +127,12 @@ const active = computed(() => Object.keys(queryFromFilters(filters.value)).lengt
 const pageSize = 30
 const { data, isPending, error, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery(
   {
-    queryKey: computed(() => ['availability', filters.value, here.value ?? null]),
+    queryKey: computed(() => [
+      'availability',
+      filters.value,
+      here.value ?? null,
+      nearCity.value ?? null,
+    ]),
     queryFn: async ({ pageParam }) => {
       const f = filters.value
       const { data, error } = await api.GET('/availability', {
@@ -131,7 +148,7 @@ const { data, isPending, error, hasNextPage, fetchNextPage, isFetchingNextPage }
             abvTo: f.abvTo,
             priceFrom: f.priceFrom,
             priceTo: f.priceTo,
-            city: f.city,
+            city: f.city ?? nearCity.value,
             locationId: f.locationId,
             locationKind: f.locationKind,
             inStock: f.inStock || undefined,
@@ -157,8 +174,36 @@ const items = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
 const total = computed(() => data.value?.pages[0]?.total ?? 0)
 
 const scoped = computed(
-  () => !!(filters.value.city || filters.value.locationId || filters.value.locationKind),
+  () =>
+    !!(
+      nearCity.value ||
+      filters.value.city ||
+      filters.value.locationId ||
+      filters.value.locationKind
+    ),
 )
+const scopeLabel = computed(() =>
+  filters.value.locationId || filters.value.locationKind ? 'в точках' : 'в городе',
+)
+const stats = (i: AvailabilityItem) => [
+  ...(here.value
+    ? [{ qty: i.hereQty, label: 'у вас', tone: i.hereQty > 0 ? 'text-success' : '' }]
+    : []),
+  ...(scoped.value
+    ? [{ qty: i.scopeQty, label: scopeLabel.value, tone: i.scopeQty > 0 ? 'text-info' : '' }]
+    : []),
+  { qty: i.networkQty, label: 'в сети', tone: 'text-medium-emphasis' },
+]
+const { xs } = useDisplay()
+// Цвет точки слева: есть у вас, есть в городе или только где-то в сети.
+const tone = (i: AvailabilityItem) =>
+  here.value && i.hereQty > 0
+    ? 'success'
+    : scoped.value && i.scopeQty > 0
+      ? 'info'
+      : i.networkQty > 0
+        ? 'warning'
+        : 'grey'
 const price = (i: AvailabilityItem) =>
   !i.minPrice
     ? 'цена не назначена'
@@ -289,7 +334,7 @@ const price = (i: AvailabilityItem) =>
                 "
               />
             </div>
-            <v-select
+            <v-autocomplete
               :model-value="filters.city"
               :items="cities"
               label="Город"
@@ -376,8 +421,26 @@ const price = (i: AvailabilityItem) =>
     </v-expand-transition>
 
     <v-alert v-if="error" type="error" class="mb-4">{{ error.message }}</v-alert>
-    <div class="text-body-medium text-medium-emphasis mb-2">
-      Найдено: {{ total }}<template v-if="scoped"> · остаток считается в выбранных точках</template>
+    <div class="d-flex flex-wrap align-center ga-3 mb-3">
+      <v-btn-toggle
+        v-if="hereLocation"
+        :model-value="
+          filters.network ? 'network' : filters.city || filters.locationId ? null : 'city'
+        "
+        density="compact"
+        variant="outlined"
+        divided
+        data-test="scope"
+      >
+        <v-btn value="city" size="small" @click="setNetwork(false)"
+          >Мой город · {{ hereLocation.city }}</v-btn
+        >
+        <v-btn value="network" size="small" @click="setNetwork(true)">Вся сеть</v-btn>
+      </v-btn-toggle>
+      <span class="text-body-medium text-medium-emphasis">
+        Найдено: {{ total
+        }}<template v-if="scoped"> · «есть» и «только в наличии» — {{ scopeLabel }}</template>
+      </span>
     </div>
 
     <v-card>
@@ -389,19 +452,25 @@ const price = (i: AvailabilityItem) =>
           :to="{ name: 'availability-card', params: { productId: i.productId } }"
           data-test="availability-item"
         >
+          <template #prepend>
+            <span class="pk-dot" :class="`bg-${tone(i)}`" />
+          </template>
           <v-list-item-title>{{ i.name }}</v-list-item-title>
           <v-list-item-subtitle>
             {{ i.categoryName }}<template v-if="i.abv"> · {{ formatAbv(i.abv) }}</template> ·
             {{ i.countryName }} · {{ price(i) }}
           </v-list-item-subtitle>
-          <template #append>
-            <div class="text-end">
-              <div v-if="here" class="text-body-large" :class="i.hereQty > 0 ? 'text-success' : ''">
-                здесь {{ i.hereQty }}
-              </div>
-              <div class="text-body-small text-medium-emphasis">
-                <template v-if="scoped">в точках {{ i.scopeQty }} · </template>в сети
-                {{ i.networkQty }}
+          <div v-if="xs" class="pk-stats pk-stats-inline">
+            <div v-for="s in stats(i)" :key="s.label" class="pk-stat" :class="s.tone">
+              <b>{{ s.qty }}</b
+              ><span>{{ s.label }}</span>
+            </div>
+          </div>
+          <template v-if="!xs" #append>
+            <div class="pk-stats">
+              <div v-for="s in stats(i)" :key="s.label" class="pk-stat" :class="s.tone">
+                <b>{{ s.qty }}</b
+                ><span>{{ s.label }}</span>
               </div>
             </div>
           </template>
@@ -425,5 +494,41 @@ const price = (i: AvailabilityItem) =>
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 0 16px;
+}
+.pk-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-inline-end: 12px;
+}
+.pk-stats {
+  display: flex;
+  gap: 16px;
+  margin-inline-start: 12px;
+}
+.pk-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 56px;
+}
+.pk-stat b {
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+.pk-stat span {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.pk-stats-inline {
+  margin: 6px 0 0;
+  gap: 20px;
+}
+.pk-stats-inline .pk-stat {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
 }
 </style>

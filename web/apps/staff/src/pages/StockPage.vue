@@ -8,6 +8,7 @@ import { zoneLabels } from '@/labels'
 import { useLive } from '@/live'
 import { formatPrice, variantLabel } from '@/products'
 import { useLocationChoice } from '@/stock'
+import LocationSelect from '@/components/LocationSelect.vue'
 
 const location = useLocationChoice('availability.view')
 useLive(
@@ -87,9 +88,9 @@ const hasCost = computed(() => rows.value.some((r) => r.variant.avgCost !== unde
     </p>
 
     <div class="d-flex flex-wrap align-center ga-2 mb-3">
-      <v-select
+      <LocationSelect
         v-model="location.selectedId.value"
-        :items="location.items.value"
+        :locations="location.options.value"
         label="Точка"
         density="compact"
         hide-details

@@ -229,7 +229,7 @@ func TestAdminCannotLockThemselvesOut(t *testing.T) {
 	if _, err := svc.CreateAdmin(t.Context(), "admin", "Администратор"); err != nil {
 		t.Fatal(err)
 	}
-	list, err := svc.List(t.Context())
+	list, _, err := svc.List(t.Context(), users.Filter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,5 +278,37 @@ func TestBlockEndsSessions(t *testing.T) {
 	}
 	if auditCount(t, db, "user.blocked") != 1 || auditCount(t, db, "user.unblocked") != 1 {
 		t.Error("block and unblock are not in the audit log")
+	}
+}
+
+func TestListFiltersAndPages(t *testing.T) {
+	t.Parallel()
+	db := dbtest.New(t)
+	svc := users.NewService(db.App)
+	if _, err := svc.CreateAdmin(t.Context(), "admin", "Администратор"); err != nil {
+		t.Fatal(err)
+	}
+	for _, login := range []string{"ivanov", "petrov", "sidorov"} {
+		if _, _, err := svc.Create(t.Context(), login, users.Profile{FullName: "Бухгалтер " + login, Role: apispec.RoleAccountant}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	str := func(s string) *string { return &s }
+	page, total, err := svc.List(t.Context(), users.Filter{Role: str("accountant"), Sort: "login", Limit: 2})
+	if err != nil || total != 3 || len(page) != 2 || page[0].Login != "ivanov" {
+		t.Fatalf("role filter: total %d, page %v, %v", total, page, err)
+	}
+	next, _, err := svc.List(t.Context(), users.Filter{Role: str("accountant"), Sort: "login", Offset: 2, Limit: 2})
+	if err != nil || len(next) != 1 || next[0].Login != "sidorov" {
+		t.Fatalf("second page: %v, %v", next, err)
+	}
+	found, total, err := svc.List(t.Context(), users.Filter{Q: str("PETR")})
+	if err != nil || total != 1 || found[0].Login != "petrov" {
+		t.Fatalf("search: total %d, %v, %v", total, found, err)
+	}
+	// Новые сотрудники входят по временному паролю, администратор — тоже.
+	temporary, total, err := svc.List(t.Context(), users.Filter{Status: str("temporary")})
+	if err != nil || total != 4 || len(temporary) != 4 {
+		t.Fatalf("status filter: total %d, %v", total, err)
 	}
 }

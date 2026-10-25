@@ -103,6 +103,20 @@ func TestYear(t *testing.T) {
 		}
 	}
 
+	// Имущество ставится на каждую точку один раз: повторный запуск ничего не добавляет.
+	n, err := demo.Assets(ctx, db.App)
+	if err != nil || n < 100 {
+		t.Fatalf("assets: %d %v", n, err)
+	}
+	var bare int
+	if err := db.App.QueryRow(ctx, `select count(*) from locations l where l.is_active and l.kind in ('store', 'warehouse')
+		and not exists (select 1 from assets a where a.location_id = l.id)`).Scan(&bare); err != nil || bare > 0 {
+		t.Fatalf("points without assets: %d %v", bare, err)
+	}
+	if again, err := demo.Assets(ctx, db.App); err != nil || again != 0 {
+		t.Fatalf("second assets run: %d %v", again, err)
+	}
+
 	if err := demo.Year(ctx, db.App, 21, slog.New(slog.DiscardHandler)); !errors.Is(err, demo.ErrAlreadySeeded) {
 		t.Fatalf("second run: %v", err)
 	}

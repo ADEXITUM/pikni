@@ -3,6 +3,7 @@ import { mdiCellphoneKey } from '@mdi/js'
 import { api, ApiError } from '@pikni/api'
 import { qrSvg } from '@pikni/scanner'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import QrCode from '@/components/QrCode.vue'
 
 // Вход на смартфоне по QR-коду с ПК (ПБ-2): код одноразовый и живёт 60 секунд.
 const qr = ref('')
@@ -41,7 +42,7 @@ onBeforeUnmount(() => clearInterval(timer))
     </v-card-item>
     <v-card-text v-if="qr">
       <!-- eslint-disable-next-line vue/no-v-html -- SVG собран нашим кодом -->
-      <div class="pk-qr mb-2" data-test="login-qr" v-html="qr" />
+      <QrCode :svg="qr" class="mb-3" data-test="login-qr" />
       <p class="text-body-medium">Код действует ещё {{ left }} с и подходит один раз.</p>
     </v-card-text>
     <v-alert v-if="error" type="error" class="mx-4 mb-4">{{ error }}</v-alert>
@@ -52,13 +53,3 @@ onBeforeUnmount(() => clearInterval(timer))
     </v-card-actions>
   </v-card>
 </template>
-
-<style scoped>
-.pk-qr :deep(svg) {
-  width: 200px;
-  height: 200px;
-  background: #fff;
-  padding: 8px;
-  border-radius: 8px;
-}
-</style>
