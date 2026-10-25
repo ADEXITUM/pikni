@@ -44,3 +44,5 @@ __screenshots__/
 
 # Собранные бинарники Windows
 *.exe
+.demo/
+deploy/.demo-out/

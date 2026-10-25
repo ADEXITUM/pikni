@@ -1,6 +1,8 @@
 package demo_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -28,20 +30,41 @@ func TestYear(t *testing.T) {
 	if _, err := db.Owner.Exec(ctx, string(seed)); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile("../../db/seed/catalog.csv")
+	data, err := os.ReadFile("../../db/seed/catalog-full.csv")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report, err := catalog.NewService(db.App).Import(ctx, "catalog.csv", data, true, nil, nil); err != nil || len(report.Errors) > 0 {
+	if report, err := catalog.NewService(db.App).Import(ctx, "catalog-full.csv", data, true, nil, nil); err != nil || len(report.Errors) > 0 {
 		t.Fatalf("import: %v %+v", err, report.Errors)
 	}
-	if err := demo.Year(ctx, db.App, 21, slog.New(slog.DiscardHandler)); err != nil {
+	var rests bytes.Buffer
+	if err := demo.Generate(ctx, db.App, demo.Options{Days: 5, Small: []string{"МГ-02"}, Rests: &rests}, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatal(err)
 	}
-	var receipts, sold int
-	if err := db.App.QueryRow(ctx, `select (select count(*) from pos_receipts), (select count(*) from excise_marks where status = 'sold')`).
-		Scan(&receipts, &sold); err != nil || receipts < 500 || sold == 0 {
-		t.Fatalf("receipts %d, sold marks %d, %v", receipts, sold, err)
+	var receipts, sold, transfers int
+	if err := db.App.QueryRow(ctx, `select (select count(*) from pos_receipts), (select count(*) from excise_marks where status = 'sold'),
+		(select count(*) from documents where kind = 'transfer' and status = 'posted')`).
+		Scan(&receipts, &sold, &transfers); err != nil || receipts < 9000 || sold == 0 || transfers == 0 {
+		t.Fatalf("receipts %d, sold marks %d, transfers %d, %v", receipts, sold, transfers, err)
+	}
+	// Магазин у дома держит несколько сотен позиций, крупный — почти весь каталог.
+	var small, large int
+	if err := db.App.QueryRow(ctx, `select
+		(select count(*) from assortment_matrix m join locations l on l.id = m.location_id where l.code = 'МГ-02'),
+		(select count(*) from assortment_matrix m join locations l on l.id = m.location_id where l.code = 'МГ-01')`).Scan(&small, &large); err != nil || small > 700 || large < 1500 {
+		t.Fatalf("matrix: small %d, large %d, %v", small, large, err)
+	}
+	// Имитатору ЕГАИС уходят ровно те марки, что числятся на остатке.
+	var file demo.Rests
+	if err := json.Unmarshal(rests.Bytes(), &file); err != nil {
+		t.Fatal(err)
+	}
+	var inFile, onHand int
+	for _, p := range file.Points {
+		inFile += len(p.Marks)
+	}
+	if err := db.App.QueryRow(ctx, `select count(*) from excise_marks where status in ('in_stock', 'reserved')`).Scan(&onHand); err != nil || inFile != onHand || onHand == 0 {
+		t.Fatalf("rests file has %d marks, stock has %d, %v", inFile, onHand, err)
 	}
 	problems, err := stock.NewService(db.App, marks.NewService(db.App)).Integrity(ctx)
 	if err != nil || len(problems) > 0 {

@@ -3,6 +3,10 @@
 //
 //	go run ./cmd/loadtest -url http://localhost:8080 -login director -password ... -users 80 -tills 20 -d 60s
 //
+// Федеральная ревизия (решение 0063): сотрудники из плана pikni-admin seed-load сканируют марки.
+//
+//	go run ./cmd/loadtest -url http://localhost:8080 -plan load.json -d 3m -ramp 2m
+//
 // Вход выполняется один раз: ограничение 10 попыток в минуту с адреса не даёт сотне пользователей
 // войти разом, поэтому виртуальные пользователи работают в одном сеансе — для сервера это та же
 // сотня параллельных запросов.
@@ -44,7 +48,15 @@ func main() {
 	tills := flag.Int("tills", 20, "виртуальных касс")
 	posKey := flag.String("pos-key", "", "ключ кассы; без него кассы читают каталог через API сотрудника")
 	duration := flag.Duration("d", 60*time.Second, "длительность")
+	planFile := flag.String("plan", "", "план федеральной ревизии (pikni-admin seed-load)")
+	ramp := flag.Duration("ramp", time.Minute, "разгон: за это время подключаются все сотрудники плана")
+	think := flag.Duration("think", 1500*time.Millisecond, "пауза сотрудника между сканами")
+	limit := flag.Int("scanners", 0, "сколько сотрудников плана задействовать; 0 — всех")
 	flag.Parse()
+	if *planFile != "" {
+		stocktake(*base, *planFile, *duration, *ramp, *think, *limit)
+		return
+	}
 
 	cookie, csrf, err := signIn(*base, *login, *password)
 	if err != nil {

@@ -6,7 +6,9 @@
     "vitest.config.*",
     "cypress.config.*",
     "playwright.config.*",
+    "playwright.scenarios.config.*",
     "e2e/**/*",
+    "e2e-scenarios/**/*",
     "eslint.config.*"
   ],
   "compilerOptions": {
