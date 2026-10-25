@@ -3,7 +3,11 @@ package documents
 import (
 	"bytes"
 	"context"
+	"errors"
+	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
@@ -122,6 +126,16 @@ func (h *Handler) SetStocktakeCount(ctx context.Context, req apispec.SetStocktak
 // GetStocktakeForm — ИНВ-3 и ИНВ-19 по строкам ревизии в учётных ценах. Цены в форме видит
 // комиссия, поэтому форму получают и без права на себестоимость — это документ для подписи.
 func (h *Handler) GetStocktakeForm(ctx context.Context, req apispec.GetStocktakeFormRequestObject) (apispec.GetStocktakeFormResponseObject, error) {
+	if req.Form != apispec.GetStocktakeFormParamsFormInv3 && req.Form != apispec.GetStocktakeFormParamsFormInv19 {
+		data, err := h.svc.TorgForm(ctx, req.ID, string(req.Form))
+		if errors.Is(err, ErrFormNotApplicable) {
+			return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "Эта форма не подходит к виду документа")
+		}
+		if err != nil {
+			return nil, problem(err)
+		}
+		return apispec.GetStocktakeForm200ApplicationPdfResponse{Body: bytes.NewReader(data), ContentLength: int64(len(data))}, nil
+	}
 	sh, doc, err := h.svc.Sheet(ctx, req.ID)
 	if err != nil {
 		return nil, problem(err)

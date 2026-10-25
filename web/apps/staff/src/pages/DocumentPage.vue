@@ -8,6 +8,7 @@ import {
   mdiClose,
   mdiHelpCircleOutline,
   mdiInformationOutline,
+  mdiFilePdfBox,
   mdiMagnify,
   mdiTagOutline,
   mdiUndoVariant,
@@ -213,6 +214,16 @@ const totalQty = computed(() =>
     ? doc.value.lines.reduce((n, l) => n + (l.qtyFact ?? l.qty), 0)
     : (doc.value?.totalQty ?? 0),
 )
+// Унифицированная форма проведённого документа (ОТ-2): ТОРГ-2, ТОРГ-13 или ТОРГ-16.
+const torgForm = computed(() => {
+  const d = doc.value
+  if (!d || !['posted', 'awaiting_egais', 'in_transit'].includes(d.status)) return undefined
+  if (d.kind === 'receipt') return { code: 'torg2', title: 'ТОРГ-2' }
+  if (d.kind === 'floor_transfer' || d.kind === 'transfer')
+    return { code: 'torg13', title: 'ТОРГ-13' }
+  if (d.kind === 'writeoff') return { code: 'torg16', title: 'ТОРГ-16' }
+  return undefined
+})
 const showCost = computed(() => doc.value?.lines.some((l) => l.unitCost !== undefined) ?? false)
 
 const actionError = ref<string>()
@@ -443,6 +454,16 @@ async function printTags(format: LabelFormat) {
         <v-chip :color="documentStatusColors[doc.status]" label data-test="status">
           {{ documentStatusLabels[doc.status] }}
         </v-chip>
+        <v-spacer />
+        <v-btn
+          v-if="torgForm"
+          :prepend-icon="mdiFilePdfBox"
+          :href="`/api/v1/documents/${doc.id}/forms/${torgForm.code}`"
+          target="_blank"
+          variant="text"
+          data-test="torg"
+          >{{ torgForm.title }}</v-btn
+        >
       </div>
       <p class="text-body-medium text-medium-emphasis mb-4">
         {{ doc.locationName }}<template v-if="zonesText"> · {{ zonesText }}</template> ·

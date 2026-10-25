@@ -1,6 +1,7 @@
 package documents_test
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 	"time"
@@ -161,5 +162,31 @@ func TestStocktakeCancelUnblocks(t *testing.T) {
 	}
 	if err := f.svc.Post(f.keeper, tr, f.version(t, tr)); err != nil {
 		t.Fatalf("move after cancel: %v", err)
+	}
+}
+
+func TestTorgForms(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	opening := f.opening(t, nil, 5)
+	tr, err := f.svc.CreateFloorTransfer(f.keeper, f.store, apispec.FloorDirectionToFloor, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.SetLine(f.keeper, tr, f.beer.variant, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Post(f.keeper, tr, f.version(t, tr)); err != nil {
+		t.Fatal(err)
+	}
+	pdf, err := f.svc.TorgForm(f.keeper, tr, "torg13")
+	if err != nil || !bytes.HasPrefix(pdf, []byte("%PDF")) {
+		t.Fatalf("torg13: %v", err)
+	}
+	if _, err := f.svc.TorgForm(f.keeper, tr, "torg16"); !errors.Is(err, documents.ErrFormNotApplicable) {
+		t.Fatalf("torg16 for a transfer: %v", err)
+	}
+	if _, err := f.svc.TorgForm(f.keeper, opening, "torg2"); !errors.Is(err, documents.ErrFormNotApplicable) {
+		t.Fatalf("torg2 for an opening: %v", err)
 	}
 }
