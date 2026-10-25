@@ -1441,6 +1441,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents/stocktake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать ревизию
+         * @description Полная или выборочная — по зонам, категориям, брендам (СО-6). Подсчёт начинается кнопкой «Старт».
+         */
+        post: operations["createStocktake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Начать подсчёт
+         * @description Учётный остаток зон и марок фиксируется, товары состава ревизии в точке блокируются до её завершения — ни продать, ни переместить их нельзя.
+         */
+        post: operations["startStocktake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Перейти к сличению
+         * @description Все зоны закрыты — ведомость готова к проверке и отправке на утверждение.
+         */
+        post: operations["reconcileStocktake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/stocktake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ход ревизии и сличительная ведомость
+         * @description Зоны с прогрессом «учёт / факт», строки сличения и марки — для живого экрана ревизии.
+         */
+        get: operations["getStocktake"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/zones/{zoneId}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Закрыть зону, открыть снова или пересчитать
+         * @description Пересчёт отменяет сканы зоны и начинает её заново (право управлять ревизией).
+         */
+        post: operations["stocktakeZone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/zones/{zoneId}/counts/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Задать посчитанное количество товара без марок */
+        put: operations["setStocktakeCount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/forms/{form}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Печатная форма ревизии
+         * @description inv3 — инвентаризационная опись ИНВ-3, inv19 — сличительная ведомость ИНВ-19; PDF или Excel.
+         */
+        get: operations["getStocktakeForm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{id}": {
         parameters: {
             query?: never;
@@ -1735,6 +1872,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/egais/reconciliation/{locationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Сверка с ЕГАИС
+         * @description Расхождения последнего снимка остатков ЕГАИС точки с учётом системы (СО-9): продукция без марок по регистрам (1 — склад, 2 — торговый зал) и марки, которые есть только с одной стороны.
+         */
+        get: operations["getReconciliation"];
+        put?: never;
+        /**
+         * Запросить остатки в ЕГАИС
+         * @description Ответ придёт обменом с УТМ, обычно за минуту; снимок обновится сам.
+         */
+        post: operations["requestRests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Открыть сопряжение со смартфоном
+         * @description ПК показывает QR-код; смартфон того же пользователя сканирует его и становится сканером (СК-6).
+         */
+        post: operations["openPairing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сопрячь смартфон по QR-коду */
+        post: operations["joinPairing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Состояние сопряжения */
+        get: operations["getPairing"];
+        put?: never;
+        post?: never;
+        /** Разорвать сопряжение */
+        delete: operations["closePairing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/{id}/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Передать скан со смартфона на ПК
+         * @description Идентификатор скана задаёт смартфон; ПК получает код событием paired_scan.
+         */
+        post: operations["sendPairedScan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/marks/{code}": {
         parameters: {
             query?: never;
@@ -1770,7 +2006,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -2037,6 +2273,53 @@ export interface components {
          * @enum {string}
          */
         ReservationStatus: "new" | "confirmed" | "issued" | "cancelled" | "expired";
+        Reconciliation: {
+            /**
+             * Format: date-time
+             * @description Когда получен снимок ЕГАИС; нет — остатки ещё не запрашивали
+             */
+            takenAt?: string;
+            /**
+             * Format: date-time
+             * @description Последний запрос остатков
+             */
+            requestedAt?: string;
+            products: components["schemas"]["ReconciliationProduct"][];
+            marks: components["schemas"]["ReconciliationMark"][];
+        };
+        ReconciliationProduct: {
+            alcocode: string;
+            name: string;
+            /** @enum {integer} */
+            register: 1 | 2;
+            ours: number;
+            egais: number;
+        };
+        ReconciliationMark: {
+            code: string;
+            alcocode: string;
+            name: string;
+            /** @description true — марка в учёте точки, но не на балансе ЕГАИС; false — наоборот */
+            onlyOurs: boolean;
+            /** @description Что о марке знает система, если её нет на остатке точки (в пути, продана, списана) */
+            status?: components["schemas"]["MarkStatus"];
+            /**
+             * Format: uuid
+             * @description Последний документ по марке
+             */
+            documentId?: string;
+            documentNumber?: string;
+        };
+        Pairing: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "waiting" | "active" | "closed";
+            /** @description Текст QR-кода — только в ответе на открытие */
+            code?: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         Reservation: {
             /** Format: uuid */
             id: string;
@@ -2869,12 +3152,12 @@ export interface components {
          * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала, receipt — поступление по ТТН ЕГАИС, sale — продажа смены кассы, transfer — перемещение между точками
          * @enum {string}
          */
-        DocumentKind: "opening" | "floor_transfer" | "receipt" | "sale" | "transfer" | "writeoff" | "storno";
+        DocumentKind: "opening" | "floor_transfer" | "receipt" | "sale" | "transfer" | "writeoff" | "storno" | "stocktake";
         /**
          * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён; у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути; pending_approval — ждёт утверждения (ПБ-8), reversed — сторнирован
          * @enum {string}
          */
-        DocumentStatus: "requested" | "rejected" | "draft" | "pending_approval" | "in_transit" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled" | "reversed";
+        DocumentStatus: "requested" | "rejected" | "draft" | "counting" | "reconciling" | "pending_approval" | "in_transit" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled" | "reversed";
         DocumentSummary: {
             /** Format: uuid */
             id: string;
@@ -3164,6 +3447,65 @@ export interface components {
             /** Format: date-time */
             at: string;
         };
+        NewStocktake: {
+            /** Format: uuid */
+            locationId: string;
+            zoneIds?: string[];
+            categoryIds?: string[];
+            brandIds?: string[];
+            comment?: string;
+        };
+        StocktakeZone: {
+            /** Format: uuid */
+            zoneId: string;
+            zoneKind: components["schemas"]["ZoneKind"];
+            /** @enum {string} */
+            status: "counting" | "closed";
+            bookMarks: number;
+            foundMarks: number;
+            /** @description Учёт товара без марок, шт. */
+            bookQty: number;
+            countedQty: number;
+            closedByName?: string;
+            /** Format: date-time */
+            closedAt?: string;
+        };
+        StocktakeLine: {
+            /** Format: uuid */
+            zoneId: string;
+            zoneKind: components["schemas"]["ZoneKind"];
+            /** Format: uuid */
+            variantId: string;
+            article: string;
+            name: string;
+            label: string;
+            accounting?: components["schemas"]["EgaisAccounting"];
+            bookQty: number;
+            factQty: number;
+            /**
+             * Format: double
+             * @description Учётная цена единицы, ₽ — тем, кто видит себестоимость
+             */
+            unitCost?: number;
+        };
+        StocktakeMark: {
+            code: string;
+            zoneKind: components["schemas"]["ZoneKind"];
+            /**
+             * @description not_found — числится, не найдена; found — найдена в своей зоне; moved — найдена в другой зоне точки; foreign — чужая (нет в учёте зон ревизии)
+             * @enum {string}
+             */
+            kind: "not_found" | "found" | "moved" | "foreign";
+            /** @description У чужой марки — её знает система (другая точка или продана); такая на учёт не встаёт */
+            known?: boolean;
+            article?: string;
+            name?: string;
+        };
+        StocktakeState: {
+            zones: components["schemas"]["StocktakeZone"][];
+            lines: components["schemas"]["StocktakeLine"][];
+            marks: components["schemas"]["StocktakeMark"][];
+        };
         NewFloorTransfer: {
             /** Format: uuid */
             locationId: string;
@@ -3177,6 +3519,11 @@ export interface components {
             source: components["schemas"]["ScanSource"];
             /** Format: date-time */
             scannedAt: string;
+            /**
+             * Format: uuid
+             * @description Зона ревизии, которую сейчас считают
+             */
+            zoneId?: string;
             /**
              * Format: uuid
              * @description Вариант, к которому отнести марку нового образца: в ней нет алкокода, поэтому при вводе остатков сначала сканируется штрихкод бутылки
@@ -5743,6 +6090,185 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    createStocktake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewStocktake"];
+            };
+        };
+        responses: {
+            /** @description Ревизия создана */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startStocktake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description Подсчёт начат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    reconcileStocktake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description Сличение */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getStocktake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ход ревизии */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StocktakeState"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    stocktakeZone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                zoneId: string;
+                action: "close" | "reopen" | "recount";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Готово */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setStocktakeCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                zoneId: string;
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentLineUpdate"];
+            };
+        };
+        responses: {
+            /** @description Сохранено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getStocktakeForm: {
+        parameters: {
+            query?: {
+                format?: "pdf" | "xlsx";
+            };
+            header?: never;
+            path: {
+                id: string;
+                form: "inv3" | "inv19";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл формы */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     getDocument: {
         parameters: {
             query?: never;
@@ -6179,6 +6705,171 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StockMoveList"];
                 };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getReconciliation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сверка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reconciliation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    requestRests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Запрос поставлен в очередь */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    openPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сопряжение ждёт смартфон */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pairing"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    joinPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Сопряжено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pairing"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Состояние */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pairing"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    closePairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Разорвано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    sendPairedScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    scanId: string;
+                    raw: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Передано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

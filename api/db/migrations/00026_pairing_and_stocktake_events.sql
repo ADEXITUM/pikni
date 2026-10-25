@@ -14,3 +14,18 @@ create table pairings (
 );
 
 create index pairings_user_idx on pairings (user_id, created_at desc);
+
+-- Закрытие зоны и ручной подсчёт видны на экранах всей комиссии ревизии (УВ-1).
+-- +goose StatementBegin
+create function notify_stocktake() returns trigger language plpgsql as $$
+begin
+    perform pikni_event('scan', new.document_id, array['doc:' || new.document_id]);
+    return null;
+end;
+$$;
+-- +goose StatementEnd
+
+create trigger stocktake_zones_events after insert or update on stocktake_zones
+    for each row execute function notify_stocktake();
+create trigger stocktake_counts_events after insert or update on stocktake_counts
+    for each row execute function notify_stocktake();

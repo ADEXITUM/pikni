@@ -255,6 +255,10 @@ func (s *Service) Decide(ctx context.Context, id uuid.UUID, version int32, appro
 			}
 		} else {
 			action = apispec.AuditActionDocumentReturned
+			// Возвращённую ревизию досчитывают: учёт зафиксирован, товары остаются заблокированными.
+			if doc.Kind == Stocktake {
+				status = StatusCounting
+			}
 		}
 		if err := q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: id, Status: status}); err != nil {
 			return err

@@ -6,9 +6,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 
 import LocationPicker from '@/components/LocationPicker.vue'
+import PairingButton from '@/components/PairingButton.vue'
 import PikniLogo from '@/components/PikniLogo.vue'
 import UserMenu from '@/components/UserMenu.vue'
 import { navItems } from '@/navigation'
+import { onPairedScan, resumePairing } from '@/pairing'
 import { canOpen, useMe } from '@/session'
 import { useCurrentLocation } from '@/stores/currentLocation'
 
@@ -42,16 +44,16 @@ function search() {
   query.value = ''
   void router.push({ name: 'products', query: { q } })
 }
-let stopWedge: (() => void) | undefined
+// Скан со смартфона-сканера на экране без сканирования — тоже в «Сканер».
+let stops: (() => void)[] = []
 onMounted(() => {
-  stopWedge = listenWedge({
-    ignoreFields: true,
-    onScan: (code) => {
-      if (!route.meta.scans && me.value) void router.push({ name: 'scan', query: { code } })
-    },
-  })
+  const toScan = (code: string) => {
+    if (!route.meta.scans && me.value) void router.push({ name: 'scan', query: { code } })
+  }
+  stops = [listenWedge({ ignoreFields: true, onScan: toScan }), onPairedScan(toScan)]
+  void resumePairing()
 })
-onBeforeUnmount(() => stopWedge?.())
+onBeforeUnmount(() => stops.forEach((s) => s()))
 </script>
 
 <template>
@@ -82,6 +84,7 @@ onBeforeUnmount(() => stopWedge?.())
       aria-label="Поиск товара"
     />
     <template #append>
+      <PairingButton v-if="!xs" />
       <UserMenu />
     </template>
   </v-app-bar>

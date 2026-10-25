@@ -3,9 +3,21 @@
 // экраны перезапрашивают данные — события за время обрыва могли пропасть.
 
 export interface LiveEvent {
-  type: 'document' | 'scan' | 'stock' | 'exchange' | 'receipt' | 'reservation'
+  type:
+    | 'document'
+    | 'scan'
+    | 'stock'
+    | 'exchange'
+    | 'receipt'
+    | 'reservation'
+    | 'paired'
+    | 'paired_scan'
+    | 'unpaired'
   id: string
   topics: string[]
+  // Код со смартфона-сканера и идентификатор его скана — у событий сопряжения.
+  raw?: string
+  scan?: string
 }
 
 type Listener = (event: LiveEvent) => void

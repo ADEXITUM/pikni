@@ -29,6 +29,7 @@ import ExchangeLog from '@/components/ExchangeLog.vue'
 import PhotoStrip from '@/components/PhotoStrip.vue'
 import ZoneMarksDialog from '@/components/ZoneMarksDialog.vue'
 import ReceiptPanel from '@/components/ReceiptPanel.vue'
+import StocktakePanel from '@/components/StocktakePanel.vue'
 import ScanCamera from '@pikni/ui/ScanCamera.vue'
 import { confirm } from '@/confirm'
 import { playFeedback } from '@/feedback'
@@ -41,6 +42,7 @@ import {
   zoneLabels,
 } from '@/labels'
 import { useLive } from '@/live'
+import { enqueue, isOffline, pendingFor, rejected } from '@/offline'
 import { load, save } from '@/preferences'
 import { accountingLabels, formatPrice, variantLabel } from '@/products'
 import { useScanner } from '@/scanning'
@@ -100,18 +102,22 @@ const selected = ref<{ variantId: string; name: string }>()
 const last = ref<DocumentScan>()
 const scanError = ref<string>()
 
+const queued = pendingFor(() => id.value)
 const { submit, forget } = useScanner(async ({ event }) => {
+  // Ревизию считают по зонам — сканы принимает её панель.
+  if (doc.value?.kind === 'stocktake') return
   scanError.value = undefined
+  const body = {
+    id: event.id,
+    raw: event.raw,
+    source: event.source === 'paired' ? ('wedge' as const) : event.source,
+    scannedAt: event.scannedAt,
+    variantId: selected.value?.variantId,
+  }
   try {
     const { data, error } = await api.POST('/documents/{id}/scans', {
       params: { path: { id: id.value } },
-      body: {
-        id: event.id,
-        raw: event.raw,
-        source: event.source === 'paired' ? 'wedge' : event.source,
-        scannedAt: event.scannedAt,
-        variantId: selected.value?.variantId,
-      },
+      body,
     })
     if (error) throw new ApiError(error)
     last.value = data.scan
@@ -123,6 +129,11 @@ const { submit, forget } = useScanner(async ({ event }) => {
     // В поступлении скан короба меняет факт сразу нескольких строк и состояние коробов.
     if (doc.value?.kind === 'receipt') void queryClient.invalidateQueries({ queryKey: key.value })
   } catch (e) {
+    if (isOffline(e)) {
+      enqueue(id.value, body)
+      playFeedback('notInPlan')
+      return
+    }
     scanError.value = e instanceof ApiError ? e.message : 'Нет связи с сервером'
     playFeedback('unknown')
   }
@@ -188,6 +199,7 @@ const zonesText = computed(() => {
   const d = doc.value
   if (!d) return ''
   if (d.kind === 'transfer') return `в ${d.destLocationName}`
+  if (d.kind === 'stocktake') return ''
   return d.destZoneKind
     ? `${zoneLabels[d.zoneKind]} → ${zoneLabels[d.destZoneKind]}`
     : zoneLabels[d.zoneKind]
@@ -415,7 +427,8 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         </v-chip>
       </div>
       <p class="text-body-medium text-medium-emphasis mb-4">
-        {{ doc.locationName }} · {{ zonesText }} · {{ formatDateTime(doc.createdAt) }} ·
+        {{ doc.locationName }}<template v-if="zonesText"> · {{ zonesText }}</template> ·
+        {{ formatDateTime(doc.createdAt) }} ·
         {{ doc.authorName }}
         <template v-if="doc.postedAt">
           · проведён {{ formatDateTime(doc.postedAt) }}, {{ doc.postedByName }}
@@ -512,7 +525,7 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         </template>
       </v-alert>
       <v-alert
-        v-if="doc.approval && (doc.kind === 'writeoff' || doc.kind === 'storno')"
+        v-if="doc.approval && ['writeoff', 'storno', 'stocktake'].includes(doc.kind)"
         :type="doc.approval.decision === 'approved' ? 'success' : 'warning'"
         variant="tonal"
         density="compact"
@@ -552,260 +565,284 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         {{ doc.ttnNumber }} · {{ doc.supplierName ?? 'поставщик не найден в справочнике' }}
       </p>
 
-      <template v-if="doc.canEdit">
-        <ScanCamera
-          v-if="cameraOn"
-          class="mb-4"
-          :flash="flash"
-          @scan="(c) => submit(c.raw, 'camera', c.format)"
-          @close="setCamera(false)"
-        />
-        <v-btn
-          v-else
-          :prepend-icon="mdiCameraOutline"
-          variant="tonal"
-          class="mb-4"
-          @click="setCamera(true)"
-        >
-          Включить камеру
-        </v-btn>
-
-        <v-form class="mb-3" @submit.prevent="submitManual">
-          <v-text-field
-            v-model="manual"
-            :prepend-inner-icon="mdiBarcodeScan"
-            :append-inner-icon="mdiMagnify"
-            label="Код вручную"
-            hide-details
-            data-test="manual"
-            @click:append-inner="submitManual"
+      <StocktakePanel v-if="doc.kind === 'stocktake'" :doc="doc" />
+      <template v-else>
+        <template v-if="doc.canEdit">
+          <ScanCamera
+            v-if="cameraOn"
+            class="mb-4"
+            :flash="flash"
+            @scan="(c) => submit(c.raw, 'camera', c.format)"
+            @close="setCamera(false)"
           />
-        </v-form>
+          <v-btn
+            v-else
+            :prepend-icon="mdiCameraOutline"
+            variant="tonal"
+            class="mb-4"
+            @click="setCamera(true)"
+          >
+            Включить камеру
+          </v-btn>
 
-        <v-btn
-          v-if="doc.kind === 'writeoff' && !doc.transferId"
-          variant="text"
-          size="small"
-          class="mb-3"
-          data-test="pick-mark"
-          @click="marksOpen = true"
-          >Марку не читает сканер — выбрать из списка</v-btn
-        >
-        <ZoneMarksDialog v-model="marksOpen" :zone-id="doc.zoneId" @pick="pickMark" />
+          <v-form class="mb-3" @submit.prevent="submitManual">
+            <v-text-field
+              v-model="manual"
+              :prepend-inner-icon="mdiBarcodeScan"
+              :append-inner-icon="mdiMagnify"
+              label="Код вручную"
+              hide-details
+              data-test="manual"
+              @click:append-inner="submitManual"
+            />
+          </v-form>
 
-        <v-chip
-          v-if="doc.kind === 'opening' && selected"
-          :prepend-icon="mdiBottleWineOutline"
-          closable
-          class="mb-3"
-          data-test="selected"
-          @click:close="selected = undefined"
-        >
-          Марки относятся к: {{ selected.name }}
-        </v-chip>
+          <v-btn
+            v-if="doc.kind === 'writeoff' && !doc.transferId"
+            variant="text"
+            size="small"
+            class="mb-3"
+            data-test="pick-mark"
+            @click="marksOpen = true"
+            >Марку не читает сканер — выбрать из списка</v-btn
+          >
+          <ZoneMarksDialog v-model="marksOpen" :zone-id="doc.zoneId" @pick="pickMark" />
 
-        <v-alert
-          v-if="scanError"
-          type="error"
-          class="mb-3"
-          closable
-          @click:close="scanError = undefined"
-        >
-          {{ scanError }}
-        </v-alert>
-        <v-alert
-          v-else-if="last"
-          :color="outcome[last.status].color"
-          :icon="outcome[last.status].icon"
-          variant="tonal"
-          class="mb-4"
-          data-test="last-scan"
-        >
-          <div class="font-weight-bold">
-            {{ scanStatusLabels[last.status]
-            }}<template v-if="last.name">: {{ last.name }}</template>
-          </div>
-          <div v-if="last.reason">{{ last.reason }}</div>
-          <div class="pk-code text-medium-emphasis text-break">{{ short(last.raw) }}</div>
-        </v-alert>
-      </template>
+          <v-chip
+            v-if="doc.kind === 'opening' && selected"
+            :prepend-icon="mdiBottleWineOutline"
+            closable
+            class="mb-3"
+            data-test="selected"
+            @click:close="selected = undefined"
+          >
+            Марки относятся к: {{ selected.name }}
+          </v-chip>
 
-      <ReceiptPanel
-        v-if="doc.receipt"
-        :doc="doc"
-        @changed="(d) => queryClient.setQueryData(key, d)"
-      />
+          <v-alert
+            v-if="queued"
+            type="warning"
+            variant="tonal"
+            class="mb-3"
+            data-test="offline-queue"
+          >
+            Нет связи с сервером. Сканов на устройстве: {{ queued }} — уйдут сами, когда связь
+            появится. Продолжайте сканировать.
+          </v-alert>
+          <v-alert
+            v-if="rejected.length"
+            type="error"
+            variant="tonal"
+            class="mb-3"
+            closable
+            @click:close="rejected = []"
+          >
+            Не засчитаны при отправке из очереди:
+            <div v-for="(r, i) in rejected" :key="i">{{ short(r.raw) }} — {{ r.reason }}</div>
+          </v-alert>
+          <v-alert
+            v-if="scanError"
+            type="error"
+            class="mb-3"
+            closable
+            @click:close="scanError = undefined"
+          >
+            {{ scanError }}
+          </v-alert>
+          <v-alert
+            v-else-if="last"
+            :color="outcome[last.status].color"
+            :icon="outcome[last.status].icon"
+            variant="tonal"
+            class="mb-4"
+            data-test="last-scan"
+          >
+            <div class="font-weight-bold">
+              {{ scanStatusLabels[last.status]
+              }}<template v-if="last.name">: {{ last.name }}</template>
+            </div>
+            <div v-if="last.reason">{{ last.reason }}</div>
+            <div class="pk-code text-medium-emphasis text-break">{{ short(last.raw) }}</div>
+          </v-alert>
+        </template>
 
-      <h2 class="text-title-large mb-2">Строки · {{ totalQty }} шт.</h2>
-      <p v-if="!doc.lines.length" class="text-body-medium text-medium-emphasis mb-4">
-        Отсканируйте товар: штрихкод, марку ЕГАИС или код «Честного знака».
-      </p>
-      <v-table v-else density="comfortable" class="mb-6" data-test="lines">
-        <thead>
-          <tr>
-            <th class="d-none d-sm-table-cell">Артикул</th>
-            <th>Товар</th>
-            <template v-if="doc.kind === 'receipt'">
-              <th class="text-end text-no-wrap">План</th>
-              <th class="text-end text-no-wrap">Факт</th>
-              <th class="text-end text-no-wrap">Примем</th>
-            </template>
-            <template v-else-if="doc.kind === 'transfer'">
-              <th class="text-end text-no-wrap">Заявлено</th>
-              <th class="text-end text-no-wrap">Собрано</th>
-            </template>
-            <th v-else class="text-end text-no-wrap">Кол-во</th>
-            <th v-if="showCost" class="text-end">Себестоимость</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="l in doc.lines" :key="l.variantId" data-test="line">
-            <td class="pk-code text-no-wrap d-none d-sm-table-cell">{{ l.article }}</td>
-            <td>
-              <div>{{ l.name }}</div>
-              <div class="pk-code text-body-small d-sm-none">{{ l.article }}</div>
-              <div class="text-body-small text-medium-emphasis">
-                {{ variantLabel(l) }} · {{ accountingLabels[l.egaisAccounting ?? 'none'] }}
-              </div>
-            </td>
-            <template v-if="doc.kind === 'receipt'">
-              <td class="text-end">{{ l.qtyPlan ?? 'нет в ТТН' }}</td>
-              <td
-                class="text-end"
-                :class="{ 'text-warning font-weight-bold': l.qtyFact !== (l.qtyPlan ?? 0) }"
-                data-test="fact"
-              >
-                {{ l.qtyFact ?? l.qty }}
+        <ReceiptPanel
+          v-if="doc.receipt"
+          :doc="doc"
+          @changed="(d) => queryClient.setQueryData(key, d)"
+        />
+
+        <h2 class="text-title-large mb-2">Строки · {{ totalQty }} шт.</h2>
+        <p v-if="!doc.lines.length" class="text-body-medium text-medium-emphasis mb-4">
+          Отсканируйте товар: штрихкод, марку ЕГАИС или код «Честного знака».
+        </p>
+        <v-table v-else density="comfortable" class="mb-6" data-test="lines">
+          <thead>
+            <tr>
+              <th class="d-none d-sm-table-cell">Артикул</th>
+              <th>Товар</th>
+              <template v-if="doc.kind === 'receipt'">
+                <th class="text-end text-no-wrap">План</th>
+                <th class="text-end text-no-wrap">Факт</th>
+                <th class="text-end text-no-wrap">Примем</th>
+              </template>
+              <template v-else-if="doc.kind === 'transfer'">
+                <th class="text-end text-no-wrap">Заявлено</th>
+                <th class="text-end text-no-wrap">Собрано</th>
+              </template>
+              <th v-else class="text-end text-no-wrap">Кол-во</th>
+              <th v-if="showCost" class="text-end">Себестоимость</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="l in doc.lines" :key="l.variantId" data-test="line">
+              <td class="pk-code text-no-wrap d-none d-sm-table-cell">{{ l.article }}</td>
+              <td>
+                <div>{{ l.name }}</div>
+                <div class="pk-code text-body-small d-sm-none">{{ l.article }}</div>
+                <div class="text-body-small text-medium-emphasis">
+                  {{ variantLabel(l) }} · {{ accountingLabels[l.egaisAccounting ?? 'none'] }}
+                </div>
               </td>
-              <td class="text-end">{{ l.qtyAccepted ?? 0 }}</td>
-            </template>
-            <template v-else-if="doc.kind === 'transfer'">
-              <td class="text-end">{{ l.qtyPlan ?? '—' }}</td>
-              <td
-                class="text-end"
-                :class="{ 'text-warning font-weight-bold': l.qty !== (l.qtyPlan ?? 0) }"
-              >
-                {{ l.qty }}
+              <template v-if="doc.kind === 'receipt'">
+                <td class="text-end">{{ l.qtyPlan ?? 'нет в ТТН' }}</td>
+                <td
+                  class="text-end"
+                  :class="{ 'text-warning font-weight-bold': l.qtyFact !== (l.qtyPlan ?? 0) }"
+                  data-test="fact"
+                >
+                  {{ l.qtyFact ?? l.qty }}
+                </td>
+                <td class="text-end">{{ l.qtyAccepted ?? 0 }}</td>
+              </template>
+              <template v-else-if="doc.kind === 'transfer'">
+                <td class="text-end">{{ l.qtyPlan ?? '—' }}</td>
+                <td
+                  class="text-end"
+                  :class="{ 'text-warning font-weight-bold': l.qty !== (l.qtyPlan ?? 0) }"
+                >
+                  {{ l.qty }}
+                </td>
+              </template>
+              <td v-else class="text-end pk-qty">
+                <input
+                  v-if="doc.canEdit && l.egaisAccounting !== 'marked'"
+                  :value="l.qty"
+                  type="number"
+                  min="0"
+                  class="pk-qty-input"
+                  :aria-label="`Количество: ${l.name}`"
+                  data-test="qty"
+                  @change="
+                    (e) =>
+                      onQty(l, (e.target as HTMLInputElement).value, e.target as HTMLInputElement)
+                  "
+                />
+                <span v-else>{{ l.qty }}</span>
               </td>
-            </template>
-            <td v-else class="text-end pk-qty">
-              <input
-                v-if="doc.canEdit && l.egaisAccounting !== 'marked'"
-                :value="l.qty"
-                type="number"
-                min="0"
-                class="pk-qty-input"
-                :aria-label="`Количество: ${l.name}`"
-                data-test="qty"
-                @change="
-                  (e) =>
-                    onQty(l, (e.target as HTMLInputElement).value, e.target as HTMLInputElement)
-                "
+              <td v-if="showCost" class="text-end">
+                {{ l.unitCost !== undefined ? formatPrice(l.unitCost) : '' }}
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
+
+        <h2 class="text-title-large mb-2">Сканы</h2>
+        <p v-if="!doc.scans.length" class="text-body-medium text-medium-emphasis mb-4">
+          Сканов пока нет.
+        </p>
+        <v-list v-else density="compact" class="mb-6" data-test="scans">
+          <v-list-item
+            v-for="s in doc.scans"
+            :key="s.id"
+            :class="{ 'pk-undone': s.undoneAt }"
+            data-test="scan"
+          >
+            <template #prepend>
+              <v-icon
+                :icon="outcome[s.status].icon"
+                :color="s.undoneAt ? undefined : outcome[s.status].color"
               />
-              <span v-else>{{ l.qty }}</span>
-            </td>
-            <td v-if="showCost" class="text-end">
-              {{ l.unitCost !== undefined ? formatPrice(l.unitCost) : '' }}
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
+            </template>
+            <v-list-item-title>
+              {{ s.name ?? short(s.raw) }}
+              <span class="text-medium-emphasis">· {{ scanStatusLabels[s.status] }}</span>
+            </v-list-item-title>
+            <v-list-item-subtitle>
+              {{ s.reason ?? short(s.raw) }}
+              <template v-if="s.undoneAt"> · отменён</template>
+            </v-list-item-subtitle>
+            <template v-if="doc.canEdit && !s.undoneAt" #append>
+              <v-btn
+                :icon="mdiUndoVariant"
+                variant="text"
+                size="small"
+                :aria-label="`Отменить скан ${s.name ?? s.raw}`"
+                data-test="undo"
+                @click="undo(s)"
+              />
+            </template>
+          </v-list-item>
+        </v-list>
 
-      <h2 class="text-title-large mb-2">Сканы</h2>
-      <p v-if="!doc.scans.length" class="text-body-medium text-medium-emphasis mb-4">
-        Сканов пока нет.
-      </p>
-      <v-list v-else density="compact" class="mb-6" data-test="scans">
-        <v-list-item
-          v-for="s in doc.scans"
-          :key="s.id"
-          :class="{ 'pk-undone': s.undoneAt }"
-          data-test="scan"
-        >
-          <template #prepend>
-            <v-icon
-              :icon="outcome[s.status].icon"
-              :color="s.undoneAt ? undefined : outcome[s.status].color"
-            />
-          </template>
-          <v-list-item-title>
-            {{ s.name ?? short(s.raw) }}
-            <span class="text-medium-emphasis">· {{ scanStatusLabels[s.status] }}</span>
-          </v-list-item-title>
-          <v-list-item-subtitle>
-            {{ s.reason ?? short(s.raw) }}
-            <template v-if="s.undoneAt"> · отменён</template>
-          </v-list-item-subtitle>
-          <template v-if="doc.canEdit && !s.undoneAt" #append>
-            <v-btn
-              :icon="mdiUndoVariant"
-              variant="text"
-              size="small"
-              :aria-label="`Отменить скан ${s.name ?? s.raw}`"
-              data-test="undo"
-              @click="undo(s)"
-            />
-          </template>
-        </v-list-item>
-      </v-list>
+        <PhotoStrip
+          v-if="doc.kind === 'writeoff'"
+          :document-id="doc.id"
+          :photos="doc.photos ?? []"
+          :can-edit="doc.canEdit"
+          @changed="queryClient.invalidateQueries({ queryKey: key })"
+        />
 
-      <PhotoStrip
-        v-if="doc.kind === 'writeoff'"
-        :document-id="doc.id"
-        :photos="doc.photos ?? []"
-        :can-edit="doc.canEdit"
-        @changed="queryClient.invalidateQueries({ queryKey: key })"
-      />
+        <template v-if="doc.exchange?.length">
+          <h2 class="text-title-large mb-2">Обмен с ЕГАИС</h2>
+          <ExchangeLog :messages="doc.exchange" />
+        </template>
 
-      <template v-if="doc.exchange?.length">
-        <h2 class="text-title-large mb-2">Обмен с ЕГАИС</h2>
-        <ExchangeLog :messages="doc.exchange" />
+        <v-alert v-if="actionError" type="error" class="mb-3">{{ actionError }}</v-alert>
+        <div v-if="doc.canEdit || doc.canPost" class="pk-actions">
+          <v-btn
+            v-if="doc.canEdit"
+            :prepend-icon="mdiClose"
+            variant="text"
+            :loading="cancelling"
+            data-test="cancel"
+            @click="askCancel"
+          >
+            Отменить черновик
+          </v-btn>
+          <v-spacer />
+          <v-btn
+            v-if="doc.canPost"
+            color="primary"
+            variant="flat"
+            :disabled="!doc.lines.length"
+            :loading="posting"
+            data-test="post"
+            @click="askPost"
+          >
+            {{
+              doc.kind === 'receipt'
+                ? 'Завершить приёмку'
+                : doc.kind === 'transfer'
+                  ? 'Отгрузить'
+                  : doc.kind === 'writeoff' || doc.kind === 'storno'
+                    ? 'Отправить на утверждение'
+                    : 'Провести'
+            }}
+          </v-btn>
+        </div>
+        <div v-else-if="doc.canStorno" class="pk-actions">
+          <v-spacer />
+          <v-btn variant="text" :loading="stornoing" data-test="storno" @click="askStorno"
+            >Сторнировать</v-btn
+          >
+        </div>
+        <p v-else-if="doc.status === 'draft'" class="text-body-medium text-medium-emphasis">
+          Черновик заполняют сотрудники точки<template v-if="doc.kind === 'opening'"
+            >, проводит руководитель или бухгалтер</template
+          >.
+        </p>
       </template>
-
-      <v-alert v-if="actionError" type="error" class="mb-3">{{ actionError }}</v-alert>
-      <div v-if="doc.canEdit || doc.canPost" class="pk-actions">
-        <v-btn
-          v-if="doc.canEdit"
-          :prepend-icon="mdiClose"
-          variant="text"
-          :loading="cancelling"
-          data-test="cancel"
-          @click="askCancel"
-        >
-          Отменить черновик
-        </v-btn>
-        <v-spacer />
-        <v-btn
-          v-if="doc.canPost"
-          color="primary"
-          variant="flat"
-          :disabled="!doc.lines.length"
-          :loading="posting"
-          data-test="post"
-          @click="askPost"
-        >
-          {{
-            doc.kind === 'receipt'
-              ? 'Завершить приёмку'
-              : doc.kind === 'transfer'
-                ? 'Отгрузить'
-                : doc.kind === 'writeoff' || doc.kind === 'storno'
-                  ? 'Отправить на утверждение'
-                  : 'Провести'
-          }}
-        </v-btn>
-      </div>
-      <div v-else-if="doc.canStorno" class="pk-actions">
-        <v-spacer />
-        <v-btn variant="text" :loading="stornoing" data-test="storno" @click="askStorno"
-          >Сторнировать</v-btn
-        >
-      </div>
-      <p v-else-if="doc.status === 'draft'" class="text-body-medium text-medium-emphasis">
-        Черновик заполняют сотрудники точки<template v-if="doc.kind === 'opening'"
-          >, проводит руководитель или бухгалтер</template
-        >.
-      </p>
     </template>
 
     <v-dialog v-model="rejectOpen" max-width="440">

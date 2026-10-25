@@ -58,10 +58,14 @@ type Product struct {
 	Ours, Egais    int
 }
 
-// Mark — марка, которая есть только с одной стороны.
+// Mark — марка, которая есть только с одной стороны. У марки, которой нет на остатке точки,
+// Status и документ — что о ней знает система: например, в пути по перемещению.
 type Mark struct {
 	Code, Alcocode, Name string
 	OnlyOurs             bool
+	Status               *string
+	DocumentID           *uuid.UUID
+	DocumentNumber       *string
 }
 
 type Report struct {
@@ -183,6 +187,30 @@ func (s *Service) Report(ctx context.Context, location uuid.UUID) (Report, error
 		r.Marks = append(r.Marks, m)
 	}
 	if err := mrows.Err(); err != nil {
+		return r, err
+	}
+	codes := make([]string, 0, len(egaisMarks))
+	for code := range egaisMarks {
+		codes = append(codes, code)
+	}
+	known, err := s.pool.Query(ctx, `select e.code, e.status, d.id, d.number from excise_marks e
+		left join documents d on d.id = e.last_document_id where e.code = any($1)`, codes)
+	if err != nil {
+		return r, err
+	}
+	for known.Next() {
+		var code string
+		var status *string
+		var doc *uuid.UUID
+		var number *string
+		if err := known.Scan(&code, &status, &doc, &number); err != nil {
+			return r, err
+		}
+		m := egaisMarks[code]
+		m.Status, m.DocumentID, m.DocumentNumber = status, doc, number
+		egaisMarks[code] = m
+	}
+	if err := known.Err(); err != nil {
 		return r, err
 	}
 	for _, m := range egaisMarks {

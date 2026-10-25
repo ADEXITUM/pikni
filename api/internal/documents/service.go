@@ -309,6 +309,12 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
 	draft := doc.Status == StatusDraft
 	d.CanEdit = draft && auth.CheckLocation(ctx, spec.edit, doc.LocationID) == nil
 	d.CanPost = draft && auth.CheckLocation(ctx, spec.post, doc.LocationID) == nil
+	// Ревизию считают в статусе «подсчёт»; ведущий запускает её, переводит к сличению и отправляет.
+	if doc.Kind == Stocktake {
+		d.CanEdit = doc.Status == StatusCounting && auth.CheckLocation(ctx, apispec.PermissionStocktakeCount, doc.LocationID) == nil
+		d.CanPost = (draft || doc.Status == StatusCounting || doc.Status == StatusReconciling) &&
+			auth.CheckLocation(ctx, spec.post, doc.LocationID) == nil
+	}
 	d.CanApprove = doc.Kind == Transfer && doc.Status == StatusRequested &&
 		auth.CheckLocation(ctx, apispec.PermissionTransferEdit, doc.LocationID) == nil ||
 		doc.Status == StatusPendingApproval && auth.CheckLocation(ctx, apispec.PermissionDocsApprove, doc.LocationID) == nil
@@ -409,6 +415,10 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, version int32) error
 	return db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
 		doc, err := lockDraft(ctx, q, id, editPerm)
+		// Начатую ревизию тоже можно отменить — блокировка товаров снимется вместе с ней.
+		if errors.Is(err, ErrNotDraft) && doc.Kind == Stocktake && (doc.Status == StatusCounting || doc.Status == StatusReconciling) {
+			err = nil
+		}
 		if err != nil {
 			return err
 		}

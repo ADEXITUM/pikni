@@ -54,7 +54,12 @@ func (h *Handler) GetReconciliation(ctx context.Context, req apispec.GetReconcil
 		}
 	}
 	for i, m := range r.Marks {
-		out.Marks[i] = apispec.ReconciliationMark{Code: m.Code, Alcocode: m.Alcocode, Name: m.Name, OnlyOurs: m.OnlyOurs}
+		out.Marks[i] = apispec.ReconciliationMark{Code: m.Code, Alcocode: m.Alcocode, Name: m.Name, OnlyOurs: m.OnlyOurs,
+			DocumentID: m.DocumentID, DocumentNumber: m.DocumentNumber}
+		if m.Status != nil {
+			st := apispec.MarkStatus(*m.Status)
+			out.Marks[i].Status = &st
+		}
 	}
 	return out, nil
 }

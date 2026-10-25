@@ -41,6 +41,7 @@ export const documentKindLabels: Record<DocumentKind, string> = {
   transfer: 'Перемещение',
   writeoff: 'Списание',
   storno: 'Сторно',
+  stocktake: 'Ревизия',
 }
 
 export const documentStatusLabels: Record<DocumentStatus, string> = {
@@ -50,6 +51,8 @@ export const documentStatusLabels: Record<DocumentStatus, string> = {
   pending_approval: 'На утверждении',
   reversed: 'Сторнирован',
   draft: 'Черновик',
+  counting: 'Подсчёт',
+  reconciling: 'Сличение',
   awaiting_egais: 'Ожидает ЕГАИС',
   posted: 'Проведён',
   egais_rejected: 'Отклонён ЕГАИС',
@@ -63,6 +66,8 @@ export const documentStatusColors: Record<DocumentStatus, string> = {
   pending_approval: 'info',
   reversed: 'secondary',
   draft: 'secondary',
+  counting: 'primary',
+  reconciling: 'info',
   awaiting_egais: 'warning',
   posted: 'success',
   egais_rejected: 'error',

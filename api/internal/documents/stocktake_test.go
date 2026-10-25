@@ -82,6 +82,27 @@ func TestStocktake(t *testing.T) {
 	if err := f.svc.Post(f.keeper, doc, f.version(t, doc)); err != nil {
 		t.Fatal(err)
 	}
+	// Возвращённую ведомость досчитывают: зону открывают заново, учёт и блокировка остаются.
+	if err := f.svc.Decide(f.manager, doc, f.version(t, doc), false, "Пересчитайте склад"); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := f.svc.Get(f.keeper, doc); d.Doc.Status != documents.StatusCounting || !d.CanEdit {
+		t.Fatalf("returned stocktake: status %s, can edit %v", d.Doc.Status, d.CanEdit)
+	}
+	if err := f.svc.Post(f.keeper, tr, f.version(t, tr)); !errors.As(err, &be) {
+		t.Fatalf("move after return: %v", err)
+	}
+	for _, action := range []string{"reopen", "close"} {
+		if err := f.svc.SetZone(f.keeper, doc, f.backroom, action); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.svc.FinishCounting(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Post(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
 	if err := f.svc.Decide(f.manager, doc, f.version(t, doc), true, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -114,4 +135,31 @@ func TestStocktake(t *testing.T) {
 		t.Fatalf("move after stocktake: %v", err)
 	}
 	f.integrity(t)
+}
+
+func TestStocktakeCancelUnblocks(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	f.opening(t, nil, 5)
+	doc, err := f.svc.CreateStocktake(f.keeper, f.store, documents.Scope{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.StartStocktake(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	tr, _ := f.svc.CreateFloorTransfer(f.keeper, f.store, apispec.FloorDirectionToFloor, "")
+	if err := f.svc.SetLine(f.keeper, tr, f.beer.variant, 1); err != nil {
+		t.Fatal(err)
+	}
+	var be *stock.BlockedError
+	if err := f.svc.Post(f.keeper, tr, f.version(t, tr)); !errors.As(err, &be) {
+		t.Fatalf("move during stocktake: %v", err)
+	}
+	if err := f.svc.Cancel(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatalf("cancel a started stocktake: %v", err)
+	}
+	if err := f.svc.Post(f.keeper, tr, f.version(t, tr)); err != nil {
+		t.Fatalf("move after cancel: %v", err)
+	}
 }

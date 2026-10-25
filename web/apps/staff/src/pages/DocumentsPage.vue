@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  mdiClipboardCheckOutline,
   mdiDeleteSweepOutline,
   mdiPlus,
   mdiStorefrontOutline,
@@ -17,6 +18,7 @@ import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import StocktakeNewDialog from '@/components/StocktakeNewDialog.vue'
 import { formatDateTime } from '@/format'
 import {
   documentKindLabels,
@@ -77,6 +79,7 @@ const transfer = useLocationChoice('floor.edit', (l) => l.kind === 'store')
 const requestable = computed(() => useLocationChoiceRequest.options.value.length > 0)
 const direction = ref<FloorDirection>('to_floor')
 const transferOpen = ref(false)
+const stocktakeOpen = ref(false)
 
 // Списание (СО-5): точка, зона, откуда списывают, и причина из справочника.
 const writeoff = useLocationChoice('writeoff.create')
@@ -170,6 +173,15 @@ const zones = (d: (typeof items.value)[number]) =>
         @click="startWriteoff"
       >
         Списание
+      </v-btn>
+      <v-btn
+        v-if="opening.options.value.length"
+        :prepend-icon="mdiClipboardCheckOutline"
+        variant="tonal"
+        data-test="new-stocktake"
+        @click="stocktakeOpen = true"
+      >
+        Ревизия
       </v-btn>
       <v-btn
         v-if="places.options.value.length && requestable"
@@ -280,6 +292,7 @@ const zones = (d: (typeof items.value)[number]) =>
       </v-card>
     </v-dialog>
 
+    <StocktakeNewDialog v-model="stocktakeOpen" />
     <v-dialog v-model="writeoffOpen" max-width="480" @after-leave="reset()">
       <v-card title="Списание">
         <v-card-text>

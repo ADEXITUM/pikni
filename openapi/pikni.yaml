@@ -4021,6 +4021,15 @@ components:
         onlyOurs:
           type: boolean
           description: true — марка в учёте точки, но не на балансе ЕГАИС; false — наоборот
+        status:
+          $ref: "#/components/schemas/MarkStatus"
+          description: Что о марке знает система, если её нет на остатке точки (в пути, продана, списана)
+        documentId:
+          type: string
+          format: uuid
+          description: Последний документ по марке
+        documentNumber:
+          type: string
 
     Pairing:
       type: object
