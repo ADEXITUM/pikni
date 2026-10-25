@@ -73,7 +73,14 @@ func (s *Service) Middleware() (apispec.StrictMiddlewareFunc, error) {
 			ctx := context.WithValue(req.Context(), clientKey, client)
 
 			if !op.public {
-				sess, err := s.sessionFor(ctx, c)
+				var sess Session
+				var err error
+				// Внешняя система приходит с ключом API, сотрудник — с cookie сеанса.
+				if h := req.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer pk_") {
+					sess, err = s.keySession(ctx, c, h, strings.ToLower(operationID))
+				} else {
+					sess, err = s.sessionFor(ctx, c)
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -148,6 +155,9 @@ func authorize(sess Session, op operation) error {
 	}
 	if sess.MustChangePassword {
 		return echo.NewHTTPError(http.StatusForbidden, "Сначала смените временный пароль")
+	}
+	if sess.MustEnrollTOTP() {
+		return echo.NewHTTPError(http.StatusForbidden, "Сначала включите двухфакторную аутентификацию в профиле")
 	}
 	if scopeOf(sess.Role, op.permission) == scopeNone {
 		return echo.ErrForbidden

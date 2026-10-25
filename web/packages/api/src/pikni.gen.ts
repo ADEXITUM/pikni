@@ -21,6 +21,157 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/login/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Второй шаг входа — одноразовый код
+         * @description Код из приложения-аутентификатора или резервный код. После пяти неверных кодов вход начинают заново.
+         */
+        post: operations["loginTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Начать подключение двухфакторной аутентификации
+         * @description Секрет и ссылка otpauth для QR-кода приложения-аутентификатора. Подключение завершает /auth/totp/enable.
+         */
+        post: operations["setupTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить подключение кодом из приложения */
+        post: operations["enableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отключить двухфакторную аутентификацию
+         * @description По действующему коду. Администратору отключить нельзя (ПБ-3).
+         */
+        post: operations["disableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * QR-код для входа на смартфоне
+         * @description Одноразовый код на 60 секунд для пользователя, который уже вошёл на ПК (ПБ-2).
+         */
+        post: operations["issueQrLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/qr/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Войти по QR-коду с ПК */
+        post: operations["redeemQrLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Быстрый вход на демонстрационном стенде
+         * @description Роли для входа одной кнопкой (п. 4.1.4). Вне демонстрационного режима — 404.
+         */
+        get: operations["listDemoRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/demo/{role}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Войти под ролью на демонстрационном стенде */
+        post: operations["demoLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -2463,6 +2614,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ключи API внешних систем */
+        get: operations["listApiKeys"];
+        put?: never;
+        /**
+         * Выпустить ключ API
+         * @description Ключ передают в заголовке Authorization: Bearer <ключ>. Сам ключ показывается один раз, в базе хранится его хеш (ИН-2).
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отозвать ключ */
+        delete: operations["revokeApiKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-keys/{id}/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Журнал обращений по ключу */
+        get: operations["listApiKeyRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Состояние системы
+         * @description Версия, очередь фоновых задач, последняя резервная копия, проверка целостности остатков, связь с УТМ каждой точки, неподтверждённые ТТН и незакрытые смены (п. 4.1.5).
+         */
+        get: operations["getSystemStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/marks/{code}": {
         parameters: {
             query?: never;
@@ -2498,7 +2724,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started" | "asset.created" | "asset.updated" | "asset.moved" | "asset.status_changed" | "asset.writeoff_requested" | "asset.written_off" | "asset.writeoff_rejected" | "asset.audit_finished";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.login_qr" | "auth.totp_enabled" | "auth.totp_disabled" | "api_key.created" | "api_key.revoked" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started" | "asset.created" | "asset.updated" | "asset.moved" | "asset.status_changed" | "asset.writeoff_requested" | "asset.written_off" | "asset.writeoff_rejected" | "asset.audit_finished";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -2625,6 +2851,80 @@ export interface components {
             /** @description Ключ кассы, показывается один раз */
             key: string;
         };
+        LoginChallenge: {
+            challenge: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        ApiKey: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description Начало ключа — по нему ключ узнают в журнале */
+            prefix: string;
+            scopes: components["schemas"]["ApiKeyScope"][];
+            /** Format: date-time */
+            createdAt: string;
+            createdByName: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            /** Format: date-time */
+            revokedAt?: string;
+        };
+        /**
+         * @description availability — чтение наличия; catalog — чтение каталога; import — импорт номенклатуры
+         * @enum {string}
+         */
+        ApiKeyScope: "availability" | "catalog" | "import";
+        ApiKeyRequest: {
+            /** Format: date-time */
+            at: string;
+            method: string;
+            operation: string;
+            ip?: string;
+            ok: boolean;
+        };
+        SystemStatus: {
+            version: string;
+            /** Format: date-time */
+            checkedAt: string;
+            jobs: {
+                available: number;
+                running: number;
+                retryable: number;
+                /** @description Задачи, отброшенные за сутки после всех попыток */
+                failedDay: number;
+            };
+            lastBackup?: {
+                /** Format: date-time */
+                at: string;
+                ok: boolean;
+                file: string;
+                /** Format: int64 */
+                sizeBytes?: number;
+            };
+            /** @description Расхождения остатков с суммой движений (должно быть 0) */
+            integrityProblems: number;
+            unconfirmedTtn: number;
+            openShifts: number;
+            /**
+             * @description Связь с УТМ и ГИС МТ (на стенде — имитатор)
+             * @enum {string}
+             */
+            govsim?: "ok" | "down" | "off";
+            locations: {
+                code: string;
+                name: string;
+                /** @description Сообщений в очереди в ЕГАИС */
+                queued: number;
+                /** Format: date-time */
+                oldestQueuedAt?: string;
+                /** Format: date-time */
+                lastExchangeAt?: string;
+                /** @enum {string} */
+                utm: "ok" | "delayed" | "down" | "none";
+            }[];
+        };
         LoginRequest: {
             /** @example petrova */
             login: string;
@@ -2646,6 +2946,10 @@ export interface components {
             role: components["schemas"]["Role"];
             /** @description Вход по временному паролю; до смены доступны только /auth/* */
             mustChangePassword: boolean;
+            /** @description Включена двухфакторная аутентификация */
+            totpEnabled?: boolean;
+            /** @description Администратор без двухфакторной аутентификации; до подключения доступны только /auth/* */
+            mustEnrollTotp?: boolean;
             csrfToken: string;
             permissions: components["schemas"]["Permission"][];
             /** @description Точки, с которыми работает пользователь. Для ролей уровня сети – все точки */
@@ -4514,6 +4818,222 @@ export interface operations {
                 "application/json": components["schemas"]["LoginRequest"];
             };
         };
+        responses: {
+            /** @description Вход выполнен */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SessionCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Пароль верный, нужен одноразовый код (двухфакторная аутентификация) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginChallenge"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    loginTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    challenge: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Вход выполнен */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SessionCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setupTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Секрет */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        secret: string;
+                        url: string;
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    enableTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Подключено; резервные коды показываются один раз */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        recoveryCodes: string[];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    disableTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Отключено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    issueQrLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Код */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    redeemQrLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Вход выполнен */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SessionCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listDemoRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Роли */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        roles: components["schemas"]["Role"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    demoLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: components["schemas"]["Role"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Вход выполнен */
             200: {
@@ -8461,6 +8981,127 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ключи */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ApiKey"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    scopes: components["schemas"]["ApiKeyScope"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Ключ выпущен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        key: string;
+                        apiKey: components["schemas"]["ApiKey"];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    revokeApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Отозван */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listApiKeyRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Последние 200 обращений */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ApiKeyRequest"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getSystemStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Состояние */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
             };
             default: components["responses"]["Problem"];
         };

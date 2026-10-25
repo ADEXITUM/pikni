@@ -32,6 +32,228 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Me"
+        "202":
+          description: Пароль верный, нужен одноразовый код (двухфакторная аутентификация)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginChallenge"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/login/totp:
+    post:
+      operationId: loginTotp
+      summary: Второй шаг входа — одноразовый код
+      description: Код из приложения-аутентификатора или резервный код. После пяти неверных кодов вход начинают заново.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge, code]
+              properties:
+                challenge:
+                  type: string
+                  maxLength: 200
+                code:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: Вход выполнен
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/totp/setup:
+    post:
+      operationId: setupTotp
+      summary: Начать подключение двухфакторной аутентификации
+      description: Секрет и ссылка otpauth для QR-кода приложения-аутентификатора. Подключение завершает /auth/totp/enable.
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "200":
+          description: Секрет
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, url]
+                properties:
+                  secret:
+                    type: string
+                  url:
+                    type: string
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/totp/enable:
+    post:
+      operationId: enableTotp
+      summary: Подтвердить подключение кодом из приложения
+      tags: [auth]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: Подключено; резервные коды показываются один раз
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recoveryCodes]
+                properties:
+                  recoveryCodes:
+                    type: array
+                    items:
+                      type: string
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/totp/disable:
+    post:
+      operationId: disableTotp
+      summary: Отключить двухфакторную аутентификацию
+      description: По действующему коду. Администратору отключить нельзя (ПБ-3).
+      tags: [auth]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  maxLength: 200
+      responses:
+        "204":
+          description: Отключено
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/qr:
+    post:
+      operationId: issueQrLogin
+      summary: QR-код для входа на смартфоне
+      description: Одноразовый код на 60 секунд для пользователя, который уже вошёл на ПК (ПБ-2).
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        "200":
+          description: Код
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expiresAt]
+                properties:
+                  code:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/qr/redeem:
+    post:
+      operationId: redeemQrLogin
+      summary: Войти по QR-коду с ПК
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: Вход выполнен
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/demo:
+    get:
+      operationId: listDemoRoles
+      summary: Быстрый вход на демонстрационном стенде
+      description: Роли для входа одной кнопкой (п. 4.1.4). Вне демонстрационного режима — 404.
+      tags: [auth]
+      security: []
+      responses:
+        "200":
+          description: Роли
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [roles]
+                properties:
+                  roles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Role"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /auth/demo/{role}:
+    post:
+      operationId: demoLogin
+      summary: Войти под ролью на демонстрационном стенде
+      tags: [auth]
+      security: []
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Role"
+      responses:
+        "200":
+          description: Вход выполнен
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
         default:
           $ref: "#/components/responses/Problem"
 
@@ -4117,6 +4339,135 @@ paths:
           $ref: "#/components/responses/Problem"
 
 
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      summary: Ключи API внешних систем
+      tags: [admin]
+      x-permission: users.manage
+      responses:
+        "200":
+          description: Ключи
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createApiKey
+      summary: Выпустить ключ API
+      description: >
+        Ключ передают в заголовке Authorization: Bearer <ключ>. Сам ключ показывается один раз, в
+        базе хранится его хеш (ИН-2).
+      tags: [admin]
+      x-permission: users.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                scopes:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: "#/components/schemas/ApiKeyScope"
+      responses:
+        "201":
+          description: Ключ выпущен
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, apiKey]
+                properties:
+                  key:
+                    type: string
+                  apiKey:
+                    $ref: "#/components/schemas/ApiKey"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      summary: Отозвать ключ
+      tags: [admin]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Отозван
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /api-keys/{id}/requests:
+    get:
+      operationId: listApiKeyRequests
+      summary: Журнал обращений по ключу
+      tags: [admin]
+      x-permission: users.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Последние 200 обращений
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKeyRequest"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /system/status:
+    get:
+      operationId: getSystemStatus
+      summary: Состояние системы
+      description: >
+        Версия, очередь фоновых задач, последняя резервная копия, проверка целостности остатков,
+        связь с УТМ каждой точки, неподтверждённые ТТН и незакрытые смены (п. 4.1.5).
+      tags: [admin]
+      x-permission: users.manage
+      responses:
+        "200":
+          description: Состояние
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatus"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /marks/{code}:
     get:
       operationId: getMark
@@ -4275,6 +4626,11 @@ components:
       enum:
         - auth.login
         - auth.login_failed
+        - auth.login_qr
+        - auth.totp_enabled
+        - auth.totp_disabled
+        - api_key.created
+        - api_key.revoked
         - auth.logout
         - auth.password_changed
         - auth.session_ended
@@ -4572,6 +4928,135 @@ components:
           type: string
           description: Ключ кассы, показывается один раз
 
+    LoginChallenge:
+      type: object
+      required: [challenge, expiresAt]
+      properties:
+        challenge:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    ApiKey:
+      type: object
+      required: [id, name, prefix, scopes, createdAt, createdByName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        prefix:
+          type: string
+          description: Начало ключа — по нему ключ узнают в журнале
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+        createdAt:
+          type: string
+          format: date-time
+        createdByName:
+          type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+
+    ApiKeyScope:
+      type: string
+      enum: [availability, catalog, import]
+      description: availability — чтение наличия; catalog — чтение каталога; import — импорт номенклатуры
+
+    ApiKeyRequest:
+      type: object
+      required: [at, method, operation, ok]
+      properties:
+        at:
+          type: string
+          format: date-time
+        method:
+          type: string
+        operation:
+          type: string
+        ip:
+          type: string
+        ok:
+          type: boolean
+
+    SystemStatus:
+      type: object
+      required: [version, jobs, integrityProblems, unconfirmedTtn, openShifts, locations, checkedAt]
+      properties:
+        version:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        jobs:
+          type: object
+          required: [available, running, retryable, failedDay]
+          properties:
+            available:
+              type: integer
+            running:
+              type: integer
+            retryable:
+              type: integer
+            failedDay:
+              type: integer
+              description: Задачи, отброшенные за сутки после всех попыток
+        lastBackup:
+          type: object
+          required: [at, ok, file]
+          properties:
+            at:
+              type: string
+              format: date-time
+            ok:
+              type: boolean
+            file:
+              type: string
+            sizeBytes:
+              type: integer
+              format: int64
+        integrityProblems:
+          type: integer
+          description: Расхождения остатков с суммой движений (должно быть 0)
+        unconfirmedTtn:
+          type: integer
+        openShifts:
+          type: integer
+        govsim:
+          type: string
+          enum: [ok, down, off]
+          description: Связь с УТМ и ГИС МТ (на стенде — имитатор)
+        locations:
+          type: array
+          items:
+            type: object
+            required: [code, name, queued, utm]
+            properties:
+              code:
+                type: string
+              name:
+                type: string
+              queued:
+                type: integer
+                description: Сообщений в очереди в ЕГАИС
+              oldestQueuedAt:
+                type: string
+                format: date-time
+              lastExchangeAt:
+                type: string
+                format: date-time
+              utm:
+                type: string
+                enum: [ok, delayed, down, none]
+
     LoginRequest:
       type: object
       required: [login, password]
@@ -4613,6 +5098,12 @@ components:
         mustChangePassword:
           type: boolean
           description: Вход по временному паролю; до смены доступны только /auth/*
+        totpEnabled:
+          type: boolean
+          description: Включена двухфакторная аутентификация
+        mustEnrollTotp:
+          type: boolean
+          description: Администратор без двухфакторной аутентификации; до подключения доступны только /auth/*
         csrfToken:
           type: string
         permissions:

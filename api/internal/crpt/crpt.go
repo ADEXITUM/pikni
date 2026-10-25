@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var ErrUnavailable = errors.New("crpt is unavailable")
@@ -34,7 +36,7 @@ type Govsim struct {
 }
 
 func NewGovsim(base string) *Govsim {
-	return &Govsim{base: base, client: &http.Client{Timeout: 3 * time.Second}}
+	return &Govsim{base: base, client: &http.Client{Timeout: 3 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}}
 }
 
 func (g *Govsim) post(ctx context.Context, path, fsrar string, codes []string, out any) error {

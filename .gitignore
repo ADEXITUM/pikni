@@ -41,3 +41,6 @@ dist-ssr/
 .eslintcache
 __screenshots__/
 *.timestamp-*-*.mjs
+
+# Собранные бинарники Windows
+*.exe

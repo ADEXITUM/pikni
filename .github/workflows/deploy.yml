@@ -1,0 +1,57 @@
+# Выкладка на стенд — заготовка: сервер и домен ещё не арендованы. Запуск вручную; задание
+# выполняется, только когда заданы секреты DEPLOY_HOST, DEPLOY_USER и DEPLOY_SSH_KEY.
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: |
+          VERSION=$(git describe --tags --always)
+          docker build -f deploy/Dockerfile.api --build-arg VERSION=$VERSION -t ghcr.io/adexitum/pikni-api:$VERSION -t ghcr.io/adexitum/pikni-api:latest .
+          docker build -f deploy/Dockerfile.web -t ghcr.io/adexitum/pikni-web:$VERSION -t ghcr.io/adexitum/pikni-web:latest .
+          docker push --all-tags ghcr.io/adexitum/pikni-api
+          docker push --all-tags ghcr.io/adexitum/pikni-web
+
+  deploy:
+    name: Deploy to the stand
+    needs: images
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.DEPLOY_HOST }}
+    steps:
+      - name: Check secrets
+        id: check
+        run: echo "ready=$([ -n "$HOST" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Update containers
+        if: steps.check.outputs.ready == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/pikni && git pull --ff-only && cd deploy
+            ./backup.sh
+            docker compose -f compose.prod.yaml --env-file .env pull
+            docker compose -f compose.prod.yaml --env-file .env up -d
+      - name: Skipped
+        if: steps.check.outputs.ready != 'true'
+        run: echo "Секреты стенда не заданы — выкладка пропущена."

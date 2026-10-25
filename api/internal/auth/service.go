@@ -52,8 +52,16 @@ type Session struct {
 	FullName           string
 	Role               string
 	MustChangePassword bool
-	CSRFToken          string
-	LocationIDs        []uuid.UUID
+	// TOTPEnabled — включена двухфакторная аутентификация. Администратор без неё работает только
+	// с настройкой входа, как с временным паролем (ПБ-3).
+	TOTPEnabled bool
+	CSRFToken   string
+	LocationIDs []uuid.UUID
+}
+
+// MustEnrollTOTP — администратор ещё не включил обязательную двухфакторную аутентификацию.
+func (s Session) MustEnrollTOTP() bool {
+	return s.Role == string(apispec.RoleAdmin) && !s.TOTPEnabled
 }
 
 type Client struct {
@@ -65,6 +73,8 @@ type Service struct {
 	pool *pgxpool.Pool
 	q    *store.Queries
 	now  func() time.Time
+	// Demo — демонстрационный стенд: доступен быстрый вход под ролями.
+	Demo bool
 }
 
 func NewService(pool *pgxpool.Pool) *Service {
@@ -119,7 +129,15 @@ func (s *Service) Login(ctx context.Context, login, plain string, client Client)
 	if u.IsBlocked {
 		return Session{}, "", failLogin(ctx, s.pool, &u, map[string]any{"reason": "blocked"}, ErrBlocked)
 	}
+	if u.TotpEnabled {
+		return Session{}, "", s.challenge(ctx, u.ID)
+	}
+	return s.startSession(ctx, u, client, apispec.AuditActionAuthLogin)
+}
 
+// startSession создаёт сеанс после всех проверок входа и пишет событие в журнал.
+func (s *Service) startSession(ctx context.Context, u store.GetUserByLoginRow, client Client, action apispec.AuditAction) (Session, string, error) {
+	now := s.now()
 	token := rand.Text()
 	sess := Session{
 		UserID:             u.ID,
@@ -127,10 +145,11 @@ func (s *Service) Login(ctx context.Context, login, plain string, client Client)
 		FullName:           u.FullName,
 		Role:               u.Role,
 		MustChangePassword: u.MustChangePassword,
+		TOTPEnabled:        u.TotpEnabled,
 		CSRFToken:          rand.Text(),
 		LocationIDs:        u.LocationIDs,
 	}
-	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
 		if err := q.ResetFailedLogins(ctx, u.ID); err != nil {
 			return fmt.Errorf("reset failed logins: %w", err)
@@ -149,7 +168,7 @@ func (s *Service) Login(ctx context.Context, login, plain string, client Client)
 			return fmt.Errorf("create session: %w", err)
 		}
 		actor := audit.Actor{UserID: u.ID, SessionID: sess.ID, IP: client.IP}
-		return audit.Record(audit.WithActor(ctx, actor), tx, audit.Event{Action: apispec.AuditActionAuthLogin})
+		return audit.Record(audit.WithActor(ctx, actor), tx, audit.Event{Action: action})
 	})
 	if err != nil {
 		return Session{}, "", err
@@ -200,6 +219,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		FullName:           row.FullName,
 		Role:               row.Role,
 		MustChangePassword: row.MustChangePassword,
+		TOTPEnabled:        row.TotpEnabled,
 		CSRFToken:          row.CSRFToken,
 		LocationIDs:        row.LocationIDs,
 	}, nil

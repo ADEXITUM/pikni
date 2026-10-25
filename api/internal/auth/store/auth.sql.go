@@ -13,6 +13,36 @@ import (
 	"github.com/google/uuid"
 )
 
+const createLoginChallenge = `-- name: CreateLoginChallenge :exec
+insert into login_challenges (token_hash, user_id, expires_at) values ($1, $2, $3)
+`
+
+type CreateLoginChallengeParams struct {
+	TokenHash []byte
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+func (q *Queries) CreateLoginChallenge(ctx context.Context, arg CreateLoginChallengeParams) error {
+	_, err := q.db.Exec(ctx, createLoginChallenge, arg.TokenHash, arg.UserID, arg.ExpiresAt)
+	return err
+}
+
+const createQRLogin = `-- name: CreateQRLogin :exec
+insert into qr_logins (code_hash, user_id, expires_at) values ($1, $2, $3)
+`
+
+type CreateQRLoginParams struct {
+	CodeHash  []byte
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+func (q *Queries) CreateQRLogin(ctx context.Context, arg CreateQRLoginParams) error {
+	_, err := q.db.Exec(ctx, createQRLogin, arg.CodeHash, arg.UserID, arg.ExpiresAt)
+	return err
+}
+
 const createSession = `-- name: CreateSession :one
 insert into sessions (user_id, token_hash, csrf_token, ip, user_agent, last_seen_at, expires_at)
 values ($1, $2, $3, nullif($4::text, '')::inet, nullif($5::text, ''),
@@ -45,6 +75,15 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (u
 	return id, err
 }
 
+const deleteLoginChallenge = `-- name: DeleteLoginChallenge :exec
+delete from login_challenges where token_hash = $1 or expires_at < now()
+`
+
+func (q *Queries) DeleteLoginChallenge(ctx context.Context, tokenHash []byte) error {
+	_, err := q.db.Exec(ctx, deleteLoginChallenge, tokenHash)
+	return err
+}
+
 const deleteOtherSessions = `-- name: DeleteOtherSessions :execrows
 delete from sessions
 where user_id = $1
@@ -62,6 +101,15 @@ func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessio
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteRecoveryCodes = `-- name: DeleteRecoveryCodes :exec
+delete from totp_recovery_codes where user_id = $1
+`
+
+func (q *Queries) DeleteRecoveryCodes(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRecoveryCodes, userID)
+	return err
 }
 
 const deleteSession = `-- name: DeleteSession :exec
@@ -93,6 +141,24 @@ func (q *Queries) DeleteUserSession(ctx context.Context, arg DeleteUserSessionPa
 	return result.RowsAffected(), nil
 }
 
+const disableTOTP = `-- name: DisableTOTP :exec
+update users set totp_secret = null, totp_pending = null, totp_enabled = false where id = $1
+`
+
+func (q *Queries) DisableTOTP(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, disableTOTP, id)
+	return err
+}
+
+const enableTOTP = `-- name: EnableTOTP :exec
+update users set totp_secret = totp_pending, totp_pending = null, totp_enabled = true where id = $1
+`
+
+func (q *Queries) EnableTOTP(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, enableTOTP, id)
+	return err
+}
+
 const getPasswordHash = `-- name: GetPasswordHash :one
 select password_hash
 from users
@@ -108,7 +174,7 @@ func (q *Queries) GetPasswordHash(ctx context.Context, id uuid.UUID) (string, er
 
 const getSession = `-- name: GetSession :one
 select s.id, s.user_id, s.csrf_token, s.last_seen_at, s.expires_at,
-       u.login, u.full_name, u.role, u.must_change_password, u.is_blocked,
+       u.login, u.full_name, u.role, u.must_change_password, u.is_blocked, u.totp_enabled,
        array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
 from sessions s
 join users u on u.id = s.user_id
@@ -126,6 +192,7 @@ type GetSessionRow struct {
 	Role               string
 	MustChangePassword bool
 	IsBlocked          bool
+	TotpEnabled        bool
 	LocationIDs        []uuid.UUID
 }
 
@@ -143,6 +210,68 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 		&i.Role,
 		&i.MustChangePassword,
 		&i.IsBlocked,
+		&i.TotpEnabled,
+		&i.LocationIDs,
+	)
+	return i, err
+}
+
+const getTOTP = `-- name: GetTOTP :one
+select totp_secret, totp_pending, totp_enabled, role from users where id = $1
+`
+
+type GetTOTPRow struct {
+	TotpSecret  *string
+	TotpPending *string
+	TotpEnabled bool
+	Role        string
+}
+
+func (q *Queries) GetTOTP(ctx context.Context, id uuid.UUID) (GetTOTPRow, error) {
+	row := q.db.QueryRow(ctx, getTOTP, id)
+	var i GetTOTPRow
+	err := row.Scan(
+		&i.TotpSecret,
+		&i.TotpPending,
+		&i.TotpEnabled,
+		&i.Role,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+select u.id, u.login, u.full_name, u.role, u.password_hash, u.must_change_password, u.is_blocked, u.locked_until,
+       u.totp_enabled, array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
+from users u
+where u.id = $1
+`
+
+type GetUserByIDRow struct {
+	ID                 uuid.UUID
+	Login              string
+	FullName           string
+	Role               string
+	PasswordHash       string
+	MustChangePassword bool
+	IsBlocked          bool
+	LockedUntil        *time.Time
+	TotpEnabled        bool
+	LocationIDs        []uuid.UUID
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i GetUserByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Login,
+		&i.FullName,
+		&i.Role,
+		&i.PasswordHash,
+		&i.MustChangePassword,
+		&i.IsBlocked,
+		&i.LockedUntil,
+		&i.TotpEnabled,
 		&i.LocationIDs,
 	)
 	return i, err
@@ -150,7 +279,7 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (GetSessionR
 
 const getUserByLogin = `-- name: GetUserByLogin :one
 select u.id, u.login, u.full_name, u.role, u.password_hash, u.must_change_password, u.is_blocked, u.locked_until,
-       array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
+       u.totp_enabled, array(select location_id from user_locations where user_id = u.id)::uuid[] as location_ids
 from users u
 where lower(u.login) = lower($1)
 `
@@ -164,6 +293,7 @@ type GetUserByLoginRow struct {
 	MustChangePassword bool
 	IsBlocked          bool
 	LockedUntil        *time.Time
+	TotpEnabled        bool
 	LocationIDs        []uuid.UUID
 }
 
@@ -179,9 +309,24 @@ func (q *Queries) GetUserByLogin(ctx context.Context, login string) (GetUserByLo
 		&i.MustChangePassword,
 		&i.IsBlocked,
 		&i.LockedUntil,
+		&i.TotpEnabled,
 		&i.LocationIDs,
 	)
 	return i, err
+}
+
+const insertRecoveryCode = `-- name: InsertRecoveryCode :exec
+insert into totp_recovery_codes (user_id, code_hash) values ($1, $2)
+`
+
+type InsertRecoveryCodeParams struct {
+	UserID   uuid.UUID
+	CodeHash []byte
+}
+
+func (q *Queries) InsertRecoveryCode(ctx context.Context, arg InsertRecoveryCodeParams) error {
+	_, err := q.db.Exec(ctx, insertRecoveryCode, arg.UserID, arg.CodeHash)
+	return err
 }
 
 const listLocationIDs = `-- name: ListLocationIDs :many
@@ -314,6 +459,52 @@ func (q *Queries) SetPassword(ctx context.Context, arg SetPasswordParams) error 
 	return err
 }
 
+const setTOTPPending = `-- name: SetTOTPPending :exec
+update users set totp_pending = $1 where id = $2
+`
+
+type SetTOTPPendingParams struct {
+	Secret *string
+	ID     uuid.UUID
+}
+
+func (q *Queries) SetTOTPPending(ctx context.Context, arg SetTOTPPendingParams) error {
+	_, err := q.db.Exec(ctx, setTOTPPending, arg.Secret, arg.ID)
+	return err
+}
+
+const takeLoginChallenge = `-- name: TakeLoginChallenge :one
+update login_challenges set attempts = attempts + 1
+where token_hash = $1 and expires_at > now() and attempts < 5
+returning user_id, attempts
+`
+
+type TakeLoginChallengeRow struct {
+	UserID   uuid.UUID
+	Attempts int32
+}
+
+// Попытки считаются: после пяти неверных кодов вызов сгорает.
+func (q *Queries) TakeLoginChallenge(ctx context.Context, tokenHash []byte) (TakeLoginChallengeRow, error) {
+	row := q.db.QueryRow(ctx, takeLoginChallenge, tokenHash)
+	var i TakeLoginChallengeRow
+	err := row.Scan(&i.UserID, &i.Attempts)
+	return i, err
+}
+
+const takeQRLogin = `-- name: TakeQRLogin :one
+update qr_logins set used_at = now()
+where code_hash = $1 and used_at is null and expires_at > now()
+returning user_id
+`
+
+func (q *Queries) TakeQRLogin(ctx context.Context, codeHash []byte) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, takeQRLogin, codeHash)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const touchSession = `-- name: TouchSession :exec
 update sessions
 set last_seen_at = $1
@@ -328,4 +519,21 @@ type TouchSessionParams struct {
 func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
 	_, err := q.db.Exec(ctx, touchSession, arg.LastSeenAt, arg.ID)
 	return err
+}
+
+const useRecoveryCode = `-- name: UseRecoveryCode :execrows
+update totp_recovery_codes set used_at = now() where user_id = $1 and code_hash = $2 and used_at is null
+`
+
+type UseRecoveryCodeParams struct {
+	UserID   uuid.UUID
+	CodeHash []byte
+}
+
+func (q *Queries) UseRecoveryCode(ctx context.Context, arg UseRecoveryCodeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, useRecoveryCode, arg.UserID, arg.CodeHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

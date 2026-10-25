@@ -170,6 +170,18 @@ const router = createRouter({
       meta: { title: 'Мои отчёты', permission: 'reports.view' },
     },
     {
+      path: '/api-keys',
+      name: 'api-keys',
+      component: () => import('@/pages/ApiKeysPage.vue'),
+      meta: { title: 'Ключи API', permission: 'users.manage' },
+    },
+    {
+      path: '/system',
+      name: 'system',
+      component: () => import('@/pages/SystemPage.vue'),
+      meta: { title: 'Состояние системы', permission: 'users.manage' },
+    },
+    {
       path: '/stock',
       name: 'stock',
       component: () => import('@/pages/StockPage.vue'),

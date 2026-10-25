@@ -9,10 +9,13 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	"github.com/pquerna/otp/totp"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
 	"github.com/ADEXITUM/pikni/api/internal/app"
@@ -120,7 +123,37 @@ func TestAuthFlow(t *testing.T) {
 	b.do(http.MethodPost, "/auth/password", change, http.StatusForbidden)
 	b.csrf = me.CsrfToken
 	b.do(http.MethodPost, "/auth/password", change, http.StatusNoContent)
+	// Администратор работает только со вторым фактором (ПБ-3).
+	b.do(http.MethodGet, "/locations", nil, http.StatusForbidden)
+	recovery := b.enrollTOTP("admin")
 	b.do(http.MethodGet, "/locations", nil, http.StatusOK)
+	if len(recovery) != 10 {
+		t.Fatalf("recovery codes: %v", recovery)
+	}
+
+	// Вход на смартфоне по QR-коду с ПК (ПБ-2): код одноразовый.
+	var qr struct{ Code string }
+	if err := json.NewDecoder(b.do(http.MethodPost, "/auth/qr", nil, http.StatusOK).Body).Decode(&qr); err != nil {
+		t.Fatal(err)
+	}
+	phone := &browser{t: t, e: b.e, header: http.Header{}}
+	rec = phone.do(http.MethodPost, "/auth/qr/redeem", map[string]string{"code": qr.Code}, http.StatusOK)
+	phone.cookie = sessionCookie(t, rec)
+	phone.do(http.MethodGet, "/locations", nil, http.StatusOK)
+	phone.send(http.MethodPost, "/auth/qr/redeem", map[string]string{"code": qr.Code})
+	if r := phone.send(http.MethodPost, "/auth/qr/redeem", map[string]string{"code": qr.Code}); r.Code != http.StatusUnauthorized {
+		t.Fatalf("second redeem: %d", r.Code)
+	}
+
+	// Повторный вход — в два шага: пароль, затем код; резервный код тоже подходит.
+	again := &browser{t: t, e: b.e, header: http.Header{}}
+	rec = again.do(http.MethodPost, "/auth/login", map[string]string{"login": "admin", "password": "новый-пароль"}, http.StatusAccepted)
+	var ch apispec.LoginChallenge
+	if err := json.NewDecoder(rec.Body).Decode(&ch); err != nil {
+		t.Fatal(err)
+	}
+	again.do(http.MethodPost, "/auth/login/totp", map[string]string{"challenge": ch.Challenge, "code": "000000"}, http.StatusUnauthorized)
+	again.do(http.MethodPost, "/auth/login/totp", map[string]string{"challenge": ch.Challenge, "code": recovery[0]}, http.StatusOK)
 
 	rec = b.do(http.MethodPost, "/auth/logout", nil, http.StatusNoContent)
 	if c := sessionCookie(t, rec); c.MaxAge >= 0 {
@@ -147,14 +180,60 @@ func createStaff(t *testing.T, db *dbtest.DB, login string, role apispec.Role) u
 	return id
 }
 
+// secrets — секреты TOTP пользователей тестов: администратор без второго фактора не работает.
+var secrets sync.Map
+
+// login входит как сотрудник: с одноразовым кодом, если он подключён, и подключает его
+// администратору, как это сделал бы человек при первом входе.
 func (b *browser) login(login string) {
 	b.t.Helper()
-	rec := b.do(http.MethodPost, "/auth/login", map[string]string{"login": login, "password": staffPassword}, http.StatusOK)
+	body := map[string]string{"login": login, "password": staffPassword}
+	rec := b.send(http.MethodPost, "/auth/login", body)
+	if rec.Code == http.StatusAccepted {
+		var ch apispec.LoginChallenge
+		if err := json.NewDecoder(rec.Body).Decode(&ch); err != nil {
+			b.t.Fatal(err)
+		}
+		secret, _ := secrets.Load(login)
+		code, _ := totp.GenerateCode(secret.(string), time.Now())
+		rec = b.do(http.MethodPost, "/auth/login/totp", map[string]string{"challenge": ch.Challenge, "code": code}, http.StatusOK)
+	} else if rec.Code != http.StatusOK {
+		b.t.Fatalf("login %s: %d %s", login, rec.Code, rec.Body)
+	}
 	var me apispec.Me
 	if err := json.NewDecoder(rec.Body).Decode(&me); err != nil {
 		b.t.Fatal(err)
 	}
 	b.cookie, b.csrf = sessionCookie(b.t, rec), me.CsrfToken
+	if me.MustEnrollTotp != nil && *me.MustEnrollTotp {
+		b.enrollTOTP(login)
+	}
+}
+
+func (b *browser) enrollTOTP(login string) []string {
+	b.t.Helper()
+	var setup struct{ Secret string }
+	if err := json.NewDecoder(b.do(http.MethodPost, "/auth/totp/setup", nil, http.StatusOK).Body).Decode(&setup); err != nil {
+		b.t.Fatal(err)
+	}
+	code, _ := totp.GenerateCode(setup.Secret, time.Now())
+	var enabled struct{ RecoveryCodes []string }
+	if err := json.NewDecoder(b.do(http.MethodPost, "/auth/totp/enable", map[string]string{"code": code}, http.StatusOK).Body).Decode(&enabled); err != nil {
+		b.t.Fatal(err)
+	}
+	secrets.Store(login, setup.Secret)
+	return enabled.RecoveryCodes
+}
+
+// send — запрос без проверки статуса.
+func (b *browser) send(method, path string, body any) *httptest.ResponseRecorder {
+	b.t.Helper()
+	data, _ := json.Marshal(body)
+	req := httptest.NewRequestWithContext(b.t.Context(), method, "/api/v1"+path, bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	b.e.ServeHTTP(rec, req)
+	return rec
 }
 
 func TestAuditLogAccess(t *testing.T) {
@@ -182,8 +261,8 @@ func TestAuditLogAccess(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&page); err != nil {
 		t.Fatal(err)
 	}
-	// Последнее событие — вход самого администратора, а за ним есть ещё страницы.
-	if len(page.Items) != 1 || page.Items[0].Action != apispec.AuditActionAuthLogin ||
+	// Последнее событие — подключение второго фактора самим администратором, за ним есть ещё страницы.
+	if len(page.Items) != 1 || page.Items[0].Action != apispec.AuditActionAuthTotpEnabled ||
 		page.Items[0].User.Login != "admin" || page.NextBefore == nil {
 		t.Errorf("latest entry = %+v, nextBefore = %v", page.Items, page.NextBefore)
 	}
@@ -353,4 +432,36 @@ func TestCrossSiteRequestRejected(t *testing.T) {
 	b.header.Set("Sec-Fetch-Site", "cross-site")
 
 	b.do(http.MethodPost, "/auth/login", map[string]string{"login": "admin", "password": "x"}, http.StatusForbidden)
+}
+
+func TestAPIKeys(t *testing.T) {
+	t.Parallel()
+	admin, db := newBrowser(t)
+	createStaff(t, db, "admin", apispec.RoleAdmin)
+	admin.login("admin")
+	rec := admin.do(http.MethodPost, "/api-keys", map[string]any{"name": "Сайт сети", "scopes": []string{"availability"}}, http.StatusCreated)
+	var created struct {
+		Key    string
+		APIKey apispec.APIKey `json:"apiKey"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+
+	site := &browser{t: t, e: admin.e, header: http.Header{"Authorization": {"Bearer " + created.Key}}}
+	site.do(http.MethodGet, "/availability", nil, http.StatusOK)
+	site.do(http.MethodGet, "/products", nil, http.StatusForbidden)
+	site.do(http.MethodGet, "/users", nil, http.StatusForbidden)
+	forged := &browser{t: t, e: admin.e, header: http.Header{"Authorization": {"Bearer " + created.Key + "x"}}}
+	forged.do(http.MethodGet, "/availability", nil, http.StatusUnauthorized)
+
+	var log struct{ Items []apispec.APIKeyRequest }
+	if err := json.NewDecoder(admin.do(http.MethodGet, "/api-keys/"+created.APIKey.ID.String()+"/requests", nil, http.StatusOK).Body).Decode(&log); err != nil {
+		t.Fatal(err)
+	}
+	if len(log.Items) != 3 || log.Items[2].Operation != "searchavailability" || !log.Items[2].Ok || log.Items[0].Ok {
+		t.Fatalf("key log: %+v", log.Items)
+	}
+	admin.do(http.MethodDelete, "/api-keys/"+created.APIKey.ID.String(), nil, http.StatusNoContent)
+	site.do(http.MethodGet, "/availability", nil, http.StatusUnauthorized)
 }

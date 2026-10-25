@@ -1,0 +1,19 @@
+# Образ веб-приложений: сборка staff и кассы, раздача Caddy с автоматическим HTTPS и прокси
+# /api на сервер. Сборка из корня: docker build -f deploy/Dockerfile.web .
+FROM node:24 AS build
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+COPY web/apps/staff/package.json apps/staff/
+COPY web/apps/pos/package.json apps/pos/
+COPY web/packages/api/package.json packages/api/
+COPY web/packages/scanner/package.json packages/scanner/
+COPY web/packages/ui/package.json packages/ui/
+RUN npm ci --ignore-scripts
+COPY web .
+COPY openapi /src/openapi
+RUN npm run build-only -w @pikni/staff && npm run build-only -w @pikni/pos
+
+FROM caddy:2.10
+COPY --from=build /src/web/apps/staff/dist /srv/staff
+COPY --from=build /src/web/apps/pos/dist /srv/pos
+COPY deploy/Caddyfile /etc/caddy/Caddyfile

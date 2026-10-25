@@ -28,6 +28,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/reports"
 	"github.com/ADEXITUM/pikni/api/internal/reservations"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
+	"github.com/ADEXITUM/pikni/api/internal/system"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
@@ -50,8 +51,15 @@ type (
 	reportsHandler   = reports.Handler
 	resHandler       = reservations.Handler
 	stockHandler     = stock.Handler
+	systemHandler    = system.Handler
 	usersHandler     = users.Handler
 )
+
+// Version — версия сборки для страницы «Состояние системы»; задаёт cmd/api.
+var Version = "dev"
+
+// Demo — демонстрационный режим (PIKNI_ENV=demo); задаёт cmd/api.
+var Demo bool
 
 // API собирает обработчики модулей в одну реализацию сгенерированного интерфейса.
 type API struct {
@@ -71,6 +79,7 @@ type API struct {
 	*reportsHandler
 	*resHandler
 	*stockHandler
+	*systemHandler
 	*usersHandler
 }
 
@@ -91,6 +100,7 @@ func Exchanger(pool *pgxpool.Pool, url string, log *slog.Logger) *exchange.Excha
 // УТМ ЕГАИС и «Честного знака»: на стенде их заменяет имитатор.
 func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.Hub) error {
 	sessions := auth.NewService(pool)
+	sessions.Demo = Demo
 	authorize, err := sessions.Middleware()
 	if err != nil {
 		return err
@@ -122,6 +132,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 		reportsHandler:   reports.NewHandler(rep),
 		resHandler:       reservations.NewHandler(res),
 		stockHandler:     stock.NewHandler(stock.NewService(pool, mk)),
+		systemHandler:    system.NewHandler(pool, Version, govsimURL),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}
 
@@ -132,9 +143,13 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 			BaseURL: "/api/v1",
 			OperationMiddlewares: map[string][]echo.MiddlewareFunc{
 				"login":          {limit},
+				"loginTotp":      {limit},
+				"redeemQrLogin":  {limit},
+				"demoLogin":      {limit},
 				"changePassword": {limit},
 			},
 		})
+	apiDocs(e)
 	// События реального времени: WebSocket вне контракта OpenAPI, вход — по cookie сеанса.
 	e.GET("/api/v1/ws", func(c *echo.Context) error {
 		cookie, err := c.Cookie(auth.CookieName)
