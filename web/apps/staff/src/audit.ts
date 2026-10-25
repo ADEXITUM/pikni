@@ -52,6 +52,13 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'document.posted': 'Проведение документа',
   'document.cancelled': 'Отмена черновика документа',
   'transfer.approved': 'Согласование перемещения',
+  'document.submitted': 'Отправка на утверждение',
+  'document.approved': 'Утверждение документа',
+  'document.returned': 'Возврат документа на доработку',
+  'reservation.created': 'Бронь для покупателя',
+  'reservation.confirmed': 'Подтверждение брони',
+  'reservation.cancelled': 'Снятие брони',
+  'reservation.issued': 'Выдача брони',
   'transfer.rejected': 'Отклонение заявки на перемещение',
 }
 
@@ -143,6 +150,7 @@ export function auditObject(e: AuditEntry): string {
   const login = typeof e.data.login === 'string' ? e.data.login : undefined
   if (e.entityType === 'user') return login ?? e.entityId ?? ''
   if (e.entityType === 'session') return 'сеанс'
+  if (e.entityType === 'reservation') return String(e.data.number ?? 'бронь')
   if (e.entityType === 'pos_device') return `касса «${String(e.data.name)}»`
   if (e.entityType === 'location') return typeof e.data.code === 'string' ? e.data.code : ''
   // Записи до решения 0031 хранят артикул позиции, новые — только наименование.

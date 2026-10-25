@@ -84,6 +84,7 @@ func run() error {
 	if err := app.Register(e, pool, cfg.EgaisURL, hub); err != nil {
 		return err
 	}
+	go app.Reservations(pool).Run(ctx, time.Minute, log)
 	if cfg.EgaisURL != "" {
 		go app.Exchanger(pool, cfg.EgaisURL, log).Run(ctx, cfg.EgaisInterval)
 		log.Info("egais exchange started", "utm", cfg.EgaisURL)

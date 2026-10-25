@@ -267,7 +267,7 @@ func (q *Queries) MoveMarks(ctx context.Context, arg MoveMarksParams) error {
 
 const setMarksStatus = `-- name: SetMarksStatus :exec
 update excise_marks
-set status = $1, zone_id = $2, last_document_id = $3, updated_at = now()
+set status = $1, zone_id = $2, last_document_id = coalesce($3, last_document_id), updated_at = now()
 where code = any($4::text[])
 `
 
@@ -286,4 +286,42 @@ func (q *Queries) SetMarksStatus(ctx context.Context, arg SetMarksStatusParams) 
 		arg.Codes,
 	)
 	return err
+}
+
+const zoneMarks = `-- name: ZoneMarks :many
+select code, variant_id from excise_marks
+where zone_id = $1 and status = 'in_stock' and ($2::uuid is null or variant_id = $2::uuid)
+order by code
+limit 500
+`
+
+type ZoneMarksParams struct {
+	ZoneID    *uuid.UUID
+	VariantID *uuid.UUID
+}
+
+type ZoneMarksRow struct {
+	Code      string
+	VariantID uuid.UUID
+}
+
+// Марки на остатке зоны — для выбора повреждённой марки при списании (СО-5).
+func (q *Queries) ZoneMarks(ctx context.Context, arg ZoneMarksParams) ([]ZoneMarksRow, error) {
+	rows, err := q.db.Query(ctx, zoneMarks, arg.ZoneID, arg.VariantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZoneMarksRow
+	for rows.Next() {
+		var i ZoneMarksRow
+		if err := rows.Scan(&i.Code, &i.VariantID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -135,6 +135,29 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /reservations:
+    get:
+      operationId: posReservations
+      summary: Подтверждённые брони точки для выдачи
+      description: >
+        Отложенный товар выдаётся через кассу с обычными проверками продажи (НЛ-4): касса пробивает
+        чек со ссылкой на бронь, резерв снимается в той же транзакции.
+      responses:
+        "200":
+          description: Брони
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PosReservation"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /receipts:
     get:
       operationId: posFindReceipts
@@ -397,7 +420,7 @@ components:
           description: >
             sale.alcohol_time — продажа алкоголя запрещена сейчас; sale.age — не подтверждён возраст;
             mark.required — нужна марка; mark.not_here — марка не числится в точке; mark.sold — уже продана;
-            mark.unknown — марки нет в учёте; crpt.required — нужен код «Честного знака»;
+            mark.unknown — марки нет в учёте; mark.reserved — бутылка отложена по брони; crpt.required — нужен код «Честного знака»;
             crpt.unknown, crpt.sold, crpt.blocked, crpt.expired, crpt.not_owner — отказ разрешительного режима;
             price.missing, price.below_min, price.above_max — цена; utm.unavailable — УТМ недоступен;
             item.unknown — товара нет в каталоге
@@ -430,6 +453,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PosRefusal"
+
+    PosReservation:
+      type: object
+      required: [id, number, customerName, phoneTail, item, qty, marks, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        customerName:
+          type: string
+        phoneTail:
+          type: string
+          description: Последние 4 цифры телефона — чтобы сверить с покупателем
+        item:
+          $ref: "#/components/schemas/PosItem"
+        qty:
+          type: integer
+        marks:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
 
     PosNewLine:
       type: object
@@ -474,6 +523,10 @@ components:
         offline:
           type: boolean
           description: Чек пробит без связи и отправлен позже
+        reservationId:
+          type: string
+          format: uuid
+          description: Выдача брони — её товар должен быть в чеке
         lines:
           type: array
           minItems: 1

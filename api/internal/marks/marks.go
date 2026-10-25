@@ -278,3 +278,118 @@ func Arrive(ctx context.Context, tx pgx.Tx, ev Event, location, zone uuid.UUID, 
 		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InStock, ToZoneID: &zone,
 	})
 }
+
+// WriteOff списывает марки (СО-5): каждая должна стоять в зоне zone или, если zone пустая,
+// числиться «в пути» в точке location (недостача при перемещении).
+func WriteOff(ctx context.Context, tx pgx.Tx, ev Event, location uuid.UUID, zone *uuid.UUID, codes []string) error {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	statuses := make([]string, len(codes))
+	fromZones := make([]uuid.UUID, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		switch {
+		case !ok:
+			return &MisplacedError{Code: c}
+		case zone != nil && (r.Status != InStock || r.ZoneID == nil || *r.ZoneID != *zone):
+			return &MisplacedError{Code: c, Status: r.Status}
+		case zone == nil && (r.Status != InTransit || r.LocationID != location):
+			return &MisplacedError{Code: c, Status: r.Status}
+		}
+		statuses[i] = r.Status
+		if zone != nil {
+			fromZones[i] = *zone
+		}
+	}
+	if err := q.SetMarksStatus(ctx, store.SetMarksStatusParams{Codes: codes, Status: WrittenOff, DocumentID: &ev.DocumentID}); err != nil {
+		return err
+	}
+	return q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: fromZones,
+		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: WrittenOff,
+	})
+}
+
+// Unregister снимает с учёта марки, поставленные ошибочным документом (сторно ввода остатков).
+func Unregister(ctx context.Context, tx pgx.Tx, ev Event, zone uuid.UUID, codes []string) error {
+	return WriteOff(ctx, tx, ev, uuid.Nil, &zone, codes)
+}
+
+// ZoneMarks — марки на остатке зоны: из них выбирают повреждённую марку при списании.
+func (s *Service) ZoneMarks(ctx context.Context, zone uuid.UUID, variant *uuid.UUID) ([]store.ZoneMarksRow, error) {
+	return s.q.ZoneMarks(ctx, store.ZoneMarksParams{ZoneID: &zone, VariantID: variant})
+}
+
+// Reserve откладывает бутылки для покупателя (НЛ-4): марка остаётся в своей зоне со статусом
+// «отложена», продать её можно только выдачей брони. Возвращает зону каждой марки.
+func Reserve(ctx context.Context, tx pgx.Tx, user, location uuid.UUID, codes []string) (map[string]uuid.UUID, error) {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return nil, err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	zones := make(map[string]uuid.UUID, len(codes))
+	statuses := make([]string, len(codes))
+	fromZones := make([]uuid.UUID, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		if !ok || r.Status != InStock || r.LocationID != location || r.ZoneID == nil {
+			return nil, &MisplacedError{Code: c, Status: r.Status}
+		}
+		zones[c], statuses[i], fromZones[i] = *r.ZoneID, r.Status, *r.ZoneID
+	}
+	for c, z := range zones {
+		zone := z
+		if err := q.SetMarksStatus(ctx, store.SetMarksStatusParams{Codes: []string{c}, Status: Reserved, ZoneID: &zone}); err != nil {
+			return nil, err
+		}
+	}
+	return zones, q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: fromZones, UserID: &user, ToStatus: Reserved,
+	})
+}
+
+// Release возвращает отложенные марки на остаток в их зоны. Возвращает зону каждой марки.
+func Release(ctx context.Context, tx pgx.Tx, user uuid.UUID, codes []string) (map[string]uuid.UUID, error) {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return nil, err
+	}
+	zones := make(map[string]uuid.UUID, len(rows))
+	statuses := make([]string, 0, len(rows))
+	fromZones := make([]uuid.UUID, 0, len(rows))
+	var released []string
+	for _, r := range rows {
+		if r.Status != Reserved || r.ZoneID == nil {
+			continue
+		}
+		zones[r.Code] = *r.ZoneID
+		released = append(released, r.Code)
+		statuses = append(statuses, r.Status)
+		fromZones = append(fromZones, *r.ZoneID)
+	}
+	for c, z := range zones {
+		zone := z
+		if err := q.SetMarksStatus(ctx, store.SetMarksStatusParams{Codes: []string{c}, Status: InStock, ZoneID: &zone}); err != nil {
+			return nil, err
+		}
+	}
+	if len(released) == 0 {
+		return zones, nil
+	}
+	return zones, q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: released, FromStatuses: statuses, FromZoneIds: fromZones, UserID: &user, ToStatus: InStock,
+	})
+}

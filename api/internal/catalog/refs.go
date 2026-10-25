@@ -241,13 +241,13 @@ func (s *Service) SaveWriteoffReason(ctx context.Context, id *uuid.UUID, f apisp
 		return store.WriteoffReason{}, ErrInvalidEgaisType
 	}
 	fields := func(r store.WriteoffReason) map[string]any {
-		return map[string]any{"name": r.Name, "egaisType": r.EgaisType, "isActive": r.IsActive}
+		return map[string]any{"name": r.Name, "egaisType": r.EgaisType, "isActive": r.IsActive, "photoRequired": r.PhotoRequired}
 	}
 
 	var saved store.WriteoffReason
 	err = s.write(ctx, "writeoff_reason", func(q *store.Queries) (change, error) {
 		if id == nil {
-			r, err := q.CreateWriteoffReason(ctx, store.CreateWriteoffReasonParams{Name: n, EgaisType: string(f.EgaisType)})
+			r, err := q.CreateWriteoffReason(ctx, store.CreateWriteoffReasonParams{Name: n, EgaisType: string(f.EgaisType), PhotoRequired: f.PhotoRequired != nil && *f.PhotoRequired})
 			saved = r
 			return change{id: r.ID.String(), after: fields(r)}, err
 		}
@@ -255,7 +255,7 @@ func (s *Service) SaveWriteoffReason(ctx context.Context, id *uuid.UUID, f apisp
 		if err != nil {
 			return change{}, err
 		}
-		saved, err = q.UpdateWriteoffReason(ctx, store.UpdateWriteoffReasonParams{ID: *id, Name: n, EgaisType: string(f.EgaisType), IsActive: active})
+		saved, err = q.UpdateWriteoffReason(ctx, store.UpdateWriteoffReasonParams{ID: *id, Name: n, EgaisType: string(f.EgaisType), IsActive: active, PhotoRequired: f.PhotoRequired != nil && *f.PhotoRequired})
 		return change{id: id.String(), before: fields(old), after: fields(saved)}, err
 	})
 	return saved, err

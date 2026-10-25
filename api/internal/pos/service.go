@@ -29,6 +29,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
 	"github.com/ADEXITUM/pikni/api/internal/pos/store"
+	"github.com/ADEXITUM/pikni/api/internal/reservations"
 )
 
 var (
@@ -51,21 +52,56 @@ const sessionTTL = 24 * time.Hour
 var pinPattern = regexp.MustCompile(`^[0-9]{4,6}$`)
 
 type Service struct {
-	pool      *pgxpool.Pool
-	q         *store.Queries
-	catalog   *catalog.Service
-	marks     *marks.Service
-	docs      *documents.Service
-	locations *locations.Service
-	egais     egais.Gateway
-	crpt      crpt.Gateway
-	now       func() time.Time
+	pool         *pgxpool.Pool
+	q            *store.Queries
+	catalog      *catalog.Service
+	marks        *marks.Service
+	docs         *documents.Service
+	locations    *locations.Service
+	egais        egais.Gateway
+	crpt         crpt.Gateway
+	reservations *reservations.Service
+	now          func() time.Time
 }
 
 func NewService(pool *pgxpool.Pool, cat *catalog.Service, mk *marks.Service, docs *documents.Service,
-	locs *locations.Service, eg egais.Gateway, cz crpt.Gateway) *Service {
+	locs *locations.Service, eg egais.Gateway, cz crpt.Gateway, res *reservations.Service) *Service {
 	return &Service{pool: pool, q: store.New(pool), catalog: cat, marks: mk, docs: docs, locations: locs,
-		egais: eg, crpt: cz, now: time.Now}
+		egais: eg, crpt: cz, reservations: res, now: time.Now}
+}
+
+// Reservations — подтверждённые брони точки кассы для выдачи.
+func (s *Service) Reservations(ctx context.Context, pc Context) ([]Reservation, error) {
+	rows, err := s.reservations.ConfirmedAt(ctx, pc.Device.LocationID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Reservation, 0, len(rows))
+	for _, r := range rows {
+		it, err := s.item(ctx, r.VariantID)
+		if err != nil {
+			return nil, err
+		}
+		if it == nil {
+			continue
+		}
+		tail := r.CustomerPhone
+		if len(tail) > 4 {
+			tail = tail[len(tail)-4:]
+		}
+		out = append(out, Reservation{ID: r.ID, Number: r.Number, Customer: r.CustomerName, PhoneTail: tail,
+			Item: *it, Qty: r.Qty, Marks: r.Marks, ExpiresAt: r.ExpiresAt})
+	}
+	return out, nil
+}
+
+type Reservation struct {
+	ID                          uuid.UUID
+	Number, Customer, PhoneTail string
+	Item                        Item
+	Qty                         int32
+	Marks                       []string
+	ExpiresAt                   time.Time
 }
 
 func hash(secret string) []byte {

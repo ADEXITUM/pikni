@@ -246,9 +246,12 @@ func (s *Sim) process(ctx context.Context, tx pgx.Tx, fsrar, docType string, doc
 		return transfer(ctx, tx, fsrar, payload, 2, 1)
 	case "QueryRests":
 		return queryRests(ctx, tx, fsrar, doc)
+	case "ActWriteOff":
+		// Списание со склада (регистр 1): бой, порча, недостача, в том числе продукции с марками.
+		return writeOff(ctx, tx, fsrar, doc, payload, 1)
 	case "ActWriteOffShop":
 		// Списание из торгового зала — в том числе проданного пива с причиной «Реализация».
-		return writeOff(ctx, tx, fsrar, payload, 2)
+		return writeOff(ctx, tx, fsrar, doc, payload, 2)
 	}
 	return reject("Тип документа %s имитатор не поддерживает", docType)
 }
@@ -439,14 +442,36 @@ func transfer(ctx context.Context, tx pgx.Tx, fsrar string, payload []byte, from
 	return nil
 }
 
-func writeOff(ctx context.Context, tx pgx.Tx, fsrar string, payload []byte, register int) error {
-	var doc struct {
-		Items []Item `json:"items"`
+func writeOff(ctx context.Context, tx pgx.Tx, fsrar string, doc uuid.UUID, payload []byte, register int) error {
+	var act struct {
+		Reason string `json:"reason"`
+		Items  []struct {
+			Item
+			Marks []string `json:"marks"`
+		} `json:"items"`
 	}
-	if err := json.Unmarshal(payload, &doc); err != nil {
+	if err := json.Unmarshal(payload, &act); err != nil {
 		return reject("Документ не разобран: %v", err)
 	}
-	for _, it := range doc.Items {
+	for _, it := range act.Items {
+		// Продукция с марками списывается по маркам: каждая должна быть на балансе участника.
+		if len(it.Marks) > 0 {
+			var ok int
+			if err := tx.QueryRow(ctx, `select count(*) from marks where code = any($1) and owner_fsrar = $2
+				and status = 'on_balance' and alcocode = $3`, it.Marks, fsrar, it.Alcocode).Scan(&ok); err != nil {
+				return err
+			}
+			if ok != len(it.Marks) {
+				return reject("Не все марки %s на балансе (%d из %d)", it.Alcocode, ok, len(it.Marks))
+			}
+			if _, err := tx.Exec(ctx, `update marks set status = 'written_off', updated_at = now() where code = any($1)`, it.Marks); err != nil {
+				return err
+			}
+			if err := markEvent(ctx, tx, it.Marks, "Списана: "+act.Reason, fsrar, doc); err != nil {
+				return err
+			}
+			continue
+		}
 		tag, err := tx.Exec(ctx, `update rests set qty = qty - $4 where fsrar_id = $1 and alcocode = $2 and register = $3 and qty >= $4`,
 			fsrar, it.Alcocode, register, it.Qty)
 		if err != nil {

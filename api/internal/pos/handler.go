@@ -270,6 +270,7 @@ func (h *Handler) PosCreateReceipt(ctx context.Context, req posspec.PosCreateRec
 		}
 		r.Lines = append(r.Lines, nl)
 	}
+	r.ReservationID = b.ReservationID
 	if r.CreatedAt.IsZero() {
 		r.CreatedAt = h.svc.now()
 	}
@@ -286,6 +287,21 @@ func (h *Handler) PosCreateReceipt(ctx context.Context, req posspec.PosCreateRec
 		return nil, problem(err)
 	}
 	return posspec.PosCreateReceipt201JSONResponse(posReceipt(saved)), nil
+}
+
+func (h *Handler) PosReservations(ctx context.Context, _ posspec.PosReservationsRequestObject) (posspec.PosReservationsResponseObject, error) {
+	rows, err := h.svc.Reservations(ctx, cashier(ctx))
+	if err != nil {
+		return nil, problem(err)
+	}
+	out := posspec.PosReservations200JSONResponse{Items: make([]posspec.PosReservation, len(rows))}
+	for i, r := range rows {
+		out.Items[i] = posspec.PosReservation{
+			ID: r.ID, Number: r.Number, CustomerName: r.Customer, PhoneTail: r.PhoneTail, Item: posItem(r.Item),
+			Qty: int(r.Qty), Marks: r.Marks, ExpiresAt: r.ExpiresAt,
+		}
+	}
+	return out, nil
 }
 
 func (h *Handler) PosFindReceipts(ctx context.Context, req posspec.PosFindReceiptsRequestObject) (posspec.PosFindReceiptsResponseObject, error) {

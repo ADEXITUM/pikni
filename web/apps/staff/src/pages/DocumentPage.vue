@@ -23,9 +23,11 @@ import {
 import type { SoundEvent } from '@pikni/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import ExchangeLog from '@/components/ExchangeLog.vue'
+import PhotoStrip from '@/components/PhotoStrip.vue'
+import ZoneMarksDialog from '@/components/ZoneMarksDialog.vue'
 import ReceiptPanel from '@/components/ReceiptPanel.vue'
 import ScanCamera from '@pikni/ui/ScanCamera.vue'
 import { confirm } from '@/confirm'
@@ -44,6 +46,7 @@ import { accountingLabels, formatPrice, variantLabel } from '@/products'
 import { useScanner } from '@/scanning'
 
 const route = useRoute()
+const router = useRouter()
 const id = computed(() => String(route.params.id))
 const queryClient = useQueryClient()
 const key = computed(() => ['document', id.value])
@@ -218,6 +221,18 @@ const { mutate: post, isPending: posting } = useMutation({
 async function askPost() {
   const d = doc.value!
   actionError.value = undefined
+  if (d.kind === 'writeoff' || d.kind === 'storno') {
+    const ok = await confirm({
+      title: `Отправить ${d.number} на утверждение?`,
+      text:
+        d.kind === 'writeoff'
+          ? `Списание ${d.totalQty} шт. вступит в силу, когда его утвердит другой сотрудник с правом утверждения; затем в ЕГАИС уйдёт акт списания.`
+          : 'Сторно вступит в силу после утверждения другим сотрудником.',
+      confirmText: 'Отправить',
+    })
+    if (ok) post()
+    return
+  }
   if (d.kind === 'transfer') {
     const ok = await confirm({
       title: `Отгрузить ${d.number}?`,
@@ -255,13 +270,66 @@ async function askPost() {
 // Заявку на перемещение согласует или отклоняет точка-отправитель (СО-4).
 const rejectOpen = ref(false)
 const rejectReason = ref('')
+const approveComment = ref('')
+// Утверждение (ПБ-8): списание и сторно проводятся только после решения другого сотрудника.
+const pending = computed(() => doc.value?.status === 'pending_approval')
+
+// Повреждённую марку выбирают из списка марок зоны.
+const marksOpen = ref(false)
+function pickMark(code: string) {
+  submit(code, 'manual')
+}
+
+// Сторно проведённого документа — черновик, который потом утверждают.
+const { mutate: storno, isPending: stornoing } = useMutation({
+  mutationFn: async (comment: string) => {
+    const { data, error } = await api.POST('/documents/{id}/storno', {
+      params: { path: { id: id.value } },
+      body: { comment: comment || undefined },
+    })
+    if (error) throw new ApiError(error)
+    return data
+  },
+  onSuccess: (d) => router.push({ name: 'document', params: { id: d.id } }),
+  onError: (e) => (actionError.value = e.message),
+})
+async function askStorno() {
+  const d = doc.value!
+  const ok = await confirm({
+    title: `Сторнировать ${d.number}?`,
+    text: 'Будет создан документ сторно: после утверждения другим сотрудником движения этого документа отменятся.',
+    confirmText: 'Создать сторно',
+  })
+  if (ok) storno('')
+}
+
+// Недостачу перемещения, оставшуюся «в пути», списывают актом с утверждением.
+const { mutate: writeOffTransit, isPending: writingOff } = useMutation({
+  mutationFn: async () => {
+    const reasons = await api.GET('/writeoff-reasons')
+    if (reasons.error) throw new ApiError(reasons.error)
+    const reason =
+      reasons.data.items.find((r) => r.isActive && r.egaisType === 'Потери') ??
+      reasons.data.items.find((r) => r.isActive)
+    const { data, error } = await api.POST('/documents/writeoff', {
+      body: { transferId: doc.value!.transferId!, reasonId: reason!.id },
+    })
+    if (error) throw new ApiError(error)
+    return data
+  },
+  onSuccess: (d) => router.push({ name: 'document', params: { id: d.id } }),
+  onError: (e) => (actionError.value = e.message),
+})
+const shortage = computed(() =>
+  (doc.value?.lines ?? []).reduce((n, l) => n + Math.max((l.qtyPlan ?? 0) - l.qty, 0), 0),
+)
 const { mutate: decide, isPending: deciding } = useMutation({
   mutationFn: async (approve: boolean) => {
     const path = { params: { path: { id: id.value } } }
     const { data, error } = approve
       ? await api.POST('/documents/{id}/approve', {
           ...path,
-          body: { version: doc.value!.version },
+          body: { version: doc.value!.version, comment: approveComment.value.trim() || undefined },
         })
       : await api.POST('/documents/{id}/reject', {
           ...path,
@@ -401,8 +469,62 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
           >.
         </v-alert>
       </template>
+      <p v-if="doc.kind === 'writeoff'" class="text-body-medium mb-3" data-test="writeoff-reason">
+        Причина: <b>{{ doc.reasonName }}</b
+        ><template v-if="doc.transferId">
+          · недостача по перемещению
+          <router-link :to="{ name: 'document', params: { id: doc.transferId } }">{{
+            doc.transferNumber
+          }}</router-link></template
+        ><template v-if="doc.comment">. {{ doc.comment }}</template>
+      </p>
+      <v-alert v-if="doc.reversesId" type="info" variant="tonal" class="mb-4">
+        Сторно документа
+        <router-link :to="{ name: 'document', params: { id: doc.reversesId } }">{{
+          doc.reversesNumber
+        }}</router-link
+        >: после утверждения его движения отменятся.
+      </v-alert>
+      <v-alert v-if="doc.stornoId" type="warning" variant="tonal" class="mb-4">
+        Документ сторнирован —
+        <router-link :to="{ name: 'document', params: { id: doc.stornoId } }">{{
+          doc.stornoNumber
+        }}</router-link
+        >.
+      </v-alert>
+      <v-alert v-if="pending" type="info" variant="tonal" class="mb-4" data-test="pending-approval">
+        Документ ждёт утверждения сотрудником с правом утверждения — не тем, кто его создал или
+        отправил.
+        <template v-if="doc.canApprove" #append>
+          <div class="d-flex ga-2">
+            <v-btn variant="text" :loading="deciding" @click="rejectOpen = true"
+              >Вернуть на доработку</v-btn
+            >
+            <v-btn
+              color="primary"
+              variant="flat"
+              :loading="deciding"
+              data-test="approve"
+              @click="decide(true)"
+              >Утвердить</v-btn
+            >
+          </div>
+        </template>
+      </v-alert>
       <v-alert
-        v-if="doc.transferId"
+        v-if="doc.approval && (doc.kind === 'writeoff' || doc.kind === 'storno')"
+        :type="doc.approval.decision === 'approved' ? 'success' : 'warning'"
+        variant="tonal"
+        density="compact"
+        class="mb-4"
+        data-test="approval"
+      >
+        {{ doc.approval.decision === 'approved' ? 'Утвердил' : 'Вернул на доработку' }}
+        {{ doc.approval.userName }} {{ formatDateTime(doc.approval.at)
+        }}<template v-if="doc.approval.comment">: «{{ doc.approval.comment }}»</template>
+      </v-alert>
+      <v-alert
+        v-if="doc.transferId && doc.kind === 'receipt'"
         type="info"
         variant="tonal"
         class="mb-4"
@@ -413,6 +535,18 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
           doc.transferNumber
         }}</router-link
         >: отсканируйте пришедшие марки и товар. Непринятое останется «в пути» до акта списания.
+        <template
+          v-if="(doc.status === 'awaiting_egais' || doc.status === 'posted') && shortage > 0"
+          #append
+        >
+          <v-btn
+            variant="tonal"
+            :loading="writingOff"
+            data-test="writeoff-transit"
+            @click="writeOffTransit()"
+            >Списать недостачу ({{ shortage }} шт.)</v-btn
+          >
+        </template>
       </v-alert>
       <p v-if="doc.kind === 'receipt'" class="text-body-medium mb-3" data-test="ttn">
         {{ doc.ttnNumber }} · {{ doc.supplierName ?? 'поставщик не найден в справочнике' }}
@@ -447,6 +581,17 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
             @click:append-inner="submitManual"
           />
         </v-form>
+
+        <v-btn
+          v-if="doc.kind === 'writeoff' && !doc.transferId"
+          variant="text"
+          size="small"
+          class="mb-3"
+          data-test="pick-mark"
+          @click="marksOpen = true"
+          >Марку не читает сканер — выбрать из списка</v-btn
+        >
+        <ZoneMarksDialog v-model="marksOpen" :zone-id="doc.zoneId" @pick="pickMark" />
 
         <v-chip
           v-if="doc.kind === 'opening' && selected"
@@ -604,6 +749,14 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         </v-list-item>
       </v-list>
 
+      <PhotoStrip
+        v-if="doc.kind === 'writeoff'"
+        :document-id="doc.id"
+        :photos="doc.photos ?? []"
+        :can-edit="doc.canEdit"
+        @changed="queryClient.invalidateQueries({ queryKey: key })"
+      />
+
       <template v-if="doc.exchange?.length">
         <h2 class="text-title-large mb-2">Обмен с ЕГАИС</h2>
         <ExchangeLog :messages="doc.exchange" />
@@ -636,9 +789,17 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
               ? 'Завершить приёмку'
               : doc.kind === 'transfer'
                 ? 'Отгрузить'
-                : 'Провести'
+                : doc.kind === 'writeoff' || doc.kind === 'storno'
+                  ? 'Отправить на утверждение'
+                  : 'Провести'
           }}
         </v-btn>
+      </div>
+      <div v-else-if="doc.canStorno" class="pk-actions">
+        <v-spacer />
+        <v-btn variant="text" :loading="stornoing" data-test="storno" @click="askStorno"
+          >Сторнировать</v-btn
+        >
       </div>
       <p v-else-if="doc.status === 'draft'" class="text-body-medium text-medium-emphasis">
         Черновик заполняют сотрудники точки<template v-if="doc.kind === 'opening'"
@@ -648,12 +809,12 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
     </template>
 
     <v-dialog v-model="rejectOpen" max-width="440">
-      <v-card title="Отклонить заявку">
+      <v-card :title="pending ? 'Вернуть на доработку' : 'Отклонить заявку'">
         <v-card-text>
           <v-text-field
             v-model="rejectReason"
             label="Причина"
-            hint="Получатель увидит её в заявке"
+            :hint="pending ? 'Автор увидит её в документе' : 'Получатель увидит её в заявке'"
             persistent-hint
             autofocus
           />
@@ -667,7 +828,7 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
             :disabled="!rejectReason.trim()"
             :loading="deciding"
             @click="decide(false)"
-            >Отклонить</v-btn
+            >{{ pending ? 'Вернуть' : 'Отклонить' }}</v-btn
           >
         </v-card-actions>
       </v-card>

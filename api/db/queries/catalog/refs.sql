@@ -98,23 +98,23 @@ where ml = @ml
 returning ml, is_active;
 
 -- name: ListWriteoffReasons :many
-select id, name, egais_type, is_active
+select id, name, egais_type, is_active, photo_required
 from writeoff_reasons
 order by name;
 
 -- name: GetWriteoffReason :one
-select id, name, egais_type, is_active
+select id, name, egais_type, is_active, photo_required
 from writeoff_reasons
 where id = @id
 for update;
 
 -- name: CreateWriteoffReason :one
-insert into writeoff_reasons (name, egais_type)
-values (@name, @egais_type)
-returning id, name, egais_type, is_active;
+insert into writeoff_reasons (name, egais_type, photo_required)
+values (@name, @egais_type, @photo_required)
+returning id, name, egais_type, is_active, photo_required;
 
 -- name: UpdateWriteoffReason :one
 update writeoff_reasons
-set name = @name, egais_type = @egais_type, is_active = @is_active
+set name = @name, egais_type = @egais_type, is_active = @is_active, photo_required = @photo_required
 where id = @id
-returning id, name, egais_type, is_active;
+returning id, name, egais_type, is_active, photo_required;

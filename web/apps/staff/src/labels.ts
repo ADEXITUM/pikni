@@ -39,12 +39,16 @@ export const documentKindLabels: Record<DocumentKind, string> = {
   receipt: 'Поступление',
   sale: 'Продажа',
   transfer: 'Перемещение',
+  writeoff: 'Списание',
+  storno: 'Сторно',
 }
 
 export const documentStatusLabels: Record<DocumentStatus, string> = {
   requested: 'Заявка',
   rejected: 'Отклонена',
   in_transit: 'В пути',
+  pending_approval: 'На утверждении',
+  reversed: 'Сторнирован',
   draft: 'Черновик',
   awaiting_egais: 'Ожидает ЕГАИС',
   posted: 'Проведён',
@@ -56,6 +60,8 @@ export const documentStatusColors: Record<DocumentStatus, string> = {
   requested: 'info',
   rejected: 'error',
   in_transit: 'warning',
+  pending_approval: 'info',
+  reversed: 'secondary',
   draft: 'secondary',
   awaiting_egais: 'warning',
   posted: 'success',

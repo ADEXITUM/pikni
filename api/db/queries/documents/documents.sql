@@ -22,14 +22,16 @@ join locations l on l.id = z.location_id
 where z.location_id = @location_id;
 
 -- name: CreateDocument :one
-insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status)
+insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status,
+                       reason_id, reverses_id, transfer_id)
 values (@kind, @number, @doc_date, @location_id, @zone_id, sqlc.narg(dest_zone_id), sqlc.narg(dest_location_id), @author_id,
-        @comment, coalesce(sqlc.narg(status)::text, 'draft'))
+        @comment, coalesce(sqlc.narg(status)::text, 'draft'), sqlc.narg(reason_id), sqlc.narg(reverses_id),
+        sqlc.narg(transfer_id))
 returning id;
 
 -- name: LockDocument :one
 select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
-       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment
+       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment, reason_id, reverses_id
 from documents
 where id = @id
 for update;
@@ -42,7 +44,10 @@ select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as lo
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
        (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty,
        d.dest_location_id, dl.name as dest_location_name, d.transfer_id, tr.number as transfer_number,
-       rc.id as receipt_id, rc.number as receipt_number
+       rc.id as receipt_id, rc.number as receipt_number,
+       d.reason_id, wr.name as reason_name, wr.photo_required, d.reverses_id, rv.number as reverses_number,
+       rv.kind as reverses_kind, sn.id as storno_id, sn.number as storno_number,
+       (select count(*) from document_photos ph where ph.document_id = d.id)::integer as photo_count
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
@@ -50,6 +55,9 @@ left join zones dz on dz.id = d.dest_zone_id
 left join locations dl on dl.id = d.dest_location_id
 left join documents tr on tr.id = d.transfer_id
 left join documents rc on rc.transfer_id = d.id and rc.kind = 'receipt'
+left join writeoff_reasons wr on wr.id = d.reason_id
+left join documents rv on rv.id = d.reverses_id
+left join documents sn on sn.reverses_id = d.id and sn.status <> 'cancelled'
 left join users au on au.id = d.author_id
 left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
@@ -287,3 +295,63 @@ select id from documents where transfer_id = @transfer_id and kind = 'receipt';
 
 -- name: SetReceiptTTN :exec
 update documents set ttn_id = @ttn_id where id = @id;
+
+-- ---------- списание, утверждение, сторно
+
+-- name: GetWriteoffReason :one
+select id, name, egais_type, photo_required, is_active from writeoff_reasons where id = @id;
+
+-- name: InsertApproval :exec
+insert into document_approvals (document_id, user_id, decision, comment)
+values (@document_id, @user_id, @decision, @comment);
+
+-- name: InsertPhoto :one
+insert into document_photos (document_id, content_type, data, created_by)
+values (@document_id, @content_type, @data, @created_by)
+returning id, created_at;
+
+-- name: ListPhotos :many
+select id, content_type, created_at from document_photos where document_id = @document_id order by created_at;
+
+-- name: GetPhoto :one
+select p.id, p.document_id, p.content_type, p.data, d.kind, d.location_id, d.dest_location_id
+from document_photos p
+join documents d on d.id = p.document_id
+where p.id = @id;
+
+-- name: DeletePhoto :execrows
+delete from document_photos where id = @id and document_id = @document_id;
+
+-- name: DocumentMoves :many
+-- Итог движений документа по корзинам — для сторно.
+select variant_id, location_id, zone_id, bucket, sum(qty)::integer as qty
+from stock_moves
+where document_id = @document_id
+group by variant_id, location_id, zone_id, bucket
+having sum(qty) <> 0;
+
+-- name: DocumentHasExchange :one
+select exists (select 1 from egais_messages where document_id = @document_id);
+
+-- name: TransitLeft :many
+-- Что из отгруженного по перемещению так и не принято: остаётся «в пути» у получателя.
+select l.variant_id, (coalesce(l.qty_plan, 0) - l.qty)::integer as qty
+from document_lines l
+join documents r on r.id = l.document_id
+where r.transfer_id = @transfer_id and r.kind = 'receipt' and r.status in ('awaiting_egais', 'posted')
+  and coalesce(l.qty_plan, 0) > l.qty;
+
+-- name: TransitMarks :many
+select code, variant_id from excise_marks where last_document_id = @transfer_id and status = 'in_transit';
+
+-- name: Submitter :one
+-- Кто отправил документ на утверждение: он не может сам его утвердить.
+select posted_by from documents where id = @id;
+
+-- name: LastApproval :one
+select a.decision, a.comment, u.full_name, a.created_at
+from document_approvals a
+join users u on u.id = a.user_id
+where a.document_id = @document_id
+order by a.id desc
+limit 1;

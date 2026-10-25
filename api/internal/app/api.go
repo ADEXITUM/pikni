@@ -20,6 +20,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/pos"
 	"github.com/ADEXITUM/pikni/api/internal/posspec"
+	"github.com/ADEXITUM/pikni/api/internal/reservations"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
@@ -35,6 +36,7 @@ type (
 	locationsHandler = locations.Handler
 	marksHandler     = marks.Handler
 	posStaffHandler  = pos.StaffHandler
+	resHandler       = reservations.Handler
 	stockHandler     = stock.Handler
 	usersHandler     = users.Handler
 )
@@ -49,11 +51,17 @@ type API struct {
 	*locationsHandler
 	*marksHandler
 	*posStaffHandler
+	*resHandler
 	*stockHandler
 	*usersHandler
 }
 
 var _ apispec.StrictServerInterface = (*API)(nil)
+
+// Reservations — снятие просроченных броней и обезличивание данных покупателей (НЛ-4, НЛ-5).
+func Reservations(pool *pgxpool.Pool) *reservations.Service {
+	return reservations.NewService(pool, catalog.NewService(pool), marks.NewService(pool))
+}
 
 // Exchanger собирает обмен с ЕГАИС: отправку очереди и приём сообщений УТМ точек.
 func Exchanger(pool *pgxpool.Pool, url string, log *slog.Logger) *exchange.Exchanger {
@@ -73,7 +81,8 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 	mk := marks.NewService(pool)
 	docs := documents.NewService(pool, cat, mk)
 	locs := locations.NewService(pool)
-	tills := pos.NewService(pool, cat, mk, docs, locs, egais.NewGovsim(govsimURL), crpt.NewGovsim(govsimURL))
+	res := reservations.NewService(pool, cat, mk)
+	tills := pos.NewService(pool, cat, mk, docs, locs, egais.NewGovsim(govsimURL), crpt.NewGovsim(govsimURL), res)
 	api := &API{
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
@@ -83,6 +92,7 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 		locationsHandler: locations.NewHandler(locs),
 		marksHandler:     marks.NewHandler(mk),
 		posStaffHandler:  pos.NewStaffHandler(tills),
+		resHandler:       reservations.NewHandler(res),
 		stockHandler:     stock.NewHandler(stock.NewService(pool, mk)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
 	}

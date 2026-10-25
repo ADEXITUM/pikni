@@ -266,6 +266,29 @@ func (s *Service) classifyMark(ctx context.Context, q *store.Queries, doc store.
 			return reject(v, ScanRejected, "Вариант в архиве"), nil
 		}
 
+	case Writeoff:
+		if existing == nil {
+			v.mark = nil
+			return reject(v, ScanForeign, "Марки нет в учёте точки"), nil
+		}
+		v.variant = &existing.VariantID
+		// Недостача перемещения списывается из «в пути», остальное — из зоны документа.
+		if doc.TransferID != nil {
+			if existing.Status != marks.InTransit || existing.LocationID != doc.LocationID {
+				v.mark = nil
+				return reject(v, ScanForeign, "Марка не числится «в пути» в точке: "+markPlace(existing)), nil
+			}
+			break
+		}
+		if existing.Status != marks.InStock || existing.ZoneID == nil || *existing.ZoneID != doc.ZoneID {
+			zone, err := q.GetZone(ctx, doc.ZoneID)
+			if err != nil {
+				return v, err
+			}
+			v.mark = nil
+			return reject(v, ScanForeign, "Марка не числится в зоне «"+zoneNames[zone.Kind]+"»: "+markPlace(existing)), nil
+		}
+
 	case FloorTransfer, Transfer:
 		if existing == nil {
 			v.mark = nil

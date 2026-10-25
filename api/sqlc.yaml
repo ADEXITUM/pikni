@@ -170,3 +170,13 @@ sql:
             go_type:
               type: float64
               pointer: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/reservations
+    gen:
+      go:
+        package: store
+        out: internal/reservations/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true

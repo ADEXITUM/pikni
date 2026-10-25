@@ -3,7 +3,7 @@
 // экраны перезапрашивают данные — события за время обрыва могли пропасть.
 
 export interface LiveEvent {
-  type: 'document' | 'scan' | 'stock' | 'exchange' | 'receipt'
+  type: 'document' | 'scan' | 'stock' | 'exchange' | 'receipt' | 'reservation'
   id: string
   topics: string[]
 }

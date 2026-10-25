@@ -358,3 +358,38 @@ func TestTransferBetweenPoints(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteOffFromWarehouse(t *testing.T) {
+	t.Parallel()
+	s := New(t)
+	ctx := t.Context()
+	if _, err := s.CreateShipment(ctx, sim.ShipmentRequest{Supplier: Supplier, Recipient: Store,
+		Positions: []sim.Item{{Alcocode: Vodka, Qty: 2}, {Alcocode: Beer, Qty: 4}}}); err != nil {
+		t.Fatal(err)
+	}
+	_, in := waybill(t, s, Store)
+	marks := in.Positions[0].Marks
+	send(t, s, Store, "WayBillAct", sim.WayBillAct{TTNID: in.ID, Positions: []sim.ActPosition{
+		{Identity: 1, QtyAccepted: 2, Marks: marks}, {Identity: 2, QtyAccepted: 4},
+	}})
+	type item struct {
+		Alcocode string   `json:"alcocode"`
+		Qty      int      `json:"qty"`
+		Marks    []string `json:"marks,omitempty"`
+	}
+	type act struct {
+		Reason string `json:"reason"`
+		Items  []item `json:"items"`
+	}
+	bad := act{Reason: "Порча", Items: []item{{Alcocode: Vodka, Qty: 1, Marks: []string{"PKNNOTOURS00000"}}}}
+	if tk := ticket(t, s, Store, send(t, s, Store, "ActWriteOff", bad)); tk.Result != "rejected" {
+		t.Fatalf("foreign mark: %+v", tk)
+	}
+	ok := act{Reason: "Порча", Items: []item{{Alcocode: Vodka, Qty: 1, Marks: marks[:1]}, {Alcocode: Beer, Qty: 1}}}
+	if tk := ticket(t, s, Store, send(t, s, Store, "ActWriteOff", ok)); tk.Result != "accepted" {
+		t.Fatalf("write-off: %+v", tk)
+	}
+	if m, _ := s.Mark(ctx, marks[0]); m.Status != "written_off" {
+		t.Fatalf("written-off mark: %+v", m)
+	}
+}

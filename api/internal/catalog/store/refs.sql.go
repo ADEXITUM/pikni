@@ -96,24 +96,26 @@ func (q *Queries) CreateVolume(ctx context.Context, ml int32) (Volume, error) {
 }
 
 const createWriteoffReason = `-- name: CreateWriteoffReason :one
-insert into writeoff_reasons (name, egais_type)
-values ($1, $2)
-returning id, name, egais_type, is_active
+insert into writeoff_reasons (name, egais_type, photo_required)
+values ($1, $2, $3)
+returning id, name, egais_type, is_active, photo_required
 `
 
 type CreateWriteoffReasonParams struct {
-	Name      string
-	EgaisType string
+	Name          string
+	EgaisType     string
+	PhotoRequired bool
 }
 
 func (q *Queries) CreateWriteoffReason(ctx context.Context, arg CreateWriteoffReasonParams) (WriteoffReason, error) {
-	row := q.db.QueryRow(ctx, createWriteoffReason, arg.Name, arg.EgaisType)
+	row := q.db.QueryRow(ctx, createWriteoffReason, arg.Name, arg.EgaisType, arg.PhotoRequired)
 	var i WriteoffReason
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.EgaisType,
 		&i.IsActive,
+		&i.PhotoRequired,
 	)
 	return i, err
 }
@@ -191,7 +193,7 @@ func (q *Queries) GetVolume(ctx context.Context, ml int32) (Volume, error) {
 }
 
 const getWriteoffReason = `-- name: GetWriteoffReason :one
-select id, name, egais_type, is_active
+select id, name, egais_type, is_active, photo_required
 from writeoff_reasons
 where id = $1
 for update
@@ -205,6 +207,7 @@ func (q *Queries) GetWriteoffReason(ctx context.Context, id uuid.UUID) (Writeoff
 		&i.Name,
 		&i.EgaisType,
 		&i.IsActive,
+		&i.PhotoRequired,
 	)
 	return i, err
 }
@@ -395,7 +398,7 @@ func (q *Queries) ListVolumes(ctx context.Context) ([]Volume, error) {
 }
 
 const listWriteoffReasons = `-- name: ListWriteoffReasons :many
-select id, name, egais_type, is_active
+select id, name, egais_type, is_active, photo_required
 from writeoff_reasons
 order by name
 `
@@ -414,6 +417,7 @@ func (q *Queries) ListWriteoffReasons(ctx context.Context) ([]WriteoffReason, er
 			&i.Name,
 			&i.EgaisType,
 			&i.IsActive,
+			&i.PhotoRequired,
 		); err != nil {
 			return nil, err
 		}
@@ -542,16 +546,17 @@ func (q *Queries) UpdateProducer(ctx context.Context, arg UpdateProducerParams) 
 
 const updateWriteoffReason = `-- name: UpdateWriteoffReason :one
 update writeoff_reasons
-set name = $1, egais_type = $2, is_active = $3
-where id = $4
-returning id, name, egais_type, is_active
+set name = $1, egais_type = $2, is_active = $3, photo_required = $4
+where id = $5
+returning id, name, egais_type, is_active, photo_required
 `
 
 type UpdateWriteoffReasonParams struct {
-	Name      string
-	EgaisType string
-	IsActive  bool
-	ID        uuid.UUID
+	Name          string
+	EgaisType     string
+	IsActive      bool
+	PhotoRequired bool
+	ID            uuid.UUID
 }
 
 func (q *Queries) UpdateWriteoffReason(ctx context.Context, arg UpdateWriteoffReasonParams) (WriteoffReason, error) {
@@ -559,6 +564,7 @@ func (q *Queries) UpdateWriteoffReason(ctx context.Context, arg UpdateWriteoffRe
 		arg.Name,
 		arg.EgaisType,
 		arg.IsActive,
+		arg.PhotoRequired,
 		arg.ID,
 	)
 	var i WriteoffReason
@@ -567,6 +573,7 @@ func (q *Queries) UpdateWriteoffReason(ctx context.Context, arg UpdateWriteoffRe
 		&i.Name,
 		&i.EgaisType,
 		&i.IsActive,
+		&i.PhotoRequired,
 	)
 	return i, err
 }

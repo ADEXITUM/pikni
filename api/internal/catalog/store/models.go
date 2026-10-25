@@ -139,8 +139,9 @@ type Volume struct {
 }
 
 type WriteoffReason struct {
-	ID        uuid.UUID
-	Name      string
-	EgaisType string
-	IsActive  bool
+	ID            uuid.UUID
+	Name          string
+	EgaisType     string
+	IsActive      bool
+	PhotoRequired bool
 }
