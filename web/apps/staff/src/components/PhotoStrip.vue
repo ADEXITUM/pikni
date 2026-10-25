@@ -3,8 +3,9 @@ import { mdiCameraPlusOutline, mdiClose } from '@mdi/js'
 import { api, ApiError } from '@pikni/api'
 import { ref } from 'vue'
 
-// Фотографии к списанию (бой, СО-5). Снимок уменьшается на устройстве до 1600 px и уходит JPEG —
-// с телефона это сотни килобайт, а не десяток мегабайт.
+import { shrinkPhoto } from '@/photo'
+
+// Фотографии к списанию (бой, СО-5).
 const props = defineProps<{
   documentId: string
   photos: { id: string; createdAt: string }[]
@@ -15,23 +16,6 @@ const input = ref<HTMLInputElement>()
 const busy = ref(false)
 const error = ref('')
 
-async function shrink(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(bitmap.width * scale)
-  canvas.height = Math.round(bitmap.height * scale)
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  const blob = await new Promise<Blob>((ok, fail) =>
-    canvas.toBlob((b) => (b ? ok(b) : fail(new Error('Снимок не прочитан'))), 'image/jpeg', 0.85),
-  )
-  const bytes = new Uint8Array(await blob.arrayBuffer())
-  let binary = ''
-  for (let i = 0; i < bytes.length; i += 0x8000)
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  return btoa(binary)
-}
-
 async function upload(e: Event) {
   const files = [...((e.target as HTMLInputElement).files ?? [])]
   if (!files.length) return
@@ -41,7 +25,7 @@ async function upload(e: Event) {
     for (const file of files) {
       const { error: problem } = await api.POST('/documents/{id}/photos', {
         params: { path: { id: props.documentId } },
-        body: { data: await shrink(file) },
+        body: { data: await shrinkPhoto(file) },
       })
       if (problem) throw new ApiError(problem)
     }

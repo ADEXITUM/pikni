@@ -3276,6 +3276,617 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /price-tags/stale:
+    get:
+      operationId: listStalePriceTags
+      summary: Ценники к перепечатке
+      tags: [labels]
+      x-permission: floor.view
+      description: >
+        Товары торгового зала точки, у которых розничная цена изменилась после печати ценника или
+        ценник ещё не печатался (ЭТ-3).
+      parameters:
+        - name: locationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PriceTagItem"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /price-tags:
+    post:
+      operationId: printPriceTags
+      summary: Напечатать ценники
+      tags: [labels]
+      x-permission: floor.view
+      description: >
+        PDF с ценниками выбранных товаров или всех строк документа (например, поступления) на листе
+        A4 с сеткой или на термоэтикетках 58 × 40 мм (ЭТ-2). Напечатанное запоминается по точке.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceTagRequest"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /asset-categories:
+    get:
+      operationId: listAssetCategories
+      summary: Категории имущества
+      tags: [assets]
+      x-permission: assets.view
+      responses:
+        "200":
+          description: Категории
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AssetCategory"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets:
+    get:
+      operationId: listAssets
+      summary: Ведомость имущества
+      tags: [assets]
+      x-permission: assets.view
+      description: Объекты доступных точек (ИМ-6). Списанные — только с фильтром status=written_off.
+      parameters:
+        - $ref: "#/components/parameters/AssetLocation"
+        - $ref: "#/components/parameters/AssetResponsibleFilter"
+        - $ref: "#/components/parameters/AssetCategoryCode"
+        - $ref: "#/components/parameters/AssetStatusParam"
+        - $ref: "#/components/parameters/AssetQuery"
+      responses:
+        "200":
+          description: Объекты
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Asset"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createAsset
+      summary: Принять объект к учёту
+      tags: [assets]
+      x-permission: assets.edit
+      description: Инвентарный номер INV-000001 присваивает система.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAsset"
+      responses:
+        "201":
+          description: Объект принят к учёту
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/register:
+    get:
+      operationId: getAssetRegister
+      summary: Ведомость имущества в Excel
+      tags: [assets]
+      x-permission: assets.view
+      parameters:
+        - $ref: "#/components/parameters/AssetLocation"
+        - $ref: "#/components/parameters/AssetResponsibleFilter"
+        - $ref: "#/components/parameters/AssetCategoryCode"
+        - $ref: "#/components/parameters/AssetStatusParam"
+        - $ref: "#/components/parameters/AssetQuery"
+      responses:
+        "200":
+          description: XLSX
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/labels:
+    post:
+      operationId: printAssetLabels
+      summary: Напечатать инвентарные наклейки
+      tags: [assets]
+      x-permission: assets.view
+      description: Code 128 и QR-код с инвентарным номером (ИМ-2), на A4 или термоэтикетках 58 × 40 мм.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetLabelRequest"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/responsibles:
+    get:
+      operationId: listAssetResponsibles
+      summary: Кому можно передать имущество под ответственность
+      tags: [assets]
+      x-permission: assets.view
+      parameters:
+        - name: locationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сотрудники
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AssetResponsible"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}:
+    get:
+      operationId: getAsset
+      summary: Карточка объекта с историей
+      tags: [assets]
+      x-permission: assets.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Карточка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateAsset
+      summary: Изменить карточку
+      tags: [assets]
+      x-permission: assets.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetUpdate"
+      responses:
+        "200":
+          description: Сохранено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}/move:
+    post:
+      operationId: moveAsset
+      summary: Переместить в другую точку или сменить МОЛ
+      tags: [assets]
+      x-permission: assets.edit
+      description: Каждое изменение записывается в историю объекта (ИМ-3).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetMove"
+      responses:
+        "200":
+          description: Перемещено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}/status:
+    post:
+      operationId: setAssetStatus
+      summary: В эксплуатации или в ремонте
+      tags: [assets]
+      x-permission: assets.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetStatusChange"
+      responses:
+        "200":
+          description: Состояние изменено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}/photo:
+    get:
+      operationId: getAssetPhoto
+      summary: Фотография объекта
+      tags: [assets]
+      x-permission: assets.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: JPEG
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: setAssetPhoto
+      summary: Сфотографировать объект
+      tags: [assets]
+      x-permission: assets.edit
+      description: JPEG до 3 МБ в base64; клиент уменьшает снимок перед отправкой.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPhoto"
+      responses:
+        "204":
+          description: Сохранено
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteAssetPhoto
+      summary: Убрать фотографию
+      tags: [assets]
+      x-permission: assets.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Удалена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}/writeoff:
+    post:
+      operationId: requestAssetWriteoff
+      summary: Оформить списание объекта
+      tags: [assets]
+      x-permission: assets.edit
+      description: Объект остаётся в учёте, пока списание не утвердит другой сотрудник с правом утверждения (ИМ-5, ПБ-8).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetWriteoffRequest"
+      responses:
+        "200":
+          description: Списание ждёт утверждения
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}/writeoff/{decision}:
+    post:
+      operationId: decideAssetWriteoff
+      summary: Утвердить или отклонить списание
+      tags: [assets]
+      x-permission: docs.approve
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: decision
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [approve, reject]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Решение принято
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /assets/{id}/writeoff-act:
+    get:
+      operationId: getAssetWriteoffAct
+      summary: Акт о списании
+      tags: [assets]
+      x-permission: assets.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /asset-audits:
+    get:
+      operationId: listAssetAudits
+      summary: Инвентаризации имущества
+      tags: [assets]
+      x-permission: assets.view
+      responses:
+        "200":
+          description: Последние инвентаризации
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AssetAudit"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: startAssetAudit
+      summary: Начать инвентаризацию имущества в точке
+      tags: [assets]
+      x-permission: assets.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locationId]
+              properties:
+                locationId:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Начата
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetAuditState"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /asset-audits/{id}:
+    get:
+      operationId: getAssetAudit
+      summary: Ход и результат инвентаризации имущества
+      tags: [assets]
+      x-permission: assets.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Результат по каждому объекту
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetAuditState"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /asset-audits/{id}/scans:
+    post:
+      operationId: scanAssetLabel
+      summary: Отсканировать наклейку
+      tags: [assets]
+      x-permission: assets.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [raw]
+              properties:
+                raw:
+                  type: string
+                  maxLength: 100
+      responses:
+        "200":
+          description: Исход скана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetAuditScan"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /asset-audits/{id}/{action}:
+    post:
+      operationId: finishAssetAudit
+      summary: Завершить или отменить инвентаризацию имущества
+      tags: [assets]
+      x-permission: assets.edit
+      description: relocate — найденное здесь, но числящееся в другой точке, перевести в эту точку.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [finish, cancel]
+        - name: relocate
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Готово
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetAuditState"
+        default:
+          $ref: "#/components/responses/Problem"
+
+
   /marks/{code}:
     get:
       operationId: getMark
@@ -3317,6 +3928,34 @@ components:
         type: string
 
   parameters:
+    AssetLocation:
+      name: locationId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    AssetResponsibleFilter:
+      name: responsibleId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    AssetCategoryCode:
+      name: category
+      in: query
+      schema:
+        type: string
+    AssetStatusParam:
+      name: status
+      in: query
+      schema:
+        $ref: "#/components/schemas/AssetStatus"
+    AssetQuery:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 100
     AuditFrom:
       name: from
       in: query
@@ -3451,6 +4090,14 @@ components:
         - reservation.cancelled
         - reservation.issued
         - stocktake.started
+        - asset.created
+        - asset.updated
+        - asset.moved
+        - asset.status_changed
+        - asset.writeoff_requested
+        - asset.written_off
+        - asset.writeoff_rejected
+        - asset.audit_finished
 
     AuditEntry:
       type: object
@@ -4047,6 +4694,372 @@ components:
         expiresAt:
           type: string
           format: date-time
+
+    PriceTagItem:
+      type: object
+      required: [variantId, article, name, label, priceKopecks]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        label:
+          type: string
+        abv:
+          type: number
+          format: double
+        priceKopecks:
+          type: integer
+          format: int64
+          description: Текущая розничная цена, коп.
+        printedKopecks:
+          type: integer
+          format: int64
+          description: Цена на последнем напечатанном ценнике, коп.
+        printedAt:
+          type: string
+          format: date-time
+        barcode:
+          type: string
+
+    LabelFormat:
+      type: string
+      enum: [a4, thermal]
+      description: a4 — лист A4 с сеткой 3 × 7, thermal — термоэтикетка 58 × 40 мм
+
+    PriceTagRequest:
+      type: object
+      required: [locationId, format]
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        variantIds:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            format: uuid
+        documentId:
+          type: string
+          format: uuid
+          description: Все товары документа, например поступления
+        format:
+          $ref: "#/components/schemas/LabelFormat"
+
+    AssetCategory:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+
+    AssetStatus:
+      type: string
+      enum: [in_use, repair, written_off]
+
+    AssetFields:
+      type: object
+      required: [name, categoryCode, acceptedAt, costKopecks]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        categoryCode:
+          type: string
+        serial:
+          type: string
+          maxLength: 100
+        acceptedAt:
+          type: string
+          format: date
+        costKopecks:
+          type: integer
+          format: int64
+          minimum: 0
+
+    NewAsset:
+      allOf:
+        - $ref: "#/components/schemas/AssetFields"
+        - type: object
+          required: [locationId]
+          properties:
+            locationId:
+              type: string
+              format: uuid
+            responsibleId:
+              type: string
+              format: uuid
+
+    AssetUpdate:
+      allOf:
+        - $ref: "#/components/schemas/AssetFields"
+        - type: object
+          required: [version]
+          properties:
+            version:
+              type: integer
+
+    AssetMove:
+      type: object
+      required: [version, locationId]
+      properties:
+        version:
+          type: integer
+        locationId:
+          type: string
+          format: uuid
+        responsibleId:
+          type: string
+          format: uuid
+          description: МОЛ после перемещения; нет — снять ответственность
+        comment:
+          type: string
+          maxLength: 1000
+
+    AssetStatusChange:
+      type: object
+      required: [version, status]
+      properties:
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [in_use, repair]
+        comment:
+          type: string
+          maxLength: 1000
+
+    AssetWriteoffRequest:
+      type: object
+      required: [version, reason]
+      properties:
+        version:
+          type: integer
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+
+    AssetLabelRequest:
+      type: object
+      required: [assetIds, format]
+      properties:
+        assetIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+        format:
+          $ref: "#/components/schemas/LabelFormat"
+
+    Asset:
+      type: object
+      required: [id, number, name, categoryCode, categoryName, serial, acceptedAt, costKopecks, locationId,
+                 locationCode, locationName, status, hasPhoto, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        name:
+          type: string
+        categoryCode:
+          type: string
+        categoryName:
+          type: string
+        serial:
+          type: string
+        acceptedAt:
+          type: string
+          format: date
+        costKopecks:
+          type: integer
+          format: int64
+        locationId:
+          type: string
+          format: uuid
+        locationCode:
+          type: string
+        locationName:
+          type: string
+        responsibleId:
+          type: string
+          format: uuid
+        responsibleName:
+          type: string
+        status:
+          $ref: "#/components/schemas/AssetStatus"
+        hasPhoto:
+          type: boolean
+        version:
+          type: integer
+
+    AssetEvent:
+      type: object
+      required: [id, kind, at, comment]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [created, moved, responsible, status, writeoff_requested, writeoff_rejected, written_off, found_elsewhere]
+        at:
+          type: string
+          format: date-time
+        comment:
+          type: string
+        fromStatus:
+          type: string
+        toStatus:
+          type: string
+        fromLocationName:
+          type: string
+        toLocationName:
+          type: string
+        fromUserName:
+          type: string
+        toUserName:
+          type: string
+        userName:
+          type: string
+
+    AssetWriteoff:
+      type: object
+      required: [reason, status, requestedAt, requestedByName, decisionComment]
+      properties:
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requestedAt:
+          type: string
+          format: date-time
+        requestedByName:
+          type: string
+        decidedAt:
+          type: string
+          format: date-time
+        decidedByName:
+          type: string
+        decisionComment:
+          type: string
+
+    AssetCard:
+      type: object
+      required: [asset, events, canEdit, canApprove]
+      properties:
+        asset:
+          $ref: "#/components/schemas/Asset"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetEvent"
+        writeoff:
+          $ref: "#/components/schemas/AssetWriteoff"
+        canEdit:
+          type: boolean
+        canApprove:
+          type: boolean
+          description: Можно утвердить или отклонить ожидающее списание — не тому, кто его оформил
+
+    AssetResponsible:
+      type: object
+      required: [id, fullName, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+
+    AssetAudit:
+      type: object
+      required: [id, locationId, locationName, status, startedAt, startedByName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        locationName:
+          type: string
+        status:
+          type: string
+          enum: [counting, finished, cancelled]
+        startedAt:
+          type: string
+          format: date-time
+        startedByName:
+          type: string
+        finishedAt:
+          type: string
+          format: date-time
+        finishedByName:
+          type: string
+
+    AssetAuditResult:
+      type: object
+      required: [assetId, number, name, categoryName, locationName, result]
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        number:
+          type: string
+        name:
+          type: string
+        categoryName:
+          type: string
+        locationName:
+          type: string
+          description: Где объект числится
+        responsibleName:
+          type: string
+        result:
+          type: string
+          enum: [found, not_found, elsewhere]
+        scannedAt:
+          type: string
+          format: date-time
+
+    AssetAuditState:
+      type: object
+      required: [audit, results]
+      properties:
+        audit:
+          $ref: "#/components/schemas/AssetAudit"
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetAuditResult"
+
+    AssetAuditScan:
+      type: object
+      required: [assetId, result, duplicate]
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [found, elsewhere]
+        duplicate:
+          type: boolean
 
     Reservation:
       type: object

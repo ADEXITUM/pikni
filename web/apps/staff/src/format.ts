@@ -19,3 +19,9 @@ export function formatDateTime(iso: string): string {
     second: '2-digit',
   })
 }
+
+// Дата без времени (YYYY-MM-DD) — как есть, без сдвига часового пояса.
+export function formatDate(day: string): string {
+  const [y, m, d] = day.split('-')
+  return `${d}.${m}.${y}`
+}

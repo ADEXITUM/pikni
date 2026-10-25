@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/assets"
 	"github.com/ADEXITUM/pikni/api/internal/audit"
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/availability"
@@ -15,6 +16,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/documents"
 	"github.com/ADEXITUM/pikni/api/internal/egais"
 	"github.com/ADEXITUM/pikni/api/internal/exchange"
+	"github.com/ADEXITUM/pikni/api/internal/labels"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
 	"github.com/ADEXITUM/pikni/api/internal/pairing"
@@ -30,11 +32,13 @@ import (
 // Псевдонимы нужны, чтобы встроить обработчики разных модулей с одинаковым
 // именем типа Handler: имя встроенного поля берётся из имени типа.
 type (
+	assetsHandler    = assets.Handler
 	auditHandler     = audit.Handler
 	authHandler      = auth.Handler
 	availHandler     = availability.Handler
 	catalogHandler   = catalog.Handler
 	documentsHandler = documents.Handler
+	labelsHandler    = labels.Handler
 	locationsHandler = locations.Handler
 	marksHandler     = marks.Handler
 	pairingHandler   = pairing.Handler
@@ -47,11 +51,13 @@ type (
 
 // API собирает обработчики модулей в одну реализацию сгенерированного интерфейса.
 type API struct {
+	*assetsHandler
 	*auditHandler
 	*authHandler
 	*availHandler
 	*catalogHandler
 	*documentsHandler
+	*labelsHandler
 	*locationsHandler
 	*marksHandler
 	*pairingHandler
@@ -90,11 +96,13 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 	res := reservations.NewService(pool, cat, mk)
 	tills := pos.NewService(pool, cat, mk, docs, locs, egais.NewGovsim(govsimURL), crpt.NewGovsim(govsimURL), res)
 	api := &API{
+		assetsHandler:    assets.NewHandler(assets.NewService(pool)),
 		auditHandler:     audit.NewHandler(pool),
 		authHandler:      auth.NewHandler(sessions),
 		availHandler:     availability.NewHandler(availability.NewService(pool, mk)),
 		catalogHandler:   catalog.NewHandler(cat),
 		documentsHandler: documents.NewHandler(docs),
+		labelsHandler:    labels.NewHandler(labels.NewService(pool)),
 		locationsHandler: locations.NewHandler(locs),
 		marksHandler:     marks.NewHandler(mk),
 		pairingHandler:   pairing.NewHandler(pairing.NewService(pool)),

@@ -128,6 +128,30 @@ const router = createRouter({
       meta: { title: 'Сверка с ЕГАИС', permission: 'egais.reconcile' },
     },
     {
+      path: '/price-tags',
+      name: 'price-tags',
+      component: () => import('@/pages/PriceTagsPage.vue'),
+      meta: { title: 'Ценники', permission: 'floor.view', scans: true },
+    },
+    {
+      path: '/assets',
+      name: 'assets',
+      component: () => import('@/pages/AssetsPage.vue'),
+      meta: { title: 'Имущество', permission: 'assets.view' },
+    },
+    {
+      path: '/assets/:id',
+      name: 'asset',
+      component: () => import('@/pages/AssetPage.vue'),
+      meta: { title: 'Объект имущества', permission: 'assets.view' },
+    },
+    {
+      path: '/asset-audits/:id',
+      name: 'asset-audit',
+      component: () => import('@/pages/AssetAuditPage.vue'),
+      meta: { title: 'Инвентаризация имущества', permission: 'assets.view', scans: true },
+    },
+    {
       path: '/stock',
       name: 'stock',
       component: () => import('@/pages/StockPage.vue'),

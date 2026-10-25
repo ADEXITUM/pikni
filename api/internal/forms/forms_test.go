@@ -2,6 +2,8 @@ package forms_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -39,5 +41,34 @@ func TestForms(t *testing.T) {
 	}
 	if _, err := forms.Inv3XLSX(d, lines); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestLabels собирает ценники и наклейки. PIKNI_FORMS_OUT — папка, куда сохранить PDF, чтобы
+// проверить распознавание штрихкодов на растре (П-28).
+func TestLabels(t *testing.T) {
+	tags := []forms.PriceTag{
+		{Name: "Водка «Тайга» классическая", Pack: "0,5 л, стекло", Abv: "40 %", PriceKopeck: 59900, PerLiterKopeck: 119800,
+			Barcode: "4600000000015", Article: "ЧК-000002", Date: time.Now()},
+		{Name: "Подарочный набор «Тайга» с двумя стопками в деревянной коробке", Pack: "0,7 л, подарочная упаковка",
+			Abv: "40 %", PriceKopeck: 189000, PerLiterKopeck: 270000, Barcode: "2000000000015", Article: "ЧК-000150", Date: time.Now()},
+	}
+	labels := []forms.AssetLabel{{Number: "INV-000001", Name: "Холодильный шкаф Polair", Location: "МГ-01 · Магазин на ул. Ленина"}}
+	out := map[string]func() ([]byte, error){
+		"tags-a4.pdf":      func() ([]byte, error) { return forms.PriceTagsPDF(forms.A4, tags) },
+		"tags-thermal.pdf": func() ([]byte, error) { return forms.PriceTagsPDF(forms.Thermal, tags) },
+		"assets-a4.pdf":    func() ([]byte, error) { return forms.AssetLabelsPDF(forms.A4, labels) },
+	}
+	dir := os.Getenv("PIKNI_FORMS_OUT")
+	for name, make := range out {
+		pdf, err := make()
+		if err != nil || !bytes.HasPrefix(pdf, []byte("%PDF")) {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if dir != "" {
+			if err := os.WriteFile(filepath.Join(dir, name), pdf, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }
