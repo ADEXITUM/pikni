@@ -55,6 +55,8 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionAssortmentCopied:    "Копирование ассортиментной матрицы",
 	apispec.AuditActionDocumentCreated:     "Создание документа",
 	apispec.AuditActionDocumentPosted:      "Проведение документа",
+	apispec.AuditActionTransferApproved:    "Согласование перемещения",
+	apispec.AuditActionTransferRejected:    "Отклонение заявки на перемещение",
 	apispec.AuditActionDocumentCancelled:   "Отмена черновика документа",
 }
 

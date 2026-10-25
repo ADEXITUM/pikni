@@ -28,11 +28,14 @@ func TestEventsReachSubscribers(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	conn, resp, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.CloseNow()
+	if resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	defer func() { _ = conn.CloseNow() }()
 
 	doc, other := uuid.New(), uuid.New()
 	sub, _ := json.Marshal(map[string][]string{"subscribe": {"doc:" + doc.String(), "bogus", "doc:x"}})

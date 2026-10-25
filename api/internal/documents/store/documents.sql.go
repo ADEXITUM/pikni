@@ -129,20 +129,23 @@ func (q *Queries) CountForeign(ctx context.Context, documentID uuid.UUID) (int32
 }
 
 const createDocument = `-- name: CreateDocument :one
-insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, author_id, comment)
-values ($1, $2, $3, $4, $5, $6, $7, $8)
+insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status)
+values ($1, $2, $3, $4, $5, $6, $7, $8,
+        $9, coalesce($10::text, 'draft'))
 returning id
 `
 
 type CreateDocumentParams struct {
-	Kind       string
-	Number     string
-	DocDate    time.Time
-	LocationID uuid.UUID
-	ZoneID     uuid.UUID
-	DestZoneID *uuid.UUID
-	AuthorID   *uuid.UUID
-	Comment    string
+	Kind           string
+	Number         string
+	DocDate        time.Time
+	LocationID     uuid.UUID
+	ZoneID         uuid.UUID
+	DestZoneID     *uuid.UUID
+	DestLocationID *uuid.UUID
+	AuthorID       *uuid.UUID
+	Comment        string
+	Status         *string
 }
 
 func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (uuid.UUID, error) {
@@ -153,8 +156,10 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.LocationID,
 		arg.ZoneID,
 		arg.DestZoneID,
+		arg.DestLocationID,
 		arg.AuthorID,
 		arg.Comment,
+		arg.Status,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -239,11 +244,16 @@ select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as lo
        coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.comment, d.created_at, d.posted_at, d.version,
        sp.name as supplier_name, d.ttn_number, d.receiving_mode, d.unmapped,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
-       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
+       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty,
+       d.dest_location_id, dl.name as dest_location_name, d.transfer_id, tr.number as transfer_number,
+       rc.id as receipt_id, rc.number as receipt_number
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
+left join locations dl on dl.id = d.dest_location_id
+left join documents tr on tr.id = d.transfer_id
+left join documents rc on rc.transfer_id = d.id and rc.kind = 'receipt'
 left join users au on au.id = d.author_id
 left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
@@ -251,29 +261,35 @@ where d.id = $1
 `
 
 type GetDocumentRow struct {
-	ID            uuid.UUID
-	Kind          string
-	Number        string
-	Status        string
-	DocDate       time.Time
-	LocationID    uuid.UUID
-	LocationName  string
-	ZoneID        uuid.UUID
-	ZoneKind      string
-	DestZoneID    *uuid.UUID
-	DestZoneKind  *string
-	AuthorName    string
-	PostedByName  *string
-	Comment       string
-	CreatedAt     time.Time
-	PostedAt      *time.Time
-	Version       int32
-	SupplierName  *string
-	TtnNumber     *string
-	ReceivingMode *string
-	Unmapped      []byte
-	LineCount     int32
-	TotalQty      int32
+	ID               uuid.UUID
+	Kind             string
+	Number           string
+	Status           string
+	DocDate          time.Time
+	LocationID       uuid.UUID
+	LocationName     string
+	ZoneID           uuid.UUID
+	ZoneKind         string
+	DestZoneID       *uuid.UUID
+	DestZoneKind     *string
+	AuthorName       string
+	PostedByName     *string
+	Comment          string
+	CreatedAt        time.Time
+	PostedAt         *time.Time
+	Version          int32
+	SupplierName     *string
+	TtnNumber        *string
+	ReceivingMode    *string
+	Unmapped         []byte
+	LineCount        int32
+	TotalQty         int32
+	DestLocationID   *uuid.UUID
+	DestLocationName *string
+	TransferID       *uuid.UUID
+	TransferNumber   *string
+	ReceiptID        *uuid.UUID
+	ReceiptNumber    *string
 }
 
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (GetDocumentRow, error) {
@@ -303,6 +319,12 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (GetDocumentRow
 		&i.Unmapped,
 		&i.LineCount,
 		&i.TotalQty,
+		&i.DestLocationID,
+		&i.DestLocationName,
+		&i.TransferID,
+		&i.TransferNumber,
+		&i.ReceiptID,
+		&i.ReceiptNumber,
 	)
 	return i, err
 }
@@ -433,6 +455,28 @@ func (q *Queries) InsertPlanLine(ctx context.Context, arg InsertPlanLineParams) 
 	return err
 }
 
+const insertRequestLine = `-- name: InsertRequestLine :exec
+insert into document_lines (document_id, line_no, variant_id, qty, qty_plan)
+values ($1, $2, $3, 0, $4)
+`
+
+type InsertRequestLineParams struct {
+	DocumentID uuid.UUID
+	LineNo     int32
+	VariantID  uuid.UUID
+	QtyPlan    *int32
+}
+
+func (q *Queries) InsertRequestLine(ctx context.Context, arg InsertRequestLineParams) error {
+	_, err := q.db.Exec(ctx, insertRequestLine,
+		arg.DocumentID,
+		arg.LineNo,
+		arg.VariantID,
+		arg.QtyPlan,
+	)
+	return err
+}
+
 const insertScan = `-- name: InsertScan :exec
 insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, package_code,
                    qty, status, reason, scanned_at)
@@ -508,19 +552,23 @@ select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as lo
        coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.created_at, d.posted_at, d.version,
        sp.name as supplier_name, d.ttn_number, d.receiving_mode,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
-       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
+       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty,
+       d.dest_location_id, dl.name as dest_location_name
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
+left join locations dl on dl.id = d.dest_location_id
 left join users au on au.id = d.author_id
 left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
 where (d.kind = any($1::text[])
-       or (d.kind = any($2::text[]) and d.location_id = any($3::uuid[])))
+       or (d.kind = any($2::text[])
+           and (d.location_id = any($3::uuid[]) or d.dest_location_id = any($3::uuid[]))))
   and ($4::text is null or d.kind = $4::text)
   and ($5::text is null or d.status = $5::text)
-  and ($6::uuid is null or d.location_id = $6::uuid)
+  and ($6::uuid is null or d.location_id = $6::uuid
+       or d.dest_location_id = $6::uuid)
   and ($7::uuid is null or d.id < $7::uuid)
 order by d.id desc
 limit $8
@@ -538,27 +586,29 @@ type ListDocumentsParams struct {
 }
 
 type ListDocumentsRow struct {
-	ID            uuid.UUID
-	Kind          string
-	Number        string
-	Status        string
-	DocDate       time.Time
-	LocationID    uuid.UUID
-	LocationName  string
-	ZoneID        uuid.UUID
-	ZoneKind      string
-	DestZoneID    *uuid.UUID
-	DestZoneKind  *string
-	AuthorName    string
-	PostedByName  *string
-	CreatedAt     time.Time
-	PostedAt      *time.Time
-	Version       int32
-	SupplierName  *string
-	TtnNumber     *string
-	ReceivingMode *string
-	LineCount     int32
-	TotalQty      int32
+	ID               uuid.UUID
+	Kind             string
+	Number           string
+	Status           string
+	DocDate          time.Time
+	LocationID       uuid.UUID
+	LocationName     string
+	ZoneID           uuid.UUID
+	ZoneKind         string
+	DestZoneID       *uuid.UUID
+	DestZoneKind     *string
+	AuthorName       string
+	PostedByName     *string
+	CreatedAt        time.Time
+	PostedAt         *time.Time
+	Version          int32
+	SupplierName     *string
+	TtnNumber        *string
+	ReceivingMode    *string
+	LineCount        int32
+	TotalQty         int32
+	DestLocationID   *uuid.UUID
+	DestLocationName *string
 }
 
 // Видны виды документов, на которые есть право во всей сети (kinds_all) или в своих точках (kinds_own).
@@ -603,6 +653,8 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.ReceivingMode,
 			&i.LineCount,
 			&i.TotalQty,
+			&i.DestLocationID,
+			&i.DestLocationName,
 		); err != nil {
 			return nil, err
 		}
@@ -824,26 +876,29 @@ func (q *Queries) LocationZones(ctx context.Context, locationID uuid.UUID) ([]Lo
 
 const lockDocument = `-- name: LockDocument :one
 select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
-       receiving_mode, ttn_id, unmapped
+       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment
 from documents
 where id = $1
 for update
 `
 
 type LockDocumentRow struct {
-	ID            uuid.UUID
-	Kind          string
-	Number        string
-	Status        string
-	DocDate       time.Time
-	LocationID    uuid.UUID
-	ZoneID        uuid.UUID
-	DestZoneID    *uuid.UUID
-	AuthorID      *uuid.UUID
-	Version       int32
-	ReceivingMode *string
-	TtnID         *string
-	Unmapped      []byte
+	ID             uuid.UUID
+	Kind           string
+	Number         string
+	Status         string
+	DocDate        time.Time
+	LocationID     uuid.UUID
+	ZoneID         uuid.UUID
+	DestZoneID     *uuid.UUID
+	AuthorID       *uuid.UUID
+	Version        int32
+	ReceivingMode  *string
+	TtnID          *string
+	Unmapped       []byte
+	DestLocationID *uuid.UUID
+	TransferID     *uuid.UUID
+	Comment        string
 }
 
 func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentRow, error) {
@@ -863,6 +918,9 @@ func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentR
 		&i.ReceivingMode,
 		&i.TtnID,
 		&i.Unmapped,
+		&i.DestLocationID,
+		&i.TransferID,
+		&i.Comment,
 	)
 	return i, err
 }
@@ -901,6 +959,17 @@ func (q *Queries) NextDocNumber(ctx context.Context, arg NextDocNumberParams) (i
 	var last_no int32
 	err := row.Scan(&last_no)
 	return last_no, err
+}
+
+const receiptForTransfer = `-- name: ReceiptForTransfer :one
+select id from documents where transfer_id = $1 and kind = 'receipt'
+`
+
+func (q *Queries) ReceiptForTransfer(ctx context.Context, transferID *uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, receiptForTransfer, transferID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const receiptMarks = `-- name: ReceiptMarks :many
@@ -983,6 +1052,20 @@ func (q *Queries) ResetPackagesToOpen(ctx context.Context, documentID uuid.UUID)
 	return err
 }
 
+const setComment = `-- name: SetComment :exec
+update documents set comment = $1 where id = $2
+`
+
+type SetCommentParams struct {
+	Comment string
+	ID      uuid.UUID
+}
+
+func (q *Queries) SetComment(ctx context.Context, arg SetCommentParams) error {
+	_, err := q.db.Exec(ctx, setComment, arg.Comment, arg.ID)
+	return err
+}
+
 const setDocumentStatus = `-- name: SetDocumentStatus :exec
 update documents
 set status = $1, posted_by = coalesce($2, posted_by),
@@ -1039,6 +1122,20 @@ func (q *Queries) SetLineQty(ctx context.Context, arg SetLineQtyParams) (int64, 
 	return result.RowsAffected(), nil
 }
 
+const setReceiptTTN = `-- name: SetReceiptTTN :exec
+update documents set ttn_id = $1 where id = $2
+`
+
+type SetReceiptTTNParams struct {
+	TtnID *string
+	ID    uuid.UUID
+}
+
+func (q *Queries) SetReceiptTTN(ctx context.Context, arg SetReceiptTTNParams) error {
+	_, err := q.db.Exec(ctx, setReceiptTTN, arg.TtnID, arg.ID)
+	return err
+}
+
 const setReceivingMode = `-- name: SetReceivingMode :exec
 update documents set receiving_mode = $1 where id = $2
 `
@@ -1051,6 +1148,54 @@ type SetReceivingModeParams struct {
 func (q *Queries) SetReceivingMode(ctx context.Context, arg SetReceivingModeParams) error {
 	_, err := q.db.Exec(ctx, setReceivingMode, arg.ReceivingMode, arg.ID)
 	return err
+}
+
+const setTransfer = `-- name: SetTransfer :exec
+update documents set transfer_id = $1 where id = $2
+`
+
+type SetTransferParams struct {
+	TransferID *uuid.UUID
+	ID         uuid.UUID
+}
+
+func (q *Queries) SetTransfer(ctx context.Context, arg SetTransferParams) error {
+	_, err := q.db.Exec(ctx, setTransfer, arg.TransferID, arg.ID)
+	return err
+}
+
+const storageZone = `-- name: StorageZone :one
+
+select z.id, l.kind as location_kind, l.is_active as location_active, l.fsrar_id, l.name,
+       (now() at time zone l.timezone)::date as local_date
+from zones z
+join locations l on l.id = z.location_id
+where z.location_id = $1 and z.kind in ('warehouse', 'backroom')
+`
+
+type StorageZoneRow struct {
+	ID             uuid.UUID
+	LocationKind   string
+	LocationActive bool
+	FsrarID        *string
+	Name           string
+	LocalDate      time.Time
+}
+
+// ---------- перемещение между точками
+// Склад точки: у распределительного склада — склад, у магазина — склад магазина.
+func (q *Queries) StorageZone(ctx context.Context, locationID uuid.UUID) (StorageZoneRow, error) {
+	row := q.db.QueryRow(ctx, storageZone, locationID)
+	var i StorageZoneRow
+	err := row.Scan(
+		&i.ID,
+		&i.LocationKind,
+		&i.LocationActive,
+		&i.FsrarID,
+		&i.Name,
+		&i.LocalDate,
+	)
+	return i, err
 }
 
 const supplierByFSRAR = `-- name: SupplierByFSRAR :one
@@ -1069,6 +1214,21 @@ func (q *Queries) SupplierByFSRAR(ctx context.Context, fsrarID *string) (Supplie
 	var i SupplierByFSRARRow
 	err := row.Scan(&i.ID, &i.DefaultReceivingMode)
 	return i, err
+}
+
+const transferByTTN = `-- name: TransferByTTN :one
+select m.document_id::uuid
+from egais_messages m
+join documents d on d.id = m.document_id
+where m.direction = 'out' and m.doc_type = 'WayBill' and m.external_id = $1 and d.kind = 'transfer'
+`
+
+// Перемещение, по которому отправлена ТТН: её идентификатор в ЕГАИС — ответ УТМ на отправку.
+func (q *Queries) TransferByTTN(ctx context.Context, externalID *string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, transferByTTN, externalID)
+	var m_document_id uuid.UUID
+	err := row.Scan(&m_document_id)
+	return m_document_id, err
 }
 
 const undoScan = `-- name: UndoScan :one

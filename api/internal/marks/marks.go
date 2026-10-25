@@ -217,3 +217,64 @@ func Unsell(ctx context.Context, tx pgx.Tx, ev Event, location, zone uuid.UUID, 
 		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InStock, ToZoneID: &zone,
 	})
 }
+
+// Ship отправляет марки из зоны from в другую точку: до приёмки они «в пути» у получателя (СО-4).
+func Ship(ctx context.Context, tx pgx.Tx, ev Event, from, toLocation uuid.UUID, codes []string) error {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	statuses := make([]string, len(codes))
+	fromZones := make([]uuid.UUID, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		if !ok || r.Status != InStock || r.ZoneID == nil || *r.ZoneID != from {
+			return &MisplacedError{Code: c, Status: r.Status}
+		}
+		statuses[i], fromZones[i] = r.Status, from
+	}
+	if err := q.MoveMarks(ctx, store.MoveMarksParams{
+		Codes: codes, LocationID: toLocation, Status: InTransit, DocumentID: &ev.DocumentID,
+	}); err != nil {
+		return err
+	}
+	return q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: fromZones,
+		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InTransit,
+	})
+}
+
+// Arrive ставит пришедшие марки в зону zone точки-получателя.
+func Arrive(ctx context.Context, tx pgx.Tx, ev Event, location, zone uuid.UUID, codes []string) error {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	statuses := make([]string, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		if !ok || r.Status != InTransit || r.LocationID != location {
+			return &MisplacedError{Code: c, Status: r.Status}
+		}
+		statuses[i] = r.Status
+	}
+	if err := q.MoveMarks(ctx, store.MoveMarksParams{
+		Codes: codes, LocationID: location, ZoneID: &zone, Status: InStock, DocumentID: &ev.DocumentID,
+	}); err != nil {
+		return err
+	}
+	return q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: make([]uuid.UUID, len(codes)),
+		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InStock, ToZoneID: &zone,
+	})
+}

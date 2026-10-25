@@ -1270,6 +1270,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Заявка на перемещение в свою точку
+         * @description Подаёт точка-получатель (СО-4, НЛ-3): что, сколько, из какой точки и почему. Отправитель согласует или отклонит заявку, соберёт и отгрузит товар с ТТН в ЕГАИС.
+         */
+        post: operations["createTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Согласовать заявку на перемещение
+         * @description После согласования отправитель собирает товар сканированием и отгружает (проведение).
+         */
+        post: operations["approveTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отклонить заявку на перемещение */
+        post: operations["rejectTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{id}": {
         parameters: {
             query?: never;
@@ -1538,7 +1595,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -2585,15 +2642,15 @@ export interface components {
             added: number;
         };
         /**
-         * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала, receipt — поступление по ТТН ЕГАИС
+         * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала, receipt — поступление по ТТН ЕГАИС, sale — продажа смены кассы, transfer — перемещение между точками
          * @enum {string}
          */
-        DocumentKind: "opening" | "floor_transfer" | "receipt";
+        DocumentKind: "opening" | "floor_transfer" | "receipt" | "sale" | "transfer";
         /**
-         * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён
+         * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён; у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути
          * @enum {string}
          */
-        DocumentStatus: "draft" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled";
+        DocumentStatus: "requested" | "rejected" | "draft" | "in_transit" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled";
         DocumentSummary: {
             /** Format: uuid */
             id: string;
@@ -2631,6 +2688,12 @@ export interface components {
             postedAt?: string;
             /** Format: int32 */
             version: number;
+            /**
+             * Format: uuid
+             * @description Точка-получатель перемещения
+             */
+            destLocationId?: string;
+            destLocationName?: string;
         };
         DocumentList: {
             items: components["schemas"]["DocumentSummary"][];
@@ -2712,6 +2775,20 @@ export interface components {
             canEdit: boolean;
             /** @description Текущий пользователь может провести документ */
             canPost: boolean;
+            /** @description Заявку на перемещение можно согласовать или отклонить */
+            canApprove?: boolean;
+            /**
+             * Format: uuid
+             * @description У поступления по перемещению — само перемещение
+             */
+            transferId?: string;
+            transferNumber?: string;
+            /**
+             * Format: uuid
+             * @description У отгруженного перемещения — поступление у получателя
+             */
+            receiptId?: string;
+            receiptNumber?: string;
             receipt?: components["schemas"]["ReceiptInfo"];
             /** @description Журнал обмена с ЕГАИС по документу (ИН-3) */
             exchange?: components["schemas"]["ExchangeMessage"][];
@@ -2782,6 +2859,25 @@ export interface components {
         };
         /** @enum {string} */
         FloorDirection: "to_floor" | "from_floor";
+        NewTransfer: {
+            /** Format: uuid */
+            fromLocationId: string;
+            /** Format: uuid */
+            toLocationId: string;
+            /** @description Причина — например, «покупатель ждёт в магазине» */
+            comment?: string;
+            lines: {
+                /** Format: uuid */
+                variantId: string;
+                /** Format: int32 */
+                qty: number;
+            }[];
+        };
+        TransferRejection: {
+            /** Format: int32 */
+            version: number;
+            reason: string;
+        };
         NewFloorTransfer: {
             /** Format: uuid */
             locationId: string;
@@ -5117,6 +5213,85 @@ export interface operations {
         responses: {
             /** @description Документ создан */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTransfer"];
+            };
+        };
+        responses: {
+            /** @description Заявка создана */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    approveTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description Заявка согласована */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    rejectTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferRejection"];
+            };
+        };
+        responses: {
+            /** @description Заявка отклонена */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

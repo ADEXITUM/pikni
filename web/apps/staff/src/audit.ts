@@ -51,6 +51,8 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'document.created': 'Создание документа',
   'document.posted': 'Проведение документа',
   'document.cancelled': 'Отмена черновика документа',
+  'transfer.approved': 'Согласование перемещения',
+  'transfer.rejected': 'Отклонение заявки на перемещение',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {

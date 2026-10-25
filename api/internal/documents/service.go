@@ -27,12 +27,16 @@ import (
 const (
 	Opening       = "opening"
 	FloorTransfer = "floor_transfer"
+	Transfer      = "transfer"
 
 	StatusDraft         = "draft"
 	StatusAwaitingEgais = "awaiting_egais"
 	StatusPosted        = "posted"
 	StatusEgaisRejected = "egais_rejected"
 	StatusCancelled     = "cancelled"
+	StatusRequested     = "requested"
+	StatusRejected      = "rejected"
+	StatusInTransit     = "in_transit"
 )
 
 var (
@@ -80,6 +84,14 @@ var kinds = map[string]kindSpec{
 		edit:   apispec.PermissionPosSell,
 		post:   apispec.PermissionPosSell,
 	},
+	// Перемещение между точками: заявку видит и подаёт получатель, согласует, собирает и отгружает
+	// отправитель. Принимает получатель — документом поступления.
+	Transfer: {
+		prefix: "ПМ",
+		view:   []apispec.Permission{apispec.PermissionTransferView, apispec.PermissionTransferRequest},
+		edit:   apispec.PermissionTransferEdit,
+		post:   apispec.PermissionTransferEdit,
+	},
 	FloorTransfer: {
 		prefix: "ПЗ",
 		view:   []apispec.Permission{apispec.PermissionFloorView},
@@ -99,9 +111,10 @@ func NewService(pool *pgxpool.Pool, cat *catalog.Service, mk *marks.Service) *Se
 	return &Service{pool: pool, q: store.New(pool), catalog: cat, marks: mk}
 }
 
-func canView(ctx context.Context, kind string, location uuid.UUID) bool {
+// canView — документ виден в своей точке; перемещение — и в точке-получателе.
+func canView(ctx context.Context, kind string, location uuid.UUID, dest *uuid.UUID) bool {
 	for _, p := range kinds[kind].view {
-		if auth.CheckLocation(ctx, p, location) == nil {
+		if auth.CheckLocation(ctx, p, location) == nil || dest != nil && auth.CheckLocation(ctx, p, *dest) == nil {
 			return true
 		}
 	}
@@ -121,7 +134,7 @@ func lockDraft(ctx context.Context, q *store.Queries, id uuid.UUID, perm func(ki
 	if err != nil {
 		return doc, err
 	}
-	if !canView(ctx, doc.Kind, doc.LocationID) {
+	if !canView(ctx, doc.Kind, doc.LocationID, doc.DestLocationID) {
 		return doc, ErrNotFound
 	}
 	if err := auth.CheckLocation(ctx, perm(kinds[doc.Kind]), doc.LocationID); err != nil {
@@ -238,7 +251,9 @@ type Detail struct {
 	Scans    []store.ListScansRow
 	CanEdit  bool
 	CanPost  bool
-	ShowCost bool
+	// CanApprove — заявку на перемещение можно согласовать или отклонить.
+	CanApprove bool
+	ShowCost   bool
 }
 
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
@@ -250,7 +265,7 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
 	if err != nil {
 		return d, err
 	}
-	if !canView(ctx, doc.Kind, doc.LocationID) {
+	if !canView(ctx, doc.Kind, doc.LocationID, doc.DestLocationID) {
 		return d, ErrNotFound
 	}
 	d.Doc = doc
@@ -264,6 +279,8 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
 	draft := doc.Status == StatusDraft
 	d.CanEdit = draft && auth.CheckLocation(ctx, spec.edit, doc.LocationID) == nil
 	d.CanPost = draft && auth.CheckLocation(ctx, spec.post, doc.LocationID) == nil
+	d.CanApprove = doc.Kind == Transfer && doc.Status == StatusRequested &&
+		auth.CheckLocation(ctx, apispec.PermissionTransferEdit, doc.LocationID) == nil
 	d.ShowCost = auth.Has(ctx, apispec.PermissionCostView)
 	// Факт приёмки считается по сканам, пока документ черновик; у проведённого он уже в строках.
 	if doc.Kind == Receipt && doc.ReceivingMode != nil && doc.Status == StatusDraft {

@@ -86,6 +86,12 @@ const router = createRouter({
       meta: { title: 'Документы', permission: 'availability.view' },
     },
     {
+      path: '/documents/transfer/new',
+      name: 'transfer-new',
+      component: () => import('@/pages/TransferNewPage.vue'),
+      meta: { title: 'Заявка на перемещение', permission: 'transfer.request', scans: true },
+    },
+    {
       path: '/documents/:id',
       name: 'document',
       component: () => import('@/pages/DocumentPage.vue'),

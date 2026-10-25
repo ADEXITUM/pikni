@@ -89,10 +89,10 @@ watch(
 const canRequest = computed(
   () => me.value?.permissions.includes('transfer.request') && !!here.value,
 )
-function requestTransfer(variant: string, from: string) {
+function requestTransfer(article: string, from: string) {
   void router.push({
     name: 'transfer-new',
-    query: { variant, from, to: here.value ?? undefined },
+    query: { article, from, to: here.value ?? undefined },
   })
 }
 </script>
@@ -175,7 +175,7 @@ function requestTransfer(variant: string, from: string) {
                         title="Привезти в мою точку"
                         :disabled="!canRequest || l.id === here"
                         data-test="request-transfer"
-                        @click="requestTransfer(v.id, l.id)"
+                        @click="requestTransfer(v.article, l.id)"
                       />
                       <v-list-item
                         v-if="router.hasRoute('reservation-new')"

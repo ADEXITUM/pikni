@@ -38,6 +38,7 @@ const (
 var (
 	ErrModeTooWeak  = errors.New("marked goods need sample or piece receiving")
 	ErrUnknownMode  = errors.New("unknown receiving mode")
+	ErrTTNPending   = errors.New("TTN has not arrived from EGAIS yet")
 	ErrUnknownPoint = errors.New("no location with this FSRAR ID")
 )
 
@@ -80,6 +81,17 @@ func (s *Service) CreateReceipt(ctx context.Context, tx pgx.Tx, fsrar string, tt
 	if err != nil {
 		return uuid.Nil, err
 	}
+	// ТТН перемещения из своей точки: поступление уже заведено при отгрузке, ТТН к нему привязывается.
+	if transfer, err := q.TransferByTTN(ctx, &ttn.ID); err == nil {
+		receipt, err := q.ReceiptForTransfer(ctx, &transfer)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		return receipt, q.SetReceiptTTN(ctx, store.SetReceiptTTNParams{ID: receipt, TtnID: &ttn.ID})
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, err
+	}
+
 	mode := ModePiece
 	var supplierID *uuid.UUID
 	if sp, err := q.SupplierByFSRAR(ctx, &ttn.Shipper.FSRARID); err == nil {
@@ -504,6 +516,9 @@ func (s *Service) postReceipt(ctx context.Context, tx pgx.Tx, q *store.Queries, 
 			return nil, "", err
 		}
 	}
+	if doc.TransferID != nil {
+		return s.postTransferReceipt(ctx, tx, q, doc, st, ev)
+	}
 	var moves []stock.Move
 	var missing, codes []string
 	var markVariants []uuid.UUID
@@ -570,6 +585,13 @@ func (s *Service) ApplyTicket(ctx context.Context, tx pgx.Tx, docID uuid.UUID, a
 	if err != nil {
 		return err
 	}
+	// ТТН перемещения: принятая — товар остаётся «в пути» до приёмки, отклонённая — видна в документе.
+	if doc.Kind == Transfer && doc.Status == StatusInTransit {
+		if !accepted {
+			return q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: docID, Status: StatusEgaisRejected})
+		}
+		return nil
+	}
 	if doc.Status != StatusAwaitingEgais {
 		return nil
 	}
@@ -587,5 +609,65 @@ func (s *Service) ApplyTicket(ctx context.Context, tx pgx.Tx, docID uuid.UUID, a
 			status = StatusEgaisRejected
 		}
 	}
-	return q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: docID, Status: status})
+	if err := q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: docID, Status: status}); err != nil {
+		return err
+	}
+	// Поступление по перемещению принято ЕГАИС — перемещение завершено.
+	if status == StatusPosted && doc.TransferID != nil {
+		return q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: *doc.TransferID, Status: StatusPosted})
+	}
+	return nil
+}
+
+// postTransferReceipt проводит приёмку перемещения: принятое переходит из «в пути» на склад
+// получателя по средней, принятые марки встают в зону. Непринятое остаётся «в пути» до акта
+// списания. Если в перемещении есть алкоголь, в ЕГАИС уходит акт по ТТН — без ТТН его не отправить.
+func (s *Service) postTransferReceipt(ctx context.Context, tx pgx.Tx, q *store.Queries, doc store.LockDocumentRow,
+	st ReceiptState, ev marks.Event) (map[uuid.UUID]int64, string, error) {
+	var moves []stock.Move
+	var codes []string
+	act := egais.Act{}
+	for _, l := range st.Lines {
+		if l.TtnIdentity != nil {
+			act.Positions = append(act.Positions, egais.ActPosition{
+				Identity: int(*l.TtnIdentity), QtyAccepted: int(l.Accepted), Marks: l.Marks,
+			})
+		}
+		if l.Accepted == 0 {
+			continue
+		}
+		moves = append(moves,
+			stock.Move{VariantID: l.VariantID, LocationID: doc.LocationID, ZoneID: doc.ZoneID, Qty: -l.Accepted, InTransit: true},
+			stock.Move{LineID: l.ID, VariantID: l.VariantID, LocationID: doc.LocationID, ZoneID: doc.ZoneID, Qty: l.Accepted},
+		)
+		codes = append(codes, l.Marks...)
+	}
+	if len(act.Positions) > 0 && doc.TtnID == nil {
+		return nil, "", ErrTTNPending
+	}
+	if len(codes) > 0 {
+		if err := marks.Arrive(ctx, tx, ev, doc.LocationID, doc.ZoneID, codes); err != nil {
+			return nil, "", err
+		}
+	}
+	costs, err := stock.Apply(ctx, tx, stock.Doc{ID: doc.ID, Date: doc.DocDate}, moves)
+	if err != nil {
+		return nil, "", err
+	}
+	for _, l := range st.Lines {
+		if _, err := q.SetLineQty(ctx, store.SetLineQtyParams{DocumentID: doc.ID, VariantID: l.VariantID, Qty: l.Accepted}); err != nil {
+			return nil, "", err
+		}
+	}
+	if len(act.Positions) == 0 {
+		if err := q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: *doc.TransferID, Status: StatusPosted}); err != nil {
+			return nil, "", err
+		}
+		return costs, StatusPosted, nil
+	}
+	act.TTNID = *doc.TtnID
+	if err := egais.EnqueuePayload(ctx, tx, doc.LocationID, egais.WayBillAct, doc.ID, act); err != nil {
+		return nil, "", err
+	}
+	return costs, StatusAwaitingEgais, nil
 }

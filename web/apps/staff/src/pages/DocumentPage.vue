@@ -184,6 +184,7 @@ const kindText = computed(() => (doc.value ? documentKindLabels[doc.value.kind] 
 const zonesText = computed(() => {
   const d = doc.value
   if (!d) return ''
+  if (d.kind === 'transfer') return `в ${d.destLocationName}`
   return d.destZoneKind
     ? `${zoneLabels[d.zoneKind]} → ${zoneLabels[d.destZoneKind]}`
     : zoneLabels[d.zoneKind]
@@ -217,6 +218,15 @@ const { mutate: post, isPending: posting } = useMutation({
 async function askPost() {
   const d = doc.value!
   actionError.value = undefined
+  if (d.kind === 'transfer') {
+    const ok = await confirm({
+      title: `Отгрузить ${d.number}?`,
+      text: `Собранное (${d.totalQty} шт.) спишется со склада и встанет «в пути» в ${d.destLocationName}; на алкоголь в ЕГАИС уйдёт ТТН. Получатель примет товар документом поступления.`,
+      confirmText: 'Отгрузить',
+    })
+    if (ok) post()
+    return
+  }
   if (d.kind === 'receipt') {
     const r = d.receipt
     const accepted = d.lines.reduce((n, l) => n + (l.qtyAccepted ?? 0), 0)
@@ -241,6 +251,32 @@ async function askPost() {
   })
   if (ok) post()
 }
+
+// Заявку на перемещение согласует или отклоняет точка-отправитель (СО-4).
+const rejectOpen = ref(false)
+const rejectReason = ref('')
+const { mutate: decide, isPending: deciding } = useMutation({
+  mutationFn: async (approve: boolean) => {
+    const path = { params: { path: { id: id.value } } }
+    const { data, error } = approve
+      ? await api.POST('/documents/{id}/approve', {
+          ...path,
+          body: { version: doc.value!.version },
+        })
+      : await api.POST('/documents/{id}/reject', {
+          ...path,
+          body: { version: doc.value!.version, reason: rejectReason.value.trim() },
+        })
+    if (error) throw new ApiError(error)
+    return data
+  },
+  onSuccess: (data) => {
+    rejectOpen.value = false
+    queryClient.setQueryData(key.value, data)
+    void queryClient.invalidateQueries({ queryKey: ['documents'] })
+  },
+  onError: (e) => (actionError.value = e.message),
+})
 
 const { mutate: cancel, isPending: cancelling } = useMutation({
   mutationFn: async () => {
@@ -326,6 +362,57 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
       >
         Учёт уже изменён, документ ждёт квитанции ЕГАИС. Если УТМ точки недоступен, сообщение уйдёт
         само, когда связь появится.
+      </v-alert>
+      <template v-if="doc.kind === 'transfer'">
+        <p class="text-body-medium mb-3" data-test="transfer-route">
+          Из <b>{{ doc.locationName }}</b> в <b>{{ doc.destLocationName }}</b
+          ><template v-if="doc.comment">. {{ doc.comment }}</template>
+        </p>
+        <v-alert
+          v-if="doc.status === 'requested'"
+          type="info"
+          variant="tonal"
+          class="mb-4"
+          data-test="transfer-requested"
+        >
+          Заявка ждёт согласования точкой-отправителем. После согласования товар соберут
+          сканированием и отгрузят.
+          <template v-if="doc.canApprove" #append>
+            <div class="d-flex ga-2">
+              <v-btn variant="text" :loading="deciding" @click="rejectOpen = true">Отклонить</v-btn>
+              <v-btn
+                color="primary"
+                variant="flat"
+                :loading="deciding"
+                data-test="approve"
+                @click="decide(true)"
+                >Согласовать</v-btn
+              >
+            </div>
+          </template>
+        </v-alert>
+        <v-alert v-if="doc.status === 'in_transit'" type="warning" variant="tonal" class="mb-4">
+          Товар в пути. Получатель примет его документом
+          <router-link
+            v-if="doc.receiptId"
+            :to="{ name: 'document', params: { id: doc.receiptId } }"
+            data-test="transfer-receipt"
+            >{{ doc.receiptNumber }}</router-link
+          >.
+        </v-alert>
+      </template>
+      <v-alert
+        v-if="doc.transferId"
+        type="info"
+        variant="tonal"
+        class="mb-4"
+        data-test="from-transfer"
+      >
+        Поступление по перемещению
+        <router-link :to="{ name: 'document', params: { id: doc.transferId } }">{{
+          doc.transferNumber
+        }}</router-link
+        >: отсканируйте пришедшие марки и товар. Непринятое останется «в пути» до акта списания.
       </v-alert>
       <p v-if="doc.kind === 'receipt'" class="text-body-medium mb-3" data-test="ttn">
         {{ doc.ttnNumber }} · {{ doc.supplierName ?? 'поставщик не найден в справочнике' }}
@@ -418,6 +505,10 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
               <th class="text-end text-no-wrap">Факт</th>
               <th class="text-end text-no-wrap">Примем</th>
             </template>
+            <template v-else-if="doc.kind === 'transfer'">
+              <th class="text-end text-no-wrap">Заявлено</th>
+              <th class="text-end text-no-wrap">Собрано</th>
+            </template>
             <th v-else class="text-end text-no-wrap">Кол-во</th>
             <th v-if="showCost" class="text-end">Себестоимость</th>
           </tr>
@@ -442,6 +533,15 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
                 {{ l.qtyFact ?? l.qty }}
               </td>
               <td class="text-end">{{ l.qtyAccepted ?? 0 }}</td>
+            </template>
+            <template v-else-if="doc.kind === 'transfer'">
+              <td class="text-end">{{ l.qtyPlan ?? '—' }}</td>
+              <td
+                class="text-end"
+                :class="{ 'text-warning font-weight-bold': l.qty !== (l.qtyPlan ?? 0) }"
+              >
+                {{ l.qty }}
+              </td>
             </template>
             <td v-else class="text-end pk-qty">
               <input
@@ -531,7 +631,13 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
           data-test="post"
           @click="askPost"
         >
-          {{ doc.kind === 'receipt' ? 'Завершить приёмку' : 'Провести' }}
+          {{
+            doc.kind === 'receipt'
+              ? 'Завершить приёмку'
+              : doc.kind === 'transfer'
+                ? 'Отгрузить'
+                : 'Провести'
+          }}
         </v-btn>
       </div>
       <p v-else-if="doc.status === 'draft'" class="text-body-medium text-medium-emphasis">
@@ -540,6 +646,32 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
         >.
       </p>
     </template>
+
+    <v-dialog v-model="rejectOpen" max-width="440">
+      <v-card title="Отклонить заявку">
+        <v-card-text>
+          <v-text-field
+            v-model="rejectReason"
+            label="Причина"
+            hint="Получатель увидит её в заявке"
+            persistent-hint
+            autofocus
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="rejectOpen = false">Отмена</v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            :disabled="!rejectReason.trim()"
+            :loading="deciding"
+            @click="decide(false)"
+            >Отклонить</v-btn
+          >
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 

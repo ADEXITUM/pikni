@@ -266,7 +266,7 @@ func (s *Service) classifyMark(ctx context.Context, q *store.Queries, doc store.
 			return reject(v, ScanRejected, "Вариант в архиве"), nil
 		}
 
-	case FloorTransfer:
+	case FloorTransfer, Transfer:
 		if existing == nil {
 			v.mark = nil
 			return reject(v, ScanForeign, "Марки нет в учёте точки"), nil

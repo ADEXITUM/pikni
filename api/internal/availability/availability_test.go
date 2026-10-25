@@ -2,6 +2,7 @@ package availability_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -151,7 +152,7 @@ func TestSearch(t *testing.T) {
 	if len(f.search(t, availability.Filter{Attrs: `{"age": {"min": 6}}`})) != 0 {
 		t.Fatal("age range excludes")
 	}
-	if _, err := f.svc.Search(t.Context(), availability.Filter{Sort: "name", Limit: 30, Attrs: `{"age": [1]}`}); err != availability.ErrBadFilters {
+	if _, err := f.svc.Search(t.Context(), availability.Filter{Sort: "name", Limit: 30, Attrs: `{"age": [1]}`}); !errors.Is(err, availability.ErrBadFilters) {
 		t.Fatalf("bad filter: %v", err)
 	}
 }

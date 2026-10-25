@@ -28,7 +28,7 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()

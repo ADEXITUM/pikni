@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mdiPlus, mdiStorefrontOutline, mdiTransferRight } from '@mdi/js'
+import { mdiPlus, mdiStorefrontOutline, mdiTransferRight, mdiTruckDeliveryOutline } from '@mdi/js'
 import {
   api,
   ApiError,
@@ -25,6 +25,7 @@ const router = useRouter()
 
 // Новые документы и смена статусов в доступных точках появляются в журнале сами (УВ-1).
 const places = useLocationChoice('availability.view')
+const useLocationChoiceRequest = useLocationChoice('transfer.request')
 useLive(() => places.options.value.map((l) => `location:${l.id}`), [['documents']])
 
 const kind = ref<DocumentKind | null>(null)
@@ -67,6 +68,7 @@ function startOpening() {
 }
 
 const transfer = useLocationChoice('floor.edit', (l) => l.kind === 'store')
+const requestable = computed(() => useLocationChoiceRequest.options.value.length > 0)
 const direction = ref<FloorDirection>('to_floor')
 const transferOpen = ref(false)
 
@@ -122,6 +124,15 @@ const zones = (d: (typeof items.value)[number]) =>
         @click="transferOpen = true"
       >
         Передача в зал
+      </v-btn>
+      <v-btn
+        v-if="places.options.value.length && requestable"
+        :prepend-icon="mdiTruckDeliveryOutline"
+        variant="tonal"
+        :to="{ name: 'transfer-new' }"
+        data-test="new-move"
+      >
+        Заявка на перемещение
       </v-btn>
     </div>
 

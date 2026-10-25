@@ -32,6 +32,9 @@ type Move struct {
 	// AllowDeficit — продажа через кассу сверх учёта (решение 0013): то, чего нет на остатке,
 	// записывается в недостачу к разбору, а не отклоняется.
 	AllowDeficit bool
+	// InTransit — движение запаса «в пути» зоны получателя (перемещение между точками, СО-4):
+	// приход при отгрузке, расход при приёмке. Запас организации и средняя не меняются.
+	InTransit bool
 }
 
 // Doc — документ, которым проводятся движения.
@@ -55,6 +58,7 @@ type pair struct{ variant, zone uuid.UUID }
 type balance struct {
 	location                      uuid.UUID
 	onHand, reserved, deficit     int32
+	inTransit                     int32
 	dOnHand, dInTransit, dDeficit int32
 }
 
@@ -123,7 +127,7 @@ func Apply(ctx context.Context, tx pgx.Tx, doc Doc, moves []Move) (map[uuid.UUID
 	balances := make(map[pair]*balance, len(rows))
 	for _, r := range rows {
 		p := pair{r.VariantID, r.ZoneID}
-		balances[p] = &balance{location: locations[p], onHand: r.OnHand, reserved: r.Reserved, deficit: r.Deficit}
+		balances[p] = &balance{location: locations[p], onHand: r.OnHand, reserved: r.Reserved, deficit: r.Deficit, inTransit: r.InTransit}
 	}
 
 	if err := q.EnsureCosts(ctx, variants); err != nil {
@@ -154,6 +158,15 @@ func Apply(ctx context.Context, tx pgx.Tx, doc Doc, moves []Move) (map[uuid.UUID
 		b, c := balances[pair{m.VariantID, m.ZoneID}], costs[m.VariantID]
 		var unit int64
 		switch {
+		case m.InTransit:
+			unit = c.avgE4
+			if m.Qty < 0 && -m.Qty > b.inTransit {
+				return nil, &ShortageError{VariantID: m.VariantID, ZoneID: m.ZoneID, Available: b.inTransit, Need: -m.Qty}
+			}
+			b.inTransit += m.Qty
+			b.dInTransit += m.Qty
+			record(m, "in_transit", m.Qty, kopecks(unit, m.Qty))
+
 		case m.Qty < 0:
 			need := -m.Qty
 			free := max(b.onHand-b.reserved, 0)
