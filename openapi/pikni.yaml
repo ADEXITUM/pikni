@@ -3113,6 +3113,169 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /egais/reconciliation/{locationId}:
+    get:
+      operationId: getReconciliation
+      summary: Сверка с ЕГАИС
+      description: >
+        Расхождения последнего снимка остатков ЕГАИС точки с учётом системы (СО-9): продукция без
+        марок по регистрам (1 — склад, 2 — торговый зал) и марки, которые есть только с одной стороны.
+      tags: [egais]
+      x-permission: egais.reconcile
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сверка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: requestRests
+      summary: Запросить остатки в ЕГАИС
+      description: Ответ придёт обменом с УТМ, обычно за минуту; снимок обновится сам.
+      tags: [egais]
+      x-permission: egais.reconcile
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Запрос поставлен в очередь
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings:
+    post:
+      operationId: openPairing
+      summary: Открыть сопряжение со смартфоном
+      description: ПК показывает QR-код; смартфон того же пользователя сканирует его и становится сканером (СК-6).
+      tags: [pairing]
+      x-permission: authenticated
+      responses:
+        "201":
+          description: Сопряжение ждёт смартфон
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pairing"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings/join:
+    post:
+      operationId: joinPairing
+      summary: Сопрячь смартфон по QR-коду
+      tags: [pairing]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: Сопряжено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pairing"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings/{id}:
+    get:
+      operationId: getPairing
+      summary: Состояние сопряжения
+      tags: [pairing]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Состояние
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pairing"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: closePairing
+      summary: Разорвать сопряжение
+      tags: [pairing]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Разорвано
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings/{id}/scans:
+    post:
+      operationId: sendPairedScan
+      summary: Передать скан со смартфона на ПК
+      description: Идентификатор скана задаёт смартфон; ПК получает код событием paired_scan.
+      tags: [pairing]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scanId, raw]
+              properties:
+                scanId:
+                  type: string
+                  format: uuid
+                raw:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+      responses:
+        "204":
+          description: Передано
+        default:
+          $ref: "#/components/responses/Problem"
+
   /marks/{code}:
     get:
       operationId: getMark
@@ -3807,6 +3970,74 @@ components:
       description: >
         new — оформлена, ждёт подтверждения сканом; confirmed — товар отложен; issued — выдана через кассу;
         cancelled — снята; expired — истёк срок
+
+    Reconciliation:
+      type: object
+      required: [products, marks]
+      properties:
+        takenAt:
+          type: string
+          format: date-time
+          description: Когда получен снимок ЕГАИС; нет — остатки ещё не запрашивали
+        requestedAt:
+          type: string
+          format: date-time
+          description: Последний запрос остатков
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconciliationProduct"
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconciliationMark"
+
+    ReconciliationProduct:
+      type: object
+      required: [alcocode, name, register, ours, egais]
+      properties:
+        alcocode:
+          type: string
+        name:
+          type: string
+        register:
+          type: integer
+          enum: [1, 2]
+        ours:
+          type: integer
+        egais:
+          type: integer
+
+    ReconciliationMark:
+      type: object
+      required: [code, alcocode, name, onlyOurs]
+      properties:
+        code:
+          type: string
+        alcocode:
+          type: string
+        name:
+          type: string
+        onlyOurs:
+          type: boolean
+          description: true — марка в учёте точки, но не на балансе ЕГАИС; false — наоборот
+
+    Pairing:
+      type: object
+      required: [id, status, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [waiting, active, closed]
+        code:
+          type: string
+          description: Текст QR-кода — только в ответе на открытие
+        expiresAt:
+          type: string
+          format: date-time
 
     Reservation:
       type: object

@@ -17,9 +17,11 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/exchange"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
+	"github.com/ADEXITUM/pikni/api/internal/pairing"
 	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/pos"
 	"github.com/ADEXITUM/pikni/api/internal/posspec"
+	"github.com/ADEXITUM/pikni/api/internal/reconcile"
 	"github.com/ADEXITUM/pikni/api/internal/reservations"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
 	"github.com/ADEXITUM/pikni/api/internal/users"
@@ -35,7 +37,9 @@ type (
 	documentsHandler = documents.Handler
 	locationsHandler = locations.Handler
 	marksHandler     = marks.Handler
+	pairingHandler   = pairing.Handler
 	posStaffHandler  = pos.StaffHandler
+	reconcileHandler = reconcile.Handler
 	resHandler       = reservations.Handler
 	stockHandler     = stock.Handler
 	usersHandler     = users.Handler
@@ -50,7 +54,9 @@ type API struct {
 	*documentsHandler
 	*locationsHandler
 	*marksHandler
+	*pairingHandler
 	*posStaffHandler
+	*reconcileHandler
 	*resHandler
 	*stockHandler
 	*usersHandler
@@ -91,7 +97,9 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 		documentsHandler: documents.NewHandler(docs),
 		locationsHandler: locations.NewHandler(locs),
 		marksHandler:     marks.NewHandler(mk),
+		pairingHandler:   pairing.NewHandler(pairing.NewService(pool)),
 		posStaffHandler:  pos.NewStaffHandler(tills),
+		reconcileHandler: reconcile.NewHandler(reconcile.NewService(pool)),
 		resHandler:       reservations.NewHandler(res),
 		stockHandler:     stock.NewHandler(stock.NewService(pool, mk)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),

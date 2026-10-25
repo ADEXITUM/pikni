@@ -57,3 +57,13 @@ func Pending(ctx context.Context, tx pgx.Tx, document uuid.UUID) (pending, rejec
 func Exchange(ctx context.Context, db store.DBTX, document uuid.UUID) ([]store.DocumentExchangeRow, error) {
 	return store.New(db).DocumentExchange(ctx, &document)
 }
+
+// EnqueueStandalone ставит в очередь сообщение без документа — запрос остатков для сверки.
+func EnqueueStandalone(ctx context.Context, db store.DBTX, location uuid.UUID, docType string, v any) error {
+	payload, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	_, err = store.New(db).EnqueueMessage(ctx, store.EnqueueMessageParams{LocationID: location, DocType: docType, Payload: payload})
+	return err
+}

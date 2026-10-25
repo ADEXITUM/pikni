@@ -1,0 +1,16 @@
+-- +goose Up
+-- Сопряжение смартфона с ПК (СК-6): ПК показывает QR-код, смартфон того же пользователя его
+-- сканирует, дальше коды со смартфона приходят в открытый на ПК документ через события.
+-- Идентификатор — случайный UUID v4: по нему подписываются на коды, угадать его нельзя.
+create table pairings (
+    id          uuid primary key default gen_random_uuid(),
+    user_id     uuid not null references users (id),
+    secret_hash bytea not null,
+    status      text not null default 'waiting' check (status in ('waiting', 'active', 'closed')),
+    created_at  timestamptz not null default now(),
+    joined_at   timestamptz,
+    closed_at   timestamptz,
+    expires_at  timestamptz not null
+);
+
+create index pairings_user_idx on pairings (user_id, created_at desc);

@@ -11,7 +11,7 @@ import (
 )
 
 // Тема — вид и UUID; лишнего клиент подписать не может.
-var topicPattern = regexp.MustCompile(`^(doc|location|product|shift):[0-9a-f-]{36}$`)
+var topicPattern = regexp.MustCompile(`^(doc|location|product|shift|pair):[0-9a-f-]{36}$`)
 
 // maxTopics — экран подписывается на несколько тем; сотня — с большим запасом.
 const maxTopics = 100
