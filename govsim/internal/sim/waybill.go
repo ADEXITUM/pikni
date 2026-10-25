@@ -108,3 +108,52 @@ func returnToShipper(ctx context.Context, tx pgx.Tx, shipper, alcocode string, q
 		on conflict (fsrar_id, alcocode, register) do update set qty = rests.qty + excluded.qty`, shipper, alcocode, qty)
 	return err
 }
+
+// chargeOn ставит на баланс излишек, найденный на ревизии: продукцию без марок — на регистр,
+// марки — на баланс участника. Марка, которую ЕГАИС числит за другим участником, не ставится.
+func chargeOn(ctx context.Context, tx pgx.Tx, fsrar string, doc uuid.UUID, payload []byte, register int) error {
+	var act struct {
+		Items []struct {
+			Item
+			Marks []string `json:"marks"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(payload, &act); err != nil {
+		return reject("Акт не разобран: %v", err)
+	}
+	for _, it := range act.Items {
+		var known bool
+		if err := tx.QueryRow(ctx, `select exists (select 1 from products where alcocode = $1)`, it.Alcocode).Scan(&known); err != nil {
+			return err
+		}
+		if !known {
+			return reject("Продукции %s нет в справочнике ЕГАИС", it.Alcocode)
+		}
+		if len(it.Marks) == 0 {
+			if _, err := tx.Exec(ctx, `insert into rests (fsrar_id, alcocode, register, qty) values ($1, $2, $3, $4)
+				on conflict (fsrar_id, alcocode, register) do update set qty = rests.qty + excluded.qty`,
+				fsrar, it.Alcocode, register, it.Qty); err != nil {
+				return err
+			}
+			continue
+		}
+		var foreign int
+		if err := tx.QueryRow(ctx, `select count(*) from marks where code = any($1) and owner_fsrar <> $2 and status = 'on_balance'`,
+			it.Marks, fsrar).Scan(&foreign); err != nil {
+			return err
+		}
+		if foreign > 0 {
+			return reject("Марки %s числятся на балансе другого участника", it.Alcocode)
+		}
+		if _, err := tx.Exec(ctx, `insert into marks (code, alcocode, owner_fsrar, status)
+			select unnest($1::text[]), $2, $3, 'on_balance'
+			on conflict (code) do update set owner_fsrar = excluded.owner_fsrar, status = 'on_balance', updated_at = now()`,
+			it.Marks, it.Alcocode, fsrar); err != nil {
+			return err
+		}
+		if err := markEvent(ctx, tx, it.Marks, "Поставлена на баланс по акту", fsrar, doc); err != nil {
+			return err
+		}
+	}
+	return nil
+}

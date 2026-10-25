@@ -51,6 +51,80 @@ func (q *Queries) AcceptedScans(ctx context.Context, documentID uuid.UUID) ([]Ac
 	return items, nil
 }
 
+const activeStocktake = `-- name: ActiveStocktake :one
+
+select number from documents
+where kind = 'stocktake' and location_id = $1 and id <> $2
+  and status in ('counting', 'reconciling', 'pending_approval')
+limit 1
+`
+
+type ActiveStocktakeParams struct {
+	LocationID uuid.UUID
+	ID         uuid.UUID
+}
+
+// ---------- ревизия (СО-6)
+// В точке идёт одна ревизия за раз: иначе блокировки и снимки учёта перепутались бы.
+func (q *Queries) ActiveStocktake(ctx context.Context, arg ActiveStocktakeParams) (string, error) {
+	row := q.db.QueryRow(ctx, activeStocktake, arg.LocationID, arg.ID)
+	var number string
+	err := row.Scan(&number)
+	return number, err
+}
+
+const addCount = `-- name: AddCount :exec
+insert into stocktake_counts (document_id, zone_id, variant_id, qty)
+values ($1, $2, $3, greatest($4::integer, 0))
+on conflict (document_id, zone_id, variant_id) do update
+set qty = greatest(stocktake_counts.qty + $4::integer, 0)
+`
+
+type AddCountParams struct {
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+	VariantID  uuid.UUID
+	Delta      int32
+}
+
+func (q *Queries) AddCount(ctx context.Context, arg AddCountParams) error {
+	_, err := q.db.Exec(ctx, addCount,
+		arg.DocumentID,
+		arg.ZoneID,
+		arg.VariantID,
+		arg.Delta,
+	)
+	return err
+}
+
+const addFoundMark = `-- name: AddFoundMark :execrows
+insert into stocktake_marks (document_id, zone_id, mark_code, variant_id, kind)
+values ($1, $2, $3, $4, $5)
+on conflict (document_id, mark_code) do nothing
+`
+
+type AddFoundMarkParams struct {
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+	MarkCode   string
+	VariantID  *uuid.UUID
+	Kind       string
+}
+
+func (q *Queries) AddFoundMark(ctx context.Context, arg AddFoundMarkParams) (int64, error) {
+	result, err := q.db.Exec(ctx, addFoundMark,
+		arg.DocumentID,
+		arg.ZoneID,
+		arg.MarkCode,
+		arg.VariantID,
+		arg.Kind,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const addToLine = `-- name: AddToLine :one
 insert into document_lines (document_id, line_no, variant_id, qty)
 values ($1,
@@ -74,6 +148,22 @@ func (q *Queries) AddToLine(ctx context.Context, arg AddToLineParams) (uuid.UUID
 	return id, err
 }
 
+const bookMarkZone = `-- name: BookMarkZone :one
+select zone_id from stocktake_book_marks where document_id = $1 and mark_code = $2
+`
+
+type BookMarkZoneParams struct {
+	DocumentID uuid.UUID
+	MarkCode   string
+}
+
+func (q *Queries) BookMarkZone(ctx context.Context, arg BookMarkZoneParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, bookMarkZone, arg.DocumentID, arg.MarkCode)
+	var zone_id uuid.UUID
+	err := row.Scan(&zone_id)
+	return zone_id, err
+}
+
 const changeLineQty = `-- name: ChangeLineQty :exec
 update document_lines
 set qty = qty + $1::integer
@@ -90,6 +180,34 @@ type ChangeLineQtyParams struct {
 // нарушила бы ограничение раньше, чем сработает on conflict.
 func (q *Queries) ChangeLineQty(ctx context.Context, arg ChangeLineQtyParams) error {
 	_, err := q.db.Exec(ctx, changeLineQty, arg.Delta, arg.DocumentID, arg.VariantID)
+	return err
+}
+
+const clearZoneCounts = `-- name: ClearZoneCounts :exec
+delete from stocktake_counts where document_id = $1 and zone_id = $2
+`
+
+type ClearZoneCountsParams struct {
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+}
+
+func (q *Queries) ClearZoneCounts(ctx context.Context, arg ClearZoneCountsParams) error {
+	_, err := q.db.Exec(ctx, clearZoneCounts, arg.DocumentID, arg.ZoneID)
+	return err
+}
+
+const clearZoneMarks = `-- name: ClearZoneMarks :exec
+delete from stocktake_marks where document_id = $1 and zone_id = $2
+`
+
+type ClearZoneMarksParams struct {
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+}
+
+func (q *Queries) ClearZoneMarks(ctx context.Context, arg ClearZoneMarksParams) error {
+	_, err := q.db.Exec(ctx, clearZoneMarks, arg.DocumentID, arg.ZoneID)
 	return err
 }
 
@@ -130,10 +248,10 @@ func (q *Queries) CountForeign(ctx context.Context, documentID uuid.UUID) (int32
 
 const createDocument = `-- name: CreateDocument :one
 insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status,
-                       reason_id, reverses_id, transfer_id)
+                       reason_id, reverses_id, transfer_id, scope)
 values ($1, $2, $3, $4, $5, $6, $7, $8,
         $9, coalesce($10::text, 'draft'), $11, $12,
-        $13)
+        $13, $14)
 returning id
 `
 
@@ -151,6 +269,7 @@ type CreateDocumentParams struct {
 	ReasonID       *uuid.UUID
 	ReversesID     *uuid.UUID
 	TransferID     *uuid.UUID
+	Scope          []byte
 }
 
 func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (uuid.UUID, error) {
@@ -168,6 +287,7 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.ReasonID,
 		arg.ReversesID,
 		arg.TransferID,
+		arg.Scope,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -306,6 +426,61 @@ func (q *Queries) DocumentMoves(ctx context.Context, documentID uuid.UUID) ([]Do
 			&i.ZoneID,
 			&i.Bucket,
 			&i.Qty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const foundMarks = `-- name: FoundMarks :many
+select sm.mark_code, sm.zone_id, zn.kind as zone_kind, sm.kind, sm.variant_id, v.article, p.name,
+       bm.zone_id as book_zone_id, (e.code is not null)::boolean as known
+from stocktake_marks sm
+join zones zn on zn.id = sm.zone_id
+left join variants v on v.id = sm.variant_id
+left join products p on p.id = v.product_id
+left join stocktake_book_marks bm on bm.document_id = sm.document_id and bm.mark_code = sm.mark_code
+left join excise_marks e on e.code = sm.mark_code
+where sm.document_id = $1
+order by sm.kind, p.name, sm.mark_code
+`
+
+type FoundMarksRow struct {
+	MarkCode   string
+	ZoneID     uuid.UUID
+	ZoneKind   string
+	Kind       string
+	VariantID  *uuid.UUID
+	Article    *string
+	Name       *string
+	BookZoneID *uuid.UUID
+	Known      bool
+}
+
+func (q *Queries) FoundMarks(ctx context.Context, id uuid.UUID) ([]FoundMarksRow, error) {
+	rows, err := q.db.Query(ctx, foundMarks, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FoundMarksRow
+	for rows.Next() {
+		var i FoundMarksRow
+		if err := rows.Scan(
+			&i.MarkCode,
+			&i.ZoneID,
+			&i.ZoneKind,
+			&i.Kind,
+			&i.VariantID,
+			&i.Article,
+			&i.Name,
+			&i.BookZoneID,
+			&i.Known,
 		); err != nil {
 			return nil, err
 		}
@@ -566,6 +741,25 @@ func (q *Queries) GetZone(ctx context.Context, id uuid.UUID) (GetZoneRow, error)
 	return i, err
 }
 
+const inScope = `-- name: InScope :one
+select coalesce(stocktake_blocks(d.location_id, $1::uuid, $2::uuid, null) = d.number, false)::boolean
+from documents d where d.id = $3
+`
+
+type InScopeParams struct {
+	ZoneID    uuid.UUID
+	VariantID uuid.UUID
+	ID        uuid.UUID
+}
+
+// Товар входит в состав ревизии (её номер совпадает с блокирующей).
+func (q *Queries) InScope(ctx context.Context, arg InScopeParams) (bool, error) {
+	row := q.db.QueryRow(ctx, inScope, arg.ZoneID, arg.VariantID, arg.ID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const insertApproval = `-- name: InsertApproval :exec
 insert into document_approvals (document_id, user_id, decision, comment)
 values ($1, $2, $3, $4)
@@ -693,9 +887,10 @@ func (q *Queries) InsertRequestLine(ctx context.Context, arg InsertRequestLinePa
 
 const insertScan = `-- name: InsertScan :exec
 insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, package_code,
-                   qty, status, reason, scanned_at)
+                   qty, status, reason, scanned_at, zone_id)
 values ($1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11, $12, $13, $14)
+        $8, $9, $10, $11, $12, $13, $14,
+        $15)
 `
 
 type InsertScanParams struct {
@@ -713,6 +908,7 @@ type InsertScanParams struct {
 	Status      string
 	Reason      *string
 	ScannedAt   time.Time
+	ZoneID      *uuid.UUID
 }
 
 func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) error {
@@ -731,7 +927,47 @@ func (q *Queries) InsertScan(ctx context.Context, arg InsertScanParams) error {
 		arg.Status,
 		arg.Reason,
 		arg.ScannedAt,
+		arg.ZoneID,
 	)
+	return err
+}
+
+const insertStocktakeLine = `-- name: InsertStocktakeLine :exec
+insert into document_lines (document_id, line_no, variant_id, qty, qty_plan)
+values ($1, $2, $3, $4, $5)
+`
+
+type InsertStocktakeLineParams struct {
+	DocumentID uuid.UUID
+	LineNo     int32
+	VariantID  uuid.UUID
+	Qty        int32
+	QtyPlan    *int32
+}
+
+func (q *Queries) InsertStocktakeLine(ctx context.Context, arg InsertStocktakeLineParams) error {
+	_, err := q.db.Exec(ctx, insertStocktakeLine,
+		arg.DocumentID,
+		arg.LineNo,
+		arg.VariantID,
+		arg.Qty,
+		arg.QtyPlan,
+	)
+	return err
+}
+
+const insertStocktakeZones = `-- name: InsertStocktakeZones :exec
+insert into stocktake_zones (document_id, zone_id)
+select $1, unnest($2::uuid[])
+`
+
+type InsertStocktakeZonesParams struct {
+	DocumentID uuid.UUID
+	ZoneIds    []uuid.UUID
+}
+
+func (q *Queries) InsertStocktakeZones(ctx context.Context, arg InsertStocktakeZonesParams) error {
+	_, err := q.db.Exec(ctx, insertStocktakeZones, arg.DocumentID, arg.ZoneIds)
 	return err
 }
 
@@ -1148,7 +1384,7 @@ func (q *Queries) LocationZones(ctx context.Context, locationID uuid.UUID) ([]Lo
 
 const lockDocument = `-- name: LockDocument :one
 select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
-       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment, reason_id, reverses_id
+       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment, reason_id, reverses_id, scope
 from documents
 where id = $1
 for update
@@ -1173,6 +1409,7 @@ type LockDocumentRow struct {
 	Comment        string
 	ReasonID       *uuid.UUID
 	ReversesID     *uuid.UUID
+	Scope          []byte
 }
 
 func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentRow, error) {
@@ -1197,8 +1434,25 @@ func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentR
 		&i.Comment,
 		&i.ReasonID,
 		&i.ReversesID,
+		&i.Scope,
 	)
 	return i, err
+}
+
+const lockStocktakeZone = `-- name: LockStocktakeZone :one
+select status from stocktake_zones where document_id = $1 and zone_id = $2 for update
+`
+
+type LockStocktakeZoneParams struct {
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+}
+
+func (q *Queries) LockStocktakeZone(ctx context.Context, arg LockStocktakeZoneParams) (string, error) {
+	row := q.db.QueryRow(ctx, lockStocktakeZone, arg.DocumentID, arg.ZoneID)
+	var status string
+	err := row.Scan(&status)
+	return status, err
 }
 
 const markPackagesToOpen = `-- name: MarkPackagesToOpen :exec
@@ -1235,6 +1489,64 @@ func (q *Queries) NextDocNumber(ctx context.Context, arg NextDocNumberParams) (i
 	var last_no int32
 	err := row.Scan(&last_no)
 	return last_no, err
+}
+
+const notFoundMarks = `-- name: NotFoundMarks :many
+select bm.mark_code, bm.zone_id, zn.kind as zone_kind, bm.variant_id, v.article, p.name
+from stocktake_book_marks bm
+join zones zn on zn.id = bm.zone_id
+join variants v on v.id = bm.variant_id
+join products p on p.id = v.product_id
+where bm.document_id = $1
+  and not exists (select 1 from stocktake_marks sm where sm.document_id = bm.document_id and sm.mark_code = bm.mark_code)
+order by p.name, bm.mark_code
+`
+
+type NotFoundMarksRow struct {
+	MarkCode  string
+	ZoneID    uuid.UUID
+	ZoneKind  string
+	VariantID uuid.UUID
+	Article   string
+	Name      string
+}
+
+func (q *Queries) NotFoundMarks(ctx context.Context, id uuid.UUID) ([]NotFoundMarksRow, error) {
+	rows, err := q.db.Query(ctx, notFoundMarks, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NotFoundMarksRow
+	for rows.Next() {
+		var i NotFoundMarksRow
+		if err := rows.Scan(
+			&i.MarkCode,
+			&i.ZoneID,
+			&i.ZoneKind,
+			&i.VariantID,
+			&i.Article,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const organizationName = `-- name: OrganizationName :one
+select coalesce((select value from app_settings where key = 'organization_name'), 'ООО «Чекушка»')::text
+`
+
+func (q *Queries) OrganizationName(ctx context.Context) (string, error) {
+	row := q.db.QueryRow(ctx, organizationName)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const receiptForTransfer = `-- name: ReceiptForTransfer :one
@@ -1319,6 +1631,30 @@ func (q *Queries) ReceiptPackages(ctx context.Context, documentID uuid.UUID) ([]
 	return items, nil
 }
 
+const removeFoundMark = `-- name: RemoveFoundMark :exec
+delete from stocktake_marks where document_id = $1 and mark_code = $2
+`
+
+type RemoveFoundMarkParams struct {
+	DocumentID uuid.UUID
+	MarkCode   string
+}
+
+func (q *Queries) RemoveFoundMark(ctx context.Context, arg RemoveFoundMarkParams) error {
+	_, err := q.db.Exec(ctx, removeFoundMark, arg.DocumentID, arg.MarkCode)
+	return err
+}
+
+const replaceLines = `-- name: ReplaceLines :exec
+delete from document_lines where document_id = $1
+`
+
+// Строки ревизии для журнала и печати: по варианту — учёт (план) и факт.
+func (q *Queries) ReplaceLines(ctx context.Context, documentID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, replaceLines, documentID)
+	return err
+}
+
 const resetPackagesToOpen = `-- name: ResetPackagesToOpen :exec
 update document_packages set to_open = false where document_id = $1
 `
@@ -1339,6 +1675,29 @@ type SetCommentParams struct {
 
 func (q *Queries) SetComment(ctx context.Context, arg SetCommentParams) error {
 	_, err := q.db.Exec(ctx, setComment, arg.Comment, arg.ID)
+	return err
+}
+
+const setCount = `-- name: SetCount :exec
+insert into stocktake_counts (document_id, zone_id, variant_id, qty)
+values ($1, $2, $3, $4)
+on conflict (document_id, zone_id, variant_id) do update set qty = excluded.qty
+`
+
+type SetCountParams struct {
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+	VariantID  uuid.UUID
+	Qty        int32
+}
+
+func (q *Queries) SetCount(ctx context.Context, arg SetCountParams) error {
+	_, err := q.db.Exec(ctx, setCount,
+		arg.DocumentID,
+		arg.ZoneID,
+		arg.VariantID,
+		arg.Qty,
+	)
 	return err
 }
 
@@ -1426,6 +1785,30 @@ func (q *Queries) SetReceivingMode(ctx context.Context, arg SetReceivingModePara
 	return err
 }
 
+const setStocktakeZone = `-- name: SetStocktakeZone :exec
+update stocktake_zones
+set status = $1, closed_by = $2,
+    closed_at = case when $1::text = 'closed' then now() end
+where document_id = $3 and zone_id = $4
+`
+
+type SetStocktakeZoneParams struct {
+	Status     string
+	ClosedBy   *uuid.UUID
+	DocumentID uuid.UUID
+	ZoneID     uuid.UUID
+}
+
+func (q *Queries) SetStocktakeZone(ctx context.Context, arg SetStocktakeZoneParams) error {
+	_, err := q.db.Exec(ctx, setStocktakeZone,
+		arg.Status,
+		arg.ClosedBy,
+		arg.DocumentID,
+		arg.ZoneID,
+	)
+	return err
+}
+
 const setTransfer = `-- name: SetTransfer :exec
 update documents set transfer_id = $1 where id = $2
 `
@@ -1438,6 +1821,179 @@ type SetTransferParams struct {
 func (q *Queries) SetTransfer(ctx context.Context, arg SetTransferParams) error {
 	_, err := q.db.Exec(ctx, setTransfer, arg.TransferID, arg.ID)
 	return err
+}
+
+const snapshotBook = `-- name: SnapshotBook :exec
+insert into stocktake_book (document_id, zone_id, variant_id, qty, cost_e4)
+select d.id, b.zone_id, b.variant_id, b.on_hand, coalesce((c.avg_cost * 10000)::bigint, 0)
+from documents d
+join stock_balances b on b.location_id = d.location_id
+join stocktake_zones z on z.document_id = d.id and z.zone_id = b.zone_id
+left join variant_costs c on c.variant_id = b.variant_id
+where d.id = $1 and b.on_hand > 0
+  and stocktake_blocks(d.location_id, b.zone_id, b.variant_id, null) = d.number
+`
+
+// Учётный остаток в зонах ревизии на момент старта — только товары её состава.
+func (q *Queries) SnapshotBook(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, snapshotBook, id)
+	return err
+}
+
+const snapshotMarks = `-- name: SnapshotMarks :exec
+insert into stocktake_book_marks (document_id, zone_id, mark_code, variant_id)
+select d.id, m.zone_id, m.code, m.variant_id
+from documents d
+join excise_marks m on m.location_id = d.location_id and m.status in ('in_stock', 'reserved')
+join stocktake_zones z on z.document_id = d.id and z.zone_id = m.zone_id
+where d.id = $1
+  and stocktake_blocks(d.location_id, m.zone_id, m.variant_id, null) = d.number
+`
+
+func (q *Queries) SnapshotMarks(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, snapshotMarks, id)
+	return err
+}
+
+const stocktakeSheet = `-- name: StocktakeSheet :many
+with fact as (
+    select c.zone_id, c.variant_id, c.qty from stocktake_counts c where c.document_id = $1
+    union all
+    select m.zone_id, m.variant_id, count(*)::integer from stocktake_marks m
+    where m.document_id = $1 and m.variant_id is not null
+      and not (m.kind = 'foreign' and exists (select 1 from excise_marks e where e.code = m.mark_code))
+    group by m.zone_id, m.variant_id
+),
+keys as (
+    select f.zone_id, f.variant_id from fact f
+    union
+    select b.zone_id, b.variant_id from stocktake_book b where b.document_id = $1
+)
+select k.zone_id, zn.kind as zone_kind, k.variant_id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container,
+       v.gift_pack, ke.egais_accounting, v.alcocode,
+       coalesce((select b.qty from stocktake_book b where b.document_id = $1 and b.zone_id = k.zone_id and b.variant_id = k.variant_id), 0)::integer as book_qty,
+       coalesce((select sum(f.qty) from fact f where f.zone_id = k.zone_id and f.variant_id = k.variant_id), 0)::integer as fact_qty,
+       coalesce((select b.cost_e4 from stocktake_book b where b.document_id = $1 and b.zone_id = k.zone_id and b.variant_id = k.variant_id),
+                (select (c.avg_cost * 10000)::bigint from variant_costs c where c.variant_id = k.variant_id), 0)::bigint as cost_e4
+from keys k
+join zones zn on zn.id = k.zone_id
+join variants v on v.id = k.variant_id
+join products p on p.id = v.product_id
+left join product_kinds ke on ke.code = p.kind_code
+order by p.name, v.article, zn.kind
+`
+
+type StocktakeSheetRow struct {
+	ZoneID          uuid.UUID
+	ZoneKind        string
+	VariantID       uuid.UUID
+	Article         string
+	Name            string
+	VolumeMl        *int32
+	NetWeightG      *int32
+	Container       *string
+	GiftPack        bool
+	EgaisAccounting *string
+	Alcocode        *string
+	BookQty         int32
+	FactQty         int32
+	CostE4          int64
+}
+
+// Сличение по зонам и вариантам: учёт на старте и факт (подсчёт товара без марок или найденные марки).
+func (q *Queries) StocktakeSheet(ctx context.Context, id uuid.UUID) ([]StocktakeSheetRow, error) {
+	rows, err := q.db.Query(ctx, stocktakeSheet, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StocktakeSheetRow
+	for rows.Next() {
+		var i StocktakeSheetRow
+		if err := rows.Scan(
+			&i.ZoneID,
+			&i.ZoneKind,
+			&i.VariantID,
+			&i.Article,
+			&i.Name,
+			&i.VolumeMl,
+			&i.NetWeightG,
+			&i.Container,
+			&i.GiftPack,
+			&i.EgaisAccounting,
+			&i.Alcocode,
+			&i.BookQty,
+			&i.FactQty,
+			&i.CostE4,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const stocktakeZones = `-- name: StocktakeZones :many
+select z.zone_id, zn.kind, z.status, z.closed_at, u.full_name as closed_by_name,
+       (select count(*) from stocktake_book_marks bm where bm.document_id = z.document_id and bm.zone_id = z.zone_id)::integer as book_marks,
+       (select count(*) from stocktake_marks sm where sm.document_id = z.document_id and sm.zone_id = z.zone_id)::integer as found_marks,
+       (select coalesce(sum(b.qty), 0) from stocktake_book b
+         join variants v on v.id = b.variant_id join products p on p.id = v.product_id
+         left join product_kinds k on k.code = p.kind_code
+         where b.document_id = z.document_id and b.zone_id = z.zone_id
+           and coalesce(k.egais_accounting, '') <> 'marked')::integer as book_qty,
+       (select coalesce(sum(c.qty), 0) from stocktake_counts c
+         where c.document_id = z.document_id and c.zone_id = z.zone_id)::integer as counted_qty
+from stocktake_zones z
+join zones zn on zn.id = z.zone_id
+left join users u on u.id = z.closed_by
+where z.document_id = $1
+order by zn.kind desc
+`
+
+type StocktakeZonesRow struct {
+	ZoneID       uuid.UUID
+	Kind         string
+	Status       string
+	ClosedAt     *time.Time
+	ClosedByName *string
+	BookMarks    int32
+	FoundMarks   int32
+	BookQty      int32
+	CountedQty   int32
+}
+
+func (q *Queries) StocktakeZones(ctx context.Context, documentID uuid.UUID) ([]StocktakeZonesRow, error) {
+	rows, err := q.db.Query(ctx, stocktakeZones, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StocktakeZonesRow
+	for rows.Next() {
+		var i StocktakeZonesRow
+		if err := rows.Scan(
+			&i.ZoneID,
+			&i.Kind,
+			&i.Status,
+			&i.ClosedAt,
+			&i.ClosedByName,
+			&i.BookMarks,
+			&i.FoundMarks,
+			&i.BookQty,
+			&i.CountedQty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const storageZone = `-- name: StorageZone :one
@@ -1586,7 +2142,7 @@ const undoScan = `-- name: UndoScan :one
 update scans
 set undone_at = now()
 where id = $1 and document_id = $2 and undone_at is null
-returning variant_id, qty, status, mark_code, package_code
+returning variant_id, qty, status, mark_code, package_code, zone_id
 `
 
 type UndoScanParams struct {
@@ -1600,6 +2156,7 @@ type UndoScanRow struct {
 	Status      string
 	MarkCode    *string
 	PackageCode *string
+	ZoneID      *uuid.UUID
 }
 
 func (q *Queries) UndoScan(ctx context.Context, arg UndoScanParams) (UndoScanRow, error) {
@@ -1611,8 +2168,24 @@ func (q *Queries) UndoScan(ctx context.Context, arg UndoScanParams) (UndoScanRow
 		&i.Status,
 		&i.MarkCode,
 		&i.PackageCode,
+		&i.ZoneID,
 	)
 	return i, err
+}
+
+const undoZoneScans = `-- name: UndoZoneScans :exec
+update scans set undone_at = now()
+where document_id = $1 and zone_id = $2 and undone_at is null
+`
+
+type UndoZoneScansParams struct {
+	DocumentID uuid.UUID
+	ZoneID     *uuid.UUID
+}
+
+func (q *Queries) UndoZoneScans(ctx context.Context, arg UndoZoneScansParams) error {
+	_, err := q.db.Exec(ctx, undoZoneScans, arg.DocumentID, arg.ZoneID)
+	return err
 }
 
 const variantInfo = `-- name: VariantInfo :one

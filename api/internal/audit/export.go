@@ -62,6 +62,7 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionReservationConfirmed: "Подтверждение брони",
 	apispec.AuditActionReservationCancelled: "Снятие брони",
 	apispec.AuditActionReservationIssued:    "Выдача брони",
+	apispec.AuditActionStocktakeStarted:     "Начало подсчёта ревизии",
 	apispec.AuditActionTransferApproved:     "Согласование перемещения",
 	apispec.AuditActionTransferRejected:     "Отклонение заявки на перемещение",
 	apispec.AuditActionDocumentCancelled:    "Отмена черновика документа",

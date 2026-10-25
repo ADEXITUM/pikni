@@ -20,6 +20,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/pos/store"
 	"github.com/ADEXITUM/pikni/api/internal/reservations"
+	"github.com/ADEXITUM/pikni/api/internal/stock"
 )
 
 // strongAbv — порог крепкого алкоголя для региональных часов продажи (scope strong, НСИ-5).
@@ -240,6 +241,14 @@ func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code 
 				out = append(out, crptRefusal(verdicts[0].Reason))
 			}
 		}
+	}
+	// Товар идущей ревизии не продаётся до её окончания (КС-2, п. 6).
+	var stocktake *string
+	if err := s.pool.QueryRow(ctx, `select stocktake_blocks($1, $2, $3, null)`, pc.Device.LocationID, pc.Device.FloorZone, it.ID).Scan(&stocktake); err != nil {
+		return nil, err
+	}
+	if stocktake != nil {
+		out = append(out, Refusal{"sale.stocktake", "Товар в ревизии " + *stocktake + " — продать его можно после её окончания"})
 	}
 	switch {
 	case price <= 0:
@@ -505,6 +514,9 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 		err = s.docs.RecordSale(ctx, tx, shift.SaleDocumentID, pc.Device.LocationID, pc.Device.FloorZone, pc.Cashier.ID, r.Refund, lines)
 		if me, ok := errors.AsType[*marks.MisplacedError](err); ok {
 			return &RefusalError{Refusal{"mark.not_here", "Марка " + me.Code + " не числится на балансе магазина"}}
+		}
+		if be, ok := errors.AsType[*stock.BlockedError](err); ok {
+			return &RefusalError{Refusal{"sale.stocktake", "Товар в ревизии " + be.Stocktake + " — продать его можно после её окончания"}}
 		}
 		if err != nil {
 			return err

@@ -102,6 +102,14 @@ var kinds = map[string]kindSpec{
 		edit:   apispec.PermissionWriteoffCreate,
 		post:   apispec.PermissionWriteoffCreate,
 	},
+	// Ревизию создаёт и ведёт точка, считают все сотрудники точки с правом подсчёта, ведомость
+	// утверждает руководитель (ПБ-8).
+	Stocktake: {
+		prefix: "ИН",
+		view:   []apispec.Permission{apispec.PermissionStocktakeManage, apispec.PermissionStocktakeCount, apispec.PermissionDocsApprove},
+		edit:   apispec.PermissionStocktakeManage,
+		post:   apispec.PermissionStocktakeManage,
+	},
 	// Сторно проведённого документа — тоже «двумя ключами».
 	Storno: {
 		prefix: "СТ",

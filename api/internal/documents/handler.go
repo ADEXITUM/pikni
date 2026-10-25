@@ -17,6 +17,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/documents/store"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
+	"github.com/ADEXITUM/pikni/api/internal/stock"
 )
 
 type Handler struct {
@@ -54,9 +55,18 @@ var problems = map[error]*echo.HTTPError{
 	ErrNoTransitLeft:    echo.NewHTTPError(http.StatusUnprocessableEntity, "По перемещению ничего не осталось «в пути»"),
 	ErrStornoForbidden:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Этот документ не сторнируется: у него есть след в ЕГАИС или сторно уже есть. Исправьте ответным документом"),
 	ErrBadPhoto:         echo.NewHTTPError(http.StatusUnprocessableEntity, "Фотография — JPEG до 3 МБ, только у черновика списания"),
+	ErrStocktakeRunning: echo.NewHTTPError(http.StatusConflict, "В точке уже идёт ревизия — дождитесь её завершения"),
+	ErrZoneClosed:       echo.NewHTTPError(http.StatusConflict, "Зона закрыта или не входит в ревизию — откройте её снова, чтобы сканировать"),
+	ErrZonesOpen:        echo.NewHTTPError(http.StatusConflict, "Не все зоны закрыты — закройте зоны после подсчёта"),
+	ErrNotCounting:      echo.NewHTTPError(http.StatusConflict, "Подсчёт не идёт: ревизия ещё не начата или уже на сличении"),
+	ErrNotReconciling:   echo.NewHTTPError(http.StatusConflict, "Сначала закончите подсчёт и перейдите к сличению"),
+	ErrBadScope:         echo.NewHTTPError(http.StatusUnprocessableEntity, "Зона из другой точки"),
 }
 
 func problem(err error) error {
+	if e, ok := errors.AsType[*stock.BlockedError](err); ok {
+		return echo.NewHTTPError(http.StatusConflict, "Товар в ревизии "+e.Stocktake+" — операции с ним возможны после её завершения")
+	}
 	if e, ok := errors.AsType[*MissingCostError](err); ok {
 		return echo.NewHTTPError(http.StatusUnprocessableEntity,
 			"Не задана закупочная цена — начальный остаток нечем оценить: "+strings.Join(e.Articles, ", "))
@@ -425,9 +435,14 @@ func (h *Handler) AddDocumentScan(ctx context.Context, req apispec.AddDocumentSc
 	if now := time.Now(); scannedAt.After(now) {
 		scannedAt = now
 	}
-	res, err := h.svc.AddScan(ctx, req.ID, NewScan{
-		ID: b.ID, Raw: b.Raw, Source: string(b.Source), ScannedAt: scannedAt, VariantID: b.VariantID,
-	})
+	in := NewScan{ID: b.ID, Raw: b.Raw, Source: string(b.Source), ScannedAt: scannedAt, VariantID: b.VariantID}
+	var res ScanResult
+	var err error
+	if b.ZoneID != nil {
+		res, err = h.svc.StocktakeScan(ctx, req.ID, *b.ZoneID, in)
+	} else {
+		res, err = h.svc.AddScan(ctx, req.ID, in)
+	}
 	if err != nil {
 		return nil, problem(err)
 	}

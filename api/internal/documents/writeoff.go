@@ -274,6 +274,9 @@ func (s *Service) apply(ctx context.Context, tx pgx.Tx, q *store.Queries, doc st
 	if doc.Kind == Storno {
 		return s.applyStorno(ctx, tx, q, doc, ev)
 	}
+	if doc.Kind == Stocktake {
+		return s.applyStocktake(ctx, tx, q, doc, ev)
+	}
 	docMarks, err := q.DocumentMarks(ctx, doc.ID)
 	if err != nil {
 		return "", err

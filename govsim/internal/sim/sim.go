@@ -249,6 +249,11 @@ func (s *Sim) process(ctx context.Context, tx pgx.Tx, fsrar, docType string, doc
 	case "ActWriteOff":
 		// Списание со склада (регистр 1): бой, порча, недостача, в том числе продукции с марками.
 		return writeOff(ctx, tx, fsrar, doc, payload, 1)
+	case "ActChargeOn":
+		// Постановка на баланс излишка по ревизии: склад (регистр 1) или зал (регистр 2).
+		return chargeOn(ctx, tx, fsrar, doc, payload, 1)
+	case "ActChargeOnShop":
+		return chargeOn(ctx, tx, fsrar, doc, payload, 2)
 	case "ActWriteOffShop":
 		// Списание из торгового зала — в том числе проданного пива с причиной «Реализация».
 		return writeOff(ctx, tx, fsrar, doc, payload, 2)
