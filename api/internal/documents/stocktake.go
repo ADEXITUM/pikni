@@ -182,7 +182,7 @@ func (s *Service) StocktakeScan(ctx context.Context, id, zone uuid.UUID, in NewS
 		} else if err != nil {
 			return err
 		}
-		v, kind, err := s.classifyStocktake(ctx, q, doc, zone, in)
+		v, kind, err := s.withTx(tx).classifyStocktake(ctx, q, doc, zone, in)
 		if err != nil {
 			return err
 		}

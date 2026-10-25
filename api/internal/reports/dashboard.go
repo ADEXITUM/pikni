@@ -93,7 +93,7 @@ func (s *Service) Dashboard(ctx context.Context, from, to time.Time, location *u
 		d.DeadShare = dead / d.StockCost * 100
 	}
 	series := func(sql string) ([]Point, error) {
-		rows, err := s.pool.Query(ctx, sql, args)
+		rows, err := s.pool.Query(ctx, sql, pgx.QueryExecModeDescribeExec, args)
 		if err != nil {
 			return nil, err
 		}

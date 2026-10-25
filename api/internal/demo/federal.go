@@ -169,6 +169,11 @@ func Federal(ctx context.Context, owner *pgxpool.Pool, opts FederalOptions, log 
 			plan = append(plan, federalRow{c, g.rnd.Float64() < opts.SmallShare, n})
 		}
 	}
+	// Остаток от округления — в крупнейшие города, чтобы магазинов было ровно opts.Stores.
+	for k := 0; n < opts.Stores; k++ {
+		n++
+		plan = append(plan, federalRow{list[k%len(list)], g.rnd.Float64() < opts.SmallShare, n})
+	}
 	stores, whs, err := g.federalPoints(ctx, plan)
 	if err != nil {
 		return err

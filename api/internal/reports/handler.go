@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v5"
 
@@ -27,6 +26,9 @@ func problem(err error) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Отчёт не найден или недоступен вашей роли")
 	case errors.Is(err, ErrBadParams):
 		return echo.NewHTTPError(http.StatusUnprocessableEntity, "Проверьте период: начало не позже конца, не больше трёх лет")
+	case errors.Is(err, ErrTooLarge):
+		return echo.NewHTTPError(http.StatusUnprocessableEntity,
+			"Отчёт слишком большой для экрана: выберите точки или выгрузите его файлом — он построится в фоне")
 	case errors.Is(err, ErrNotReady):
 		return echo.NewHTTPError(http.StatusConflict, "Отчёт ещё формируется")
 	case errors.Is(err, auth.ErrForbidden):
@@ -106,9 +108,8 @@ func fileResponse(t File) apispec.ReportFile {
 func (h *Handler) ExportReport(ctx context.Context, req apispec.ExportReportRequestObject) (apispec.ExportReportResponseObject, error) {
 	p := params(req.Body.Params)
 	kind := string(req.Body.Format)
-	d, ok := find(req.Code)
-	// Тяжёлый отчёт за длинный период строится в фоне; за короткий — сразу.
-	if ok && d.Heavy && (p.From.IsZero() || p.To.Sub(p.From) > 31*24*time.Hour) {
+	// Тяжёлый отчёт за длинный период и отчёт по большой сети строятся в фоне; остальные — сразу.
+	if h.svc.Background(ctx, req.Code, p) {
 		f, err := h.svc.Enqueue(ctx, req.Code, p, kind)
 		if err != nil {
 			return nil, problem(err)

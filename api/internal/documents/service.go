@@ -136,6 +136,21 @@ func NewService(pool *pgxpool.Pool, cat *catalog.Service, mk *marks.Service) *Se
 	return &Service{pool: pool, q: store.New(pool), catalog: cat, marks: mk}
 }
 
+// withTx — сервис внутри транзакции документа: справочники и марки читаются через её соединение.
+// Запрос через пул, пока документ заблокирован, ждал бы второго соединения; под нагрузкой все
+// соединения заняты теми, кто ждёт эту же блокировку, — и запросы встают до таймаута.
+func (s *Service) withTx(tx pgx.Tx) *Service {
+	c := *s
+	c.q = s.q.WithTx(tx)
+	if s.catalog != nil {
+		c.catalog = s.catalog.WithTx(tx)
+	}
+	if s.marks != nil {
+		c.marks = s.marks.WithTx(tx)
+	}
+	return &c
+}
+
 // canView — документ виден в своей точке; перемещение — и в точке-получателе.
 func canView(ctx context.Context, kind string, location uuid.UUID, dest *uuid.UUID) bool {
 	for _, p := range kinds[kind].view {

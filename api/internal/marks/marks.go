@@ -51,6 +51,9 @@ func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{q: store.New(pool)}
 }
 
+// WithTx — сервис в чужой транзакции: запросы идут через её соединение, а не через пул.
+func (s *Service) WithTx(tx pgx.Tx) *Service { return &Service{q: s.q.WithTx(tx)} }
+
 // Find возвращает марку или nil, если её нет в учёте.
 func (s *Service) Find(ctx context.Context, code string) (*Mark, error) {
 	m, err := s.q.FindMark(ctx, code)

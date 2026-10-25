@@ -44,6 +44,9 @@ func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool, q: store.New(pool)}
 }
 
+// WithTx — сервис в чужой транзакции: запросы идут через её соединение, а не через пул.
+func (s *Service) WithTx(tx pgx.Tx) *Service { return s.withTx(tx) }
+
 func (s *Service) withTx(tx pgx.Tx) *Service {
 	return &Service{pool: tx, q: store.New(tx)}
 }

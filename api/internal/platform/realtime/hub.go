@@ -1,6 +1,7 @@
 // Package realtime доставляет события об изменениях в открытые экраны (УВ-1). Источник событий —
-// канал PostgreSQL pikni_events: триггеры объявляют в него изменения, а каждый экземпляр сервера
-// слушает канал и рассылает событие тем, кто подписан на его тему по WebSocket.
+// таблица realtime_events: триггеры записывают в неё изменения в той же транзакции, а каждый
+// экземпляр сервера раз в 200 мс забирает новые события и рассылает их подписчикам по WebSocket
+// (решение 0064: NOTIFY выстраивал коммиты в очередь на весь сервер).
 package realtime
 
 import (
@@ -13,7 +14,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const channel = "pikni_events"
+const (
+	pollInterval = 200 * time.Millisecond
+	// lookback — сколько последних номеров перечитывать: транзакция, начатая раньше, могла
+	// зафиксироваться позже соседней и получить меньший номер, чем уже прочитанный.
+	lookback = 1000
+	keep     = time.Minute
+)
 
 // Event — что изменилось: тип (document, scan, stock, exchange, receipt), идентификатор и темы
 // вида doc:{id}, location:{id}, product:{id}, shift:{id}.
@@ -43,43 +50,65 @@ func NewHub(pool *pgxpool.Pool, log *slog.Logger) *Hub {
 	return &Hub{pool: pool, log: log, subs: map[*subscriber]struct{}{}}
 }
 
-// Run слушает канал до отмены контекста. Потерянное соединение восстанавливается; события,
-// объявленные, пока его не было, теряются — клиенты после переподключения перезапрашивают данные.
+// Run забирает события до отмены контекста. Событие, записанное, пока сервер не работал, не
+// доставляется: клиенты после переподключения перезапрашивают данные.
 func (h *Hub) Run(ctx context.Context) {
-	for ctx.Err() == nil {
-		if err := h.listen(ctx); err != nil && ctx.Err() == nil {
-			h.log.Warn("realtime listen", "error", err)
-			select {
-			case <-ctx.Done():
-			case <-time.After(2 * time.Second):
+	var last int64
+	_ = h.pool.QueryRow(ctx, `select coalesce(max(id), 0) from realtime_events`).Scan(&last)
+	seen := map[int64]time.Time{}
+	tick := time.NewTicker(pollInterval)
+	defer tick.Stop()
+	cleaned := time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		var err error
+		if last, err = h.poll(ctx, last, seen); err != nil && ctx.Err() == nil {
+			h.log.Warn("realtime poll", "error", err)
+		}
+		for id, at := range seen {
+			if time.Since(at) > 10*time.Second {
+				delete(seen, id)
+			}
+		}
+		if time.Since(cleaned) > keep {
+			cleaned = time.Now()
+			if _, err := h.pool.Exec(ctx, `delete from realtime_events where created_at < now() - $1::interval`, keep.String()); err != nil && ctx.Err() == nil {
+				h.log.Warn("realtime cleanup", "error", err)
 			}
 		}
 	}
 }
 
-func (h *Hub) listen(ctx context.Context) error {
-	pooled, err := h.pool.Acquire(ctx)
+func (h *Hub) poll(ctx context.Context, last int64, seen map[int64]time.Time) (int64, error) {
+	rows, err := h.pool.Query(ctx, `select id, payload from realtime_events where id > $1 order by id limit 20000`, last-lookback)
 	if err != nil {
-		return err
+		return last, err
 	}
-	// Соединение после LISTEN в пул не возвращается: в нём осталась бы подписка.
-	conn := pooled.Hijack()
-	defer func() { _ = conn.Close(context.WithoutCancel(ctx)) }()
-	if _, err := conn.Exec(ctx, "listen "+channel); err != nil {
-		return err
-	}
-	for {
-		n, err := conn.WaitForNotification(ctx)
-		if err != nil {
-			return err
+	defer rows.Close()
+	now := time.Now()
+	for rows.Next() {
+		var id int64
+		var payload []byte
+		if err := rows.Scan(&id, &payload); err != nil {
+			return last, err
 		}
+		last = max(last, id)
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = now
 		var ev Event
-		if err := json.Unmarshal([]byte(n.Payload), &ev); err != nil {
+		if err := json.Unmarshal(payload, &ev); err != nil {
 			h.log.Warn("realtime payload", "error", err)
 			continue
 		}
 		h.dispatch(ev)
 	}
+	return last, rows.Err()
 }
 
 func (h *Hub) dispatch(ev Event) {

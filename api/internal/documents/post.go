@@ -81,11 +81,11 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 		status := StatusPosted
 		switch doc.Kind {
 		case Receipt:
-			if unitCosts, status, err = s.postReceipt(ctx, tx, q, doc, ev); err != nil {
+			if unitCosts, status, err = s.withTx(tx).postReceipt(ctx, tx, q, doc, ev); err != nil {
 				return err
 			}
 		case Opening:
-			prices, err := s.catalog.PurchasePrices(ctx, variantIDs(lines), time.Now())
+			prices, err := s.catalog.WithTx(tx).PurchasePrices(ctx, variantIDs(lines), time.Now())
 			if err != nil {
 				return err
 			}

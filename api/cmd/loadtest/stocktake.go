@@ -20,7 +20,7 @@ import (
 // stocktake — федеральная ревизия: каждый сотрудник из плана (pikni-admin seed-load) сканирует
 // свои марки в своей зоне с паузой, как человек с телефоном, — около скана в 1,5 секунды. Нагрузка
 // нарастает за ramp, замер — после разгона.
-func stocktake(base, planFile string, duration, ramp, think time.Duration, limit int) {
+func stocktake(base, planFile string, duration, ramp, think time.Duration, limit, conns int) {
 	data, err := os.ReadFile(planFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "loadtest:", err)
@@ -35,8 +35,10 @@ func stocktake(base, planFile string, duration, ramp, think time.Duration, limit
 	if limit > 0 && limit < len(scanners) {
 		scanners = scanners[:limit]
 	}
+	// Телефоны подключаются к Caddy, а он ходит в API через пул соединений: conns — размер этого пула.
+	// Десять тысяч соединений с одной машины к тому же исчерпали бы порты Windows (около 16 тысяч).
 	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{
-		MaxIdleConns: len(scanners) + 100, MaxIdleConnsPerHost: len(scanners) + 100, IdleConnTimeout: time.Minute,
+		MaxConnsPerHost: conns, MaxIdleConns: conns, MaxIdleConnsPerHost: conns, IdleConnTimeout: time.Minute,
 	}}
 	start := time.Now()
 	measureFrom := start.Add(ramp)
@@ -87,7 +89,7 @@ func stocktake(base, planFile string, duration, ramp, think time.Duration, limit
 		}(k, sc)
 	}
 	wg.Wait()
-	fmt.Printf("Федеральная ревизия: сотрудников %d, разгон %s, пауза между сканами ~%s\n", len(scanners), ramp, think)
+	fmt.Printf("Федеральная ревизия: сотрудников %d, соединений с API %d, разгон %s, пауза между сканами ~%s\n", len(scanners), conns, ramp, think)
 	report(samples, len(scanners), duration)
 	fmt.Printf("Одновременно в обработке (пик): %d; ответы: %v (0 — нет ответа или таймаут)\n", peak.Load(), statuses)
 }

@@ -163,6 +163,6 @@ func publish(ctx context.Context, db interface {
 		ev["scan"] = scan[0].String()
 	}
 	payload, _ := json.Marshal(ev)
-	var ok string
-	return db.QueryRow(ctx, `select pg_notify('pikni_events', $1)::text`, string(payload)).Scan(&ok)
+	var n int64
+	return db.QueryRow(ctx, `insert into realtime_events (payload) values ($1::jsonb) returning id`, string(payload)).Scan(&n)
 }
