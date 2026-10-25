@@ -11,6 +11,16 @@ export const locationsQuery = queryOptions({
   staleTime: 5 * 60 * 1000,
 })
 
+export const subjectsQuery = queryOptions({
+  queryKey: ['ru-subjects'],
+  queryFn: async () => {
+    const { data, error } = await api.GET('/ru-subjects')
+    if (error) throw new ApiError(error)
+    return data.items
+  },
+  staleTime: Infinity,
+})
+
 async function items<T>(request: Promise<{ data?: { items: T[] }; error?: Problem }>) {
   const { data, error } = await request
   if (error) throw new ApiError(error)

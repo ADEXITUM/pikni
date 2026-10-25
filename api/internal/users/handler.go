@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 
@@ -46,8 +47,30 @@ func actor(ctx context.Context) auth.Session {
 	return sess
 }
 
-func (h *Handler) ListUsers(ctx context.Context, _ apispec.ListUsersRequestObject) (apispec.ListUsersResponseObject, error) {
-	users, err := h.svc.List(ctx)
+func (h *Handler) ListUsers(ctx context.Context, req apispec.ListUsersRequestObject) (apispec.ListUsersResponseObject, error) {
+	p := req.Params
+	f := Filter{Q: p.Q, LocationID: p.LocationID, Limit: 50}
+	if p.Q != nil && strings.TrimSpace(*p.Q) == "" {
+		f.Q = nil
+	}
+	if p.Role != nil {
+		r := string(*p.Role)
+		f.Role = &r
+	}
+	if p.Status != nil {
+		st := string(*p.Status)
+		f.Status = &st
+	}
+	if p.Sort != nil {
+		f.Sort = string(*p.Sort)
+	}
+	if p.Offset != nil {
+		f.Offset = int32(*p.Offset)
+	}
+	if p.Limit != nil {
+		f.Limit = int32(*p.Limit)
+	}
+	users, total, err := h.svc.List(ctx, f)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +78,7 @@ func (h *Handler) ListUsers(ctx context.Context, _ apispec.ListUsersRequestObjec
 	for i, u := range users {
 		items[i] = toAPI(u)
 	}
-	return apispec.ListUsers200JSONResponse{Items: items}, nil
+	return apispec.ListUsers200JSONResponse{Items: items, Total: total}, nil
 }
 
 func (h *Handler) CreateUser(ctx context.Context, req apispec.CreateUserRequestObject) (apispec.CreateUserResponseObject, error) {

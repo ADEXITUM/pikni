@@ -93,8 +93,9 @@ describe('LocationsPage', () => {
 
     expect(wrapper.find('[data-test="add-location"]').exists()).toBe(true)
     await wrapper.findAll('tbody tr')[0]!.trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe(`/locations/${locations[0]!.id}`)
+    await vi.waitFor(() =>
+      expect(router.currentRoute.value.fullPath).toBe(`/locations/${locations[0]!.id}`),
+    )
   })
 
   it('показывает ошибку из ответа API', async () => {

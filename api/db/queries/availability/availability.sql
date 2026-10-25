@@ -128,7 +128,7 @@ where a.category_id in (select l.id from line l) and a.is_active
 order by a.sort, a.name;
 
 -- name: AvailabilityLocations :many
-select id, code, name, city, kind, lat, lon
+select id, code, name, city, subject_code, address, kind, lat, lon
 from locations
 where is_active
 order by city, kind desc, code;

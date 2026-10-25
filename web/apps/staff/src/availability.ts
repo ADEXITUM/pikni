@@ -17,6 +17,8 @@ export interface AvailabilityFilters {
   city?: string
   locationId?: string
   locationKind?: 'store' | 'warehouse'
+  // Вся сеть вместо своего города: сотруднику точки поиск по умолчанию идёт в его городе.
+  network: boolean
   inStock: boolean
   sort: 'name' | 'price' | 'stock' | 'new'
   // Характеристики категории: значение или диапазон числа.
@@ -54,6 +56,7 @@ export function filtersFromQuery(query: LocationQuery): AvailabilityFilters {
     city: text(query.city),
     locationId: text(query.locationId),
     locationKind: kind === 'store' || kind === 'warehouse' ? kind : undefined,
+    network: query.network === '1',
     inStock: query.inStock === '1',
     sort: sort === 'price' || sort === 'stock' || sort === 'new' ? sort : 'name',
     attrs,

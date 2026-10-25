@@ -14,6 +14,7 @@ import { locationKindLabels, russianTimezones, zoneRegisters } from '@/labels'
 import { describeVerdict } from '@/sale'
 import { useMe } from '@/session'
 import { useUnsavedGuard } from '@/unsaved'
+import { subjectsQuery } from '@/queries'
 
 const route = useRoute()
 const router = useRouter()
@@ -69,15 +70,7 @@ const assortmentSummary = computed(() => {
   return assortmentTotal.value ? `Вариантов: ${assortmentTotal.value}` : 'Пока пуста'
 })
 
-const { data: subjects } = useQuery({
-  queryKey: ['ru-subjects'],
-  queryFn: async () => {
-    const { data, error } = await api.GET('/ru-subjects')
-    if (error) throw new ApiError(error)
-    return data.items
-  },
-  staleTime: Infinity,
-})
+const { data: subjects } = useQuery(subjectsQuery)
 const subjectItems = computed(() =>
   (subjects.value ?? []).map((s) => ({ value: s.code, title: `${s.code} — ${s.name}` })),
 )

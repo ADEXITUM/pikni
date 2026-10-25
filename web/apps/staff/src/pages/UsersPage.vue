@@ -4,6 +4,7 @@ import {
   mdiAccountLockOpenOutline,
   mdiDialpad,
   mdiDotsVertical,
+  mdiFilterRemoveOutline,
   mdiKeyChange,
   mdiLogoutVariant,
   mdiMagnify,
@@ -11,8 +12,8 @@ import {
   mdiPlus,
 } from '@mdi/js'
 import { api, ApiError, type Problem, type User } from '@pikni/api'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, reactive, ref, watch } from 'vue'
 
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import PinDialog from '@/components/PinDialog.vue'
@@ -26,23 +27,71 @@ const queryClient = useQueryClient()
 const { data: me } = useMe()
 const { data: locations } = useQuery(locationsQuery)
 
+// Сотрудников в федеральной сети — тысячи: поиск, фильтры, сортировка и страница — на сервере,
+// таблица рисует только текущую страницу.
 const usersKey = ['users']
-const {
-  data: users,
-  isPending,
-  isError,
-  error,
-  refetch,
-} = useQuery({
-  queryKey: usersKey,
+const filters = reactive({
+  search: '',
+  role: null as User['role'] | null,
+  locationId: null as string | null,
+  status: null as 'active' | 'blocked' | 'temporary' | null,
+})
+const q = ref('')
+let timer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => filters.search,
+  (v) => {
+    clearTimeout(timer)
+    timer = setTimeout(() => (q.value = (v ?? '').trim()), 300)
+  },
+)
+const page = ref(1)
+const perPage = ref(25)
+const sortBy = ref<{ key: string; order?: 'asc' | 'desc' | boolean }[]>([])
+watch(
+  [q, () => filters.role, () => filters.locationId, () => filters.status],
+  () => (page.value = 1),
+)
+const sortKeys: Record<string, string> = { fullName: 'name', login: 'login', role: 'role' }
+const sort = computed(() => {
+  const s = sortBy.value[0]
+  if (!s || !sortKeys[s.key]) return 'name'
+  return (s.order === 'desc' ? '-' : '') + sortKeys[s.key]
+})
+const query = computed(() => ({
+  q: q.value || undefined,
+  role: filters.role ?? undefined,
+  locationId: filters.locationId ?? undefined,
+  status: filters.status ?? undefined,
+  sort: sort.value as 'name',
+  offset: (page.value - 1) * perPage.value,
+  limit: perPage.value,
+}))
+const { data, isFetching, isError, error, refetch } = useQuery({
+  queryKey: computed(() => [...usersKey, query.value]),
+  placeholderData: keepPreviousData,
   queryFn: async () => {
-    const { data, error } = await api.GET('/users')
+    const { data, error } = await api.GET('/users', { params: { query: query.value } })
     if (error) throw new ApiError(error)
-    return data.items
+    return data
   },
 })
+const roleItems = Object.entries(roleLabels).map(([value, title]) => ({ value, title }))
+const statusItems = [
+  { value: 'active', title: 'Активен' },
+  { value: 'temporary', title: 'Временный пароль' },
+  { value: 'blocked', title: 'Заблокирован' },
+]
+const locationItems = computed(() =>
+  (locations.value ?? []).map((l) => ({ value: l.id, title: `${l.code} · ${l.name}` })),
+)
+const hasFilters = computed(() =>
+  Boolean(filters.search || filters.role || filters.locationId || filters.status),
+)
+function clearFilters() {
+  Object.assign(filters, { search: '', role: null, locationId: null, status: null })
+}
 
-const search = ref('')
 const headers = [
   { title: 'Сотрудник', key: 'fullName' },
   { title: 'Логин', key: 'login' },
@@ -152,18 +201,48 @@ function unblock(u: User) {
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
       <h1 class="text-headline-small flex-grow-1">Сотрудники</h1>
-      <v-text-field
-        v-model="search"
-        :prepend-inner-icon="mdiMagnify"
-        placeholder="Поиск по ФИО или логину"
-        density="compact"
-        class="pk-search"
-        clearable
-      />
+      <span v-if="data" class="text-body-medium text-medium-emphasis"
+        >найдено {{ data.total }}</span
+      >
       <v-btn color="primary" :prepend-icon="mdiPlus" data-test="add-user" @click="openForm(null)">
         Добавить
       </v-btn>
     </div>
+
+    <v-row density="compact" class="mb-2">
+      <v-col cols="12" md="4">
+        <v-text-field
+          v-model="filters.search"
+          :prepend-inner-icon="mdiMagnify"
+          label="ФИО или логин"
+          clearable
+          data-test="users-search"
+        />
+      </v-col>
+      <v-col cols="6" md="2">
+        <v-select v-model="filters.role" :items="roleItems" label="Роль" clearable />
+      </v-col>
+      <v-col cols="6" md="3">
+        <v-autocomplete
+          v-model="filters.locationId"
+          :items="locationItems"
+          label="Точка"
+          clearable
+        />
+      </v-col>
+      <v-col cols="10" md="2">
+        <v-select v-model="filters.status" :items="statusItems" label="Статус" clearable />
+      </v-col>
+      <v-col cols="2" md="1" class="d-flex align-center">
+        <v-btn
+          v-if="hasFilters"
+          :icon="mdiFilterRemoveOutline"
+          variant="text"
+          title="Сбросить фильтры"
+          @click="clearFilters()"
+        />
+      </v-col>
+    </v-row>
 
     <v-alert v-if="isError" type="error" title="Не удалось загрузить сотрудников" class="mb-4">
       {{ error?.message }}
@@ -174,16 +253,19 @@ function unblock(u: User) {
     <v-alert v-if="actionError" type="error" class="mb-4">{{ actionError.message }}</v-alert>
 
     <v-card>
-      <v-data-table
+      <v-data-table-server
+        v-model:page="page"
+        v-model:items-per-page="perPage"
+        v-model:sort-by="sortBy"
         :headers="headers"
-        :items="users ?? []"
-        :loading="isPending"
-        :search="search"
-        :filter-keys="['fullName', 'login']"
-        :items-per-page="-1"
+        :items="data?.items ?? []"
+        :items-length="data?.total ?? 0"
+        :loading="isFetching"
+        :items-per-page-options="[25, 50, 100]"
         item-value="id"
         mobile-breakpoint="sm"
-        hide-default-footer
+        no-data-text="Сотрудников не нашлось"
+        data-test="users"
       >
         <template #[`item.login`]="{ value }">
           <span class="pk-code text-no-wrap">{{ value }}</span>
@@ -243,7 +325,7 @@ function unblock(u: User) {
             </v-list>
           </v-menu>
         </template>
-      </v-data-table>
+      </v-data-table-server>
     </v-card>
 
     <UserFormDialog v-model="formOpen" :user="editing" @created="onCreated" @saved="refresh" />
@@ -259,10 +341,3 @@ function unblock(u: User) {
     />
   </v-container>
 </template>
-
-<style scoped>
-.pk-search {
-  max-width: 320px;
-  min-width: 220px;
-}
-</style>

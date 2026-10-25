@@ -55,11 +55,13 @@ func (h *Handler) GetSystemStatus(ctx context.Context, _ apispec.GetSystemStatus
 	case !errors.Is(err, pgx.ErrNoRows):
 		return nil, err
 	}
+	// Целостность — по последней фоновой проверке: на большой сети она идёт минуты (решение 0064).
 	if err := h.pool.QueryRow(ctx, `select
-		  (select count(*) from stock_integrity()),
+		  coalesce((select problems from integrity_checks order by id desc limit 1), 0),
+		  (select checked_at from integrity_checks order by id desc limit 1),
 		  (select count(*) from documents where kind = 'receipt' and status = 'draft' and ttn_id is not null),
 		  (select count(*) from pos_shifts where status = 'open')`).
-		Scan(&out.IntegrityProblems, &out.UnconfirmedTtn, &out.OpenShifts); err != nil {
+		Scan(&out.IntegrityProblems, &out.IntegrityCheckedAt, &out.UnconfirmedTtn, &out.OpenShifts); err != nil {
 		return nil, err
 	}
 	rows, err := h.pool.Query(ctx, `select l.code, l.name, l.fsrar_id is not null,
@@ -67,7 +69,8 @@ func (h *Handler) GetSystemStatus(ctx context.Context, _ apispec.GetSystemStatus
 		  bool_or(m.status = 'queued' and m.attempts > 0),
 		  max(m.updated_at) filter (where m.status in ('sent', 'accepted', 'rejected', 'processed'))
 		from locations l left join egais_messages m on m.location_id = l.id and m.direction = 'out'
-		where l.is_active group by l.id order by l.code`)
+		where l.is_active group by l.id
+		order by min(m.created_at) filter (where m.status = 'queued') nulls last, l.code`)
 	if err != nil {
 		return nil, err
 	}

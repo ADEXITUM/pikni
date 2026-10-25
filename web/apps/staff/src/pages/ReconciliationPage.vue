@@ -7,6 +7,7 @@ import { computed, ref } from 'vue'
 import { formatDateTime } from '@/format'
 import { markStatusLabels } from '@/labels'
 import { useLocationChoice } from '@/stock'
+import LocationSelect from '@/components/LocationSelect.vue'
 
 // Сверка с ЕГАИС (СО-9): остатки точки в ЕГАИС против учёта системы. Система запрашивает их
 // раз в сутки сама; кнопка — внеочередной запрос, ответ УТМ приходит обычно за минуту.
@@ -81,9 +82,9 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
     </p>
 
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
-      <v-select
+      <LocationSelect
         v-model="place.selectedId.value"
-        :items="place.items.value"
+        :locations="place.options.value"
         label="Точка"
         hide-details
         density="compact"

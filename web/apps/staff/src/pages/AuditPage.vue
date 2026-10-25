@@ -3,6 +3,7 @@ import { mdiFilterRemoveOutline, mdiMicrosoftExcel } from '@mdi/js'
 import { api, ApiError, type AuditAction } from '@pikni/api'
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, reactive } from 'vue'
+import UserPicker from '@/components/UserPicker.vue'
 
 import {
   auditActionColors,
@@ -52,20 +53,9 @@ const { data, isPending, isError, error, refetch, hasNextPage, fetchNextPage, is
 
 const entries = computed(() => data.value?.pages.flatMap((p) => p.items) ?? [])
 
-const { data: users } = useQuery({
-  queryKey: ['users'],
-  queryFn: async () => {
-    const { data, error } = await api.GET('/users')
-    if (error) throw new ApiError(error)
-    return data.items
-  },
-})
 const { data: locations } = useQuery(locationsQuery)
 const codes = computed(() => new Map((locations.value ?? []).map((l) => [l.id, l.code])))
 
-const userItems = computed(() =>
-  (users.value ?? []).map((u) => ({ value: u.id, title: `${u.fullName} (${u.login})` })),
-)
 const actionItems = Object.entries(auditActionLabels).map(([value, title]) => ({ value, title }))
 
 const exportUrl = computed(() => {
@@ -108,7 +98,7 @@ const headers = [
         <v-text-field v-model="filters.to" type="date" label="По" />
       </v-col>
       <v-col cols="12" md="4">
-        <v-autocomplete v-model="filters.userId" :items="userItems" label="Сотрудник" clearable />
+        <UserPicker v-model="filters.userId" />
       </v-col>
       <v-col cols="12" md="3">
         <v-select v-model="filters.action" :items="actionItems" label="Событие" clearable />

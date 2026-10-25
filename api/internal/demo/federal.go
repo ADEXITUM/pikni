@@ -174,10 +174,25 @@ func Federal(ctx context.Context, owner *pgxpool.Pool, opts FederalOptions, log 
 		n++
 		plan = append(plan, federalRow{list[k%len(list)], g.rnd.Float64() < opts.SmallShare, n})
 	}
+	// Точки, что уже были в базе (магазины и склады «Чекушки» из dev.sql), тоже получают остатки:
+	// магазин снабжает ближайший из прежних складов.
+	oldStores, oldWhs, err := g.existing(ctx, nil)
+	if err != nil {
+		return err
+	}
 	stores, whs, err := g.federalPoints(ctx, plan)
 	if err != nil {
 		return err
 	}
+	supply := oldWhs
+	if len(supply) == 0 {
+		supply = whs
+	}
+	for _, s := range oldStores {
+		s.wh = nearest(s, supply)
+		s.wh.stores = append(s.wh.stores, s)
+	}
+	stores, whs = append(oldStores, stores...), append(oldWhs, whs...)
 	log.Info("federal network", "stores", len(stores), "warehouses", len(whs), "elapsed", time.Since(began).Round(time.Second))
 	// Матрица магазина — компактный список; спрос считается заново при записи остатков. Склад держит
 	// запас на два дня продаж своих магазинов.

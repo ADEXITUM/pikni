@@ -7,11 +7,12 @@ import {
   mdiPrinterOutline,
 } from '@mdi/js'
 import { api, ApiError, type AssetStatus, type LabelFormat } from '@pikni/api'
-import { useMutation, useQuery } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/vue-query'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AssetFormDialog from '@/components/AssetFormDialog.vue'
+import LocationSelect from '@/components/LocationSelect.vue'
 import { assetStatusColors, assetStatusLabels, assetCategoriesQuery } from '@/assets'
 import { formatDateTime } from '@/format'
 import { openPdf } from '@/print'
@@ -31,26 +32,41 @@ const location = ref<string | null>(null)
 const category = ref<string | null>(null)
 const status = ref<AssetStatus | null>(null)
 const q = ref('')
+const term = ref('')
+let timer: ReturnType<typeof setTimeout> | undefined
+watch(q, (v) => {
+  clearTimeout(timer)
+  timer = setTimeout(() => (term.value = (v ?? '').trim()), 300)
+})
 const query = computed(() => ({
   locationId: location.value ?? undefined,
   category: category.value ?? undefined,
   status: status.value ?? undefined,
-  q: q.value.trim() || undefined,
+  q: term.value || undefined,
 }))
+// В федеральной сети объектов сотни тысяч: ведомость приходит страницами, итог считает сервер.
+const perPage = 50
+const page = ref(1)
+watch(query, () => (page.value = 1))
 const { data: categories } = useQuery(assetCategoriesQuery)
 const {
-  data: assets,
+  data: register,
   isPending,
   error,
 } = useQuery({
-  queryKey: computed(() => ['assets', query.value]),
+  queryKey: computed(() => ['assets', query.value, page.value]),
+  placeholderData: keepPreviousData,
   queryFn: async () => {
-    const { data, error } = await api.GET('/assets', { params: { query: query.value } })
+    const { data, error } = await api.GET('/assets', {
+      params: { query: { ...query.value, offset: (page.value - 1) * perPage, limit: perPage } },
+    })
     if (error) throw new ApiError(error)
-    return data.items
+    return data
   },
 })
-const total = computed(() => (assets.value ?? []).reduce((n, a) => n + a.costKopecks, 0))
+const assets = computed(() => register.value?.items)
+const total = computed(() => register.value?.totalCostKopecks ?? 0)
+const pages = computed(() => Math.ceil((register.value?.total ?? 0) / perPage))
 const registerUrl = computed(() => {
   const params = new URLSearchParams(
     Object.entries(query.value).filter(([, v]) => v !== undefined) as [string, string][],
@@ -133,9 +149,9 @@ const auditStatus = { counting: 'Идёт', finished: 'Завершена', canc
         >
       </div>
       <div class="d-flex flex-wrap ga-2 mb-3">
-        <v-select
+        <LocationSelect
           v-model="location"
-          :items="places.items.value"
+          :locations="places.options.value"
           label="Точка"
           clearable
           density="compact"
@@ -216,13 +232,22 @@ const auditStatus = { counting: 'Идёт', finished: 'Завершена', canc
           <tfoot>
             <tr>
               <td />
-              <td class="font-weight-bold">Итого: {{ assets.length }}</td>
+              <td class="font-weight-bold">Итого: {{ register?.total ?? 0 }}</td>
               <td class="d-none d-md-table-cell" />
               <td class="d-none d-sm-table-cell" />
               <td class="text-end font-weight-bold">{{ formatPrice(total / 100) }}</td>
             </tr>
           </tfoot>
         </v-table>
+        <v-pagination
+          v-if="pages > 1"
+          v-model="page"
+          :length="pages"
+          :total-visible="7"
+          density="comfortable"
+          class="mb-3"
+          data-test="asset-pages"
+        />
         <div class="d-flex flex-wrap align-center ga-2">
           <v-btn-toggle v-model="format" mandatory density="compact" variant="outlined" divided>
             <v-btn value="thermal">Термо 58 × 40</v-btn>
@@ -244,9 +269,9 @@ const auditStatus = { counting: 'Идёт', finished: 'Завершена', canc
 
     <template v-else>
       <div v-if="canEdit" class="d-flex flex-wrap align-center ga-2 mb-4">
-        <v-select
+        <LocationSelect
           v-model="auditPlace"
-          :items="editable.items.value"
+          :locations="editable.options.value"
           label="Точка"
           density="compact"
           hide-details

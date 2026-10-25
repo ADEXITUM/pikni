@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mdiCancel, mdiPlus } from '@mdi/js'
+import { mdiCancel, mdiMagnify, mdiPlus } from '@mdi/js'
 import { api, ApiError, type PosDevice, type PosDeviceKey } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
@@ -49,6 +49,8 @@ const headers = [
   { title: 'На связи', key: 'lastSeenAt' },
   { title: '', key: 'actions', sortable: false, align: 'end' as const },
 ]
+
+const search = ref('')
 
 const formOpen = ref(false)
 const location = ref<string | null>(null)
@@ -100,6 +102,15 @@ function openForm() {
   <v-container>
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
       <h1 class="text-headline-small flex-grow-1">Кассы</h1>
+      <v-text-field
+        v-model="search"
+        :prepend-inner-icon="mdiMagnify"
+        placeholder="Касса или точка"
+        density="compact"
+        hide-details
+        clearable
+        class="pk-search"
+      />
       <v-btn color="primary" :prepend-icon="mdiPlus" data-test="add-device" @click="openForm()">
         Зарегистрировать
       </v-btn>
@@ -119,11 +130,12 @@ function openForm() {
         :headers="headers"
         :items="devices ?? []"
         :loading="isPending"
-        :items-per-page="-1"
+        :search="search"
+        :items-per-page="25"
+        :items-per-page-options="[25, 50, 100]"
         item-value="id"
         mobile-breakpoint="sm"
         no-data-text="Касс пока нет"
-        hide-default-footer
       >
         <template #[`item.name`]="{ item }">
           <span :class="{ 'text-disabled': item.revokedAt }">{{ item.name }}</span>
@@ -197,3 +209,9 @@ function openForm() {
     />
   </v-container>
 </template>
+
+<style scoped>
+.pk-search {
+  max-width: 260px;
+}
+</style>

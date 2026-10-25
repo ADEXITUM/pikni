@@ -28,6 +28,7 @@ type (
 	dailyRestArgs struct{}
 	cleanupArgs   struct{}
 	networkArgs   struct{}
+	integrityArgs struct{}
 )
 
 func (notifyArgs) Kind() string    { return "notify" }
@@ -35,14 +36,19 @@ func (sweepArgs) Kind() string     { return "reservations_sweep" }
 func (dailyRestArgs) Kind() string { return "egais_daily_rests" }
 func (cleanupArgs) Kind() string   { return "report_cleanup" }
 func (networkArgs) Kind() string   { return "network_stock" }
+func (integrityArgs) Kind() string { return "stock_integrity" }
 
 // task — работник River из обычной функции.
 type task[T river.JobArgs] struct {
 	river.WorkerDefaults[T]
 	run func(context.Context) error
+	// timeout — свой предел вместо минуты River по умолчанию.
+	timeout time.Duration
 }
 
 func (t *task[T]) Work(ctx context.Context, _ *river.Job[T]) error { return t.run(ctx) }
+
+func (t *task[T]) Timeout(*river.Job[T]) time.Duration { return t.timeout }
 
 // traceJob — каждая задача начинает свою трассировку: её запросы к базе и внешним системам
 // видны одним деревом, как у HTTP-запроса.
@@ -83,6 +89,17 @@ func Jobs(pool *pgxpool.Pool, log *slog.Logger, egais bool) (*river.Client[pgx.T
 	river.AddWorker(workers, &task[sweepArgs]{run: Reservations(pool).Sweep})
 	river.AddWorker(workers, &task[dailyRestArgs]{run: reconcile.NewService(pool).RequestDaily})
 	river.AddWorker(workers, &task[cleanupArgs]{run: rep.Cleanup})
+	// Целостность остатков для «Состояния системы» — раз в час: на большой сети это минуты.
+	river.AddWorker(workers, &task[integrityArgs]{run: func(ctx context.Context) error {
+		start := time.Now()
+		var problems int
+		if err := pool.QueryRow(ctx, "select count(*) from stock_integrity()").Scan(&problems); err != nil {
+			return err
+		}
+		_, err := pool.Exec(ctx, "insert into integrity_checks (problems, duration_ms) values ($1, $2)",
+			problems, time.Since(start).Milliseconds())
+		return err
+	}, timeout: 30 * time.Minute})
 	// Остаток по сети для «Наличия» — раз в минуту (решение 0064).
 	river.AddWorker(workers, &task[networkArgs]{run: func(ctx context.Context) error {
 		_, err := pool.Exec(ctx, "select refresh_network_stock()")
@@ -94,6 +111,7 @@ func Jobs(pool *pgxpool.Pool, log *slog.Logger, egais bool) (*river.Client[pgx.T
 		every(time.Minute, sweepArgs{}),
 		every(time.Hour, cleanupArgs{}),
 		every(time.Minute, networkArgs{}),
+		every(time.Hour, integrityArgs{}),
 	}
 	if egais {
 		periodic = append(periodic, every(time.Hour, dailyRestArgs{}))

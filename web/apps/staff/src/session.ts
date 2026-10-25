@@ -88,9 +88,12 @@ export async function sessionGuard(
   if (me.mustChangePassword && to.name !== 'change-password') {
     return { name: 'change-password', query: { redirect: to.fullPath } }
   }
-  // Администратор без второго фактора сначала подключает его в профиле (ПБ-3).
-  if (me.mustEnrollTotp && to.name !== 'profile' && to.name !== 'change-password') {
-    return { name: 'profile' }
+  // Администратор без второго фактора сначала подключает его на отдельном экране без меню (ПБ-3).
+  if (me.mustEnrollTotp && to.name !== 'enroll-totp' && to.name !== 'change-password') {
+    return { name: 'enroll-totp', query: { redirect: to.fullPath } }
+  }
+  if (!me.mustEnrollTotp && to.name === 'enroll-totp') {
+    return safeRedirect(to.query.redirect)
   }
   if (!canOpen(me, to)) {
     return { name: 'forbidden' }

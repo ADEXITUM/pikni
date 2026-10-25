@@ -76,9 +76,11 @@ func (s *Service) Categories(ctx context.Context) ([]store.AssetCategory, error)
 	return s.q.ListAssetCategories(ctx)
 }
 
+// Filter — отбор ведомости; Limit 0 — без ограничения (выгрузка в Excel).
 type Filter struct {
 	LocationID, ResponsibleID *uuid.UUID
 	Category, Status, Q       *string
+	Offset, Limit             int32
 }
 
 func (s *Service) List(ctx context.Context, f Filter) ([]store.ListAssetsRow, error) {
@@ -90,6 +92,18 @@ func (s *Service) List(ctx context.Context, f Filter) ([]store.ListAssetsRow, er
 		return nil, nil
 	}
 	return s.q.ListAssets(ctx, store.ListAssetsParams{
+		LocationIDs: allowed, LocationID: f.LocationID, ResponsibleID: f.ResponsibleID,
+		CategoryCode: f.Category, Status: f.Status, Q: f.Q, RowOffset: f.Offset, MaxRows: f.Limit,
+	})
+}
+
+// Totals — число объектов и их стоимость по фильтру без учёта страницы.
+func (s *Service) Totals(ctx context.Context, f Filter) (store.CountAssetsRow, error) {
+	allowed, err := auth.AllowedLocations(ctx, apispec.PermissionAssetsView)
+	if err != nil || (allowed != nil && len(allowed) == 0) {
+		return store.CountAssetsRow{}, err
+	}
+	return s.q.CountAssets(ctx, store.CountAssetsParams{
 		LocationIDs: allowed, LocationID: f.LocationID, ResponsibleID: f.ResponsibleID,
 		CategoryCode: f.Category, Status: f.Status, Q: f.Q,
 	})

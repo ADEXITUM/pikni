@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { variantLabel } from '@/products'
 import { useScanner } from '@/scanning'
 import { useLocationChoice } from '@/stock'
+import LocationSelect from '@/components/LocationSelect.vue'
 
 // Бронь для покупателя (НЛ-4): товар, количество, имя и телефон с согласием на обработку
 // персональных данных. Срок — до конца следующего дня.
@@ -88,7 +89,11 @@ const {
     <h1 class="text-headline-small mb-4">Отложить для покупателя</h1>
     <v-card class="mb-4">
       <v-card-text>
-        <v-select v-model="place.selectedId.value" :items="place.items.value" label="Магазин" />
+        <LocationSelect
+          v-model="place.selectedId.value"
+          :locations="place.options.value"
+          label="Магазин"
+        />
         <div v-if="item" class="mb-4" data-test="reservation-item">
           <div class="text-title-medium">{{ item.name }}</div>
           <div class="text-body-small text-medium-emphasis">

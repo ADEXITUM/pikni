@@ -18,7 +18,21 @@ where (sqlc.narg(location_ids)::uuid[] is null or a.location_id = any(sqlc.narg(
   and (case when sqlc.narg(status)::text is null then a.status <> 'written_off' else a.status = sqlc.narg(status)::text end)
   and (sqlc.narg(q)::text is null or a.number ilike '%' || sqlc.narg(q)::text || '%'
        or a.name ilike '%' || sqlc.narg(q)::text || '%' or a.serial ilike '%' || sqlc.narg(q)::text || '%')
-order by l.code, a.number;
+order by l.code, a.number
+offset @row_offset
+limit nullif(@max_rows::int, 0);
+
+-- name: CountAssets :one
+-- Итог ведомости по тому же фильтру, что ListAssets: число объектов и стоимость.
+select count(*)::integer as total, coalesce(sum(a.cost * 100), 0)::bigint as cost_kopecks
+from assets a
+where (sqlc.narg(location_ids)::uuid[] is null or a.location_id = any(sqlc.narg(location_ids)::uuid[]))
+  and (sqlc.narg(location_id)::uuid is null or a.location_id = sqlc.narg(location_id)::uuid)
+  and (sqlc.narg(responsible_id)::uuid is null or a.responsible_id = sqlc.narg(responsible_id)::uuid)
+  and (sqlc.narg(category_code)::text is null or a.category_code = sqlc.narg(category_code)::text)
+  and (case when sqlc.narg(status)::text is null then a.status <> 'written_off' else a.status = sqlc.narg(status)::text end)
+  and (sqlc.narg(q)::text is null or a.number ilike '%' || sqlc.narg(q)::text || '%'
+       or a.name ilike '%' || sqlc.narg(q)::text || '%' or a.serial ilike '%' || sqlc.narg(q)::text || '%');
 
 -- name: GetAsset :one
 select a.id, a.number, a.name, a.category_code, c.name as category_name, a.serial, a.accepted_at,

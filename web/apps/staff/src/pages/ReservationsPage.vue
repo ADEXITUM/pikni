@@ -8,6 +8,7 @@ import { formatDateTime } from '@/format'
 import { useLive } from '@/live'
 import { useScanner } from '@/scanning'
 import { useLocationChoice } from '@/stock'
+import LocationSelect from '@/components/LocationSelect.vue'
 
 // Брони покупателей (НЛ-4): оформленные ждут подтверждения сканом отложенной бутылки,
 // подтверждённые выдаются через кассу, просроченные снимаются сами.
@@ -106,9 +107,9 @@ function startConfirm(r: Reservation) {
       >
     </div>
     <div class="d-flex flex-wrap align-center ga-3 mb-3">
-      <v-select
+      <LocationSelect
         v-model="place.selectedId.value"
-        :items="place.items.value"
+        :locations="place.options.value"
         label="Магазин"
         density="compact"
         hide-details

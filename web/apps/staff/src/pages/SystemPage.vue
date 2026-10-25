@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { mdiRefresh } from '@mdi/js'
+import { mdiMagnify, mdiRefresh } from '@mdi/js'
 import { api, ApiError, type SystemStatus } from '@pikni/api'
 import { useQuery } from '@tanstack/vue-query'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import { formatAgo, formatDateTime } from '@/format'
 
@@ -32,6 +32,24 @@ const backupOld = computed(
   () =>
     !s.value?.lastBackup || Date.now() - new Date(s.value.lastBackup.at).getTime() > 26 * 3600_000,
 )
+// Точек может быть тысячи: таблица постраничная, проблемные — сверху, есть поиск.
+const search = ref('')
+const problemsOnly = ref(false)
+const order: Record<Utm, number> = { down: 0, delayed: 1, ok: 2, none: 3 }
+const points = computed(() =>
+  (s.value?.locations ?? [])
+    .filter((l) => !problemsOnly.value || l.utm === 'down' || l.utm === 'delayed')
+    .map((l) => ({ ...l, title: `${l.code} · ${l.name}`, rank: order[l.utm] })),
+)
+const problems = computed(
+  () => (s.value?.locations ?? []).filter((l) => l.utm === 'down' || l.utm === 'delayed').length,
+)
+const headers = [
+  { title: 'Точка', key: 'title' },
+  { title: 'УТМ', key: 'rank' },
+  { title: 'В очереди', key: 'queued', align: 'end' as const },
+  { title: 'Последний обмен', key: 'lastExchangeAt' },
+]
 const size = (b?: number) =>
   b === undefined ? '' : `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`
 </script>
@@ -77,7 +95,14 @@ const size = (b?: number) =>
           >
             {{ s.integrityProblems ? `${s.integrityProblems} расхождений` : 'сходится' }}
           </div>
-          <div class="text-body-small">остатки = сумма движений</div>
+          <div class="text-body-small">
+            остатки = сумма движений ·
+            {{
+              s.integrityCheckedAt
+                ? `проверено ${formatAgo(s.integrityCheckedAt)}`
+                : 'проверка ещё не проходила'
+            }}
+          </div>
         </v-card>
         <v-card variant="flat" class="pa-4">
           <div class="text-medium-emphasis">ЕГАИС и ГИС МТ (имитатор)</div>
@@ -94,32 +119,56 @@ const size = (b?: number) =>
         </v-card>
       </div>
 
-      <h2 class="text-title-large mb-2">УТМ точек</h2>
-      <v-table density="comfortable" data-test="utm">
-        <thead>
-          <tr>
-            <th>Точка</th>
-            <th>УТМ</th>
-            <th class="text-end">В очереди</th>
-            <th>Последний обмен</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="l in s.locations" :key="l.code">
-            <td>{{ l.code }} · {{ l.name }}</td>
-            <td>
-              <v-chip :color="utm[l.utm].color" size="small" label>{{ utm[l.utm].text }}</v-chip>
-            </td>
-            <td class="text-end">
-              {{ l.queued
-              }}<span v-if="l.oldestQueuedAt" class="text-body-small text-medium-emphasis">
-                · с {{ formatAgo(l.oldestQueuedAt) }}</span
-              >
-            </td>
-            <td>{{ l.lastExchangeAt ? formatAgo(l.lastExchangeAt) : '—' }}</td>
-          </tr>
-        </tbody>
-      </v-table>
+      <div class="d-flex flex-wrap align-center ga-3 mb-2">
+        <h2 class="text-title-large">УТМ точек</h2>
+        <v-chip v-if="problems" color="error" size="small" label
+          >с проблемами: {{ problems }}</v-chip
+        >
+        <v-spacer />
+        <v-switch
+          v-model="problemsOnly"
+          label="Только с проблемами"
+          color="primary"
+          density="compact"
+          hide-details
+        />
+        <v-text-field
+          v-model="search"
+          :prepend-inner-icon="mdiMagnify"
+          placeholder="Код или название точки"
+          density="compact"
+          hide-details
+          clearable
+          class="pk-search"
+        />
+      </div>
+      <v-card>
+        <v-data-table
+          :headers="headers"
+          :items="points"
+          :search="search"
+          :sort-by="[{ key: 'rank', order: 'asc' }]"
+          :items-per-page="20"
+          density="comfortable"
+          no-data-text="Точек нет"
+          data-test="utm"
+        >
+          <template #[`item.rank`]="{ item }">
+            <v-chip :color="utm[item.utm].color" size="small" label>{{
+              utm[item.utm].text
+            }}</v-chip>
+          </template>
+          <template #[`item.queued`]="{ item }">
+            {{ item.queued
+            }}<span v-if="item.oldestQueuedAt" class="text-body-small text-medium-emphasis">
+              · с {{ formatAgo(item.oldestQueuedAt) }}</span
+            >
+          </template>
+          <template #[`item.lastExchangeAt`]="{ item }">
+            {{ item.lastExchangeAt ? formatAgo(item.lastExchangeAt) : '—' }}
+          </template>
+        </v-data-table>
+      </v-card>
     </template>
   </v-container>
 </template>
@@ -127,6 +176,9 @@ const size = (b?: number) =>
 <style scoped>
 .pk-system {
   max-width: 1100px;
+}
+.pk-search {
+  max-width: 280px;
 }
 .pk-grid {
   display: grid;

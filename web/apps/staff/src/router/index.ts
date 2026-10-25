@@ -20,6 +20,12 @@ const router = createRouter({
       meta: { title: 'Вход', public: true, bare: true },
     },
     {
+      path: '/two-factor',
+      name: 'enroll-totp',
+      component: () => import('@/pages/EnrollTotpPage.vue'),
+      meta: { title: 'Второй фактор', bare: true },
+    },
+    {
       path: '/change-password',
       name: 'change-password',
       component: () => import('@/pages/ChangePasswordPage.vue'),

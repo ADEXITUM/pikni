@@ -10,6 +10,7 @@ import { openPdf } from '@/print'
 import { formatPrice, variantLabel } from '@/products'
 import { useScanner } from '@/scanning'
 import { useLocationChoice } from '@/stock'
+import LocationSelect from '@/components/LocationSelect.vue'
 
 // Ценники (ЭТ-2, ЭТ-3): после смены цен — список товаров зала с устаревшими ценниками; выборочно —
 // сканом или поиском. Печать — PDF на A4 с сеткой или на термоэтикетках 58 × 40 мм.
@@ -97,9 +98,9 @@ async function print(variantIds: string[]) {
     </p>
 
     <div class="d-flex flex-wrap align-center ga-3 mb-4">
-      <v-select
+      <LocationSelect
         v-model="place.selectedId.value"
-        :items="place.items.value"
+        :locations="place.options.value"
         label="Магазин"
         hide-details
         density="compact"

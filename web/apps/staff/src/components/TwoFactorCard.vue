@@ -1,47 +1,19 @@
 <script setup lang="ts">
 import { mdiContentCopy, mdiShieldCheckOutline } from '@mdi/js'
 import { api, ApiError } from '@pikni/api'
-import { qrSvg } from '@pikni/scanner'
 import { useQueryClient } from '@tanstack/vue-query'
 import { ref } from 'vue'
 
+import QrCode from '@/components/QrCode.vue'
 import { meQuery, useMe } from '@/session'
+import { useTotpSetup } from '@/totp'
 
 // Двухфакторная аутентификация (ПБ-3): приложение-аутентификатор на телефоне выдаёт код на 30 с.
-// Администратору обязательна, остальным — по желанию.
+// Администратору обязательна — он подключает её на отдельном экране, остальным — по желанию.
 const { data: me } = useMe()
 const queryClient = useQueryClient()
-const setup = ref<{ secret: string; qr: string }>()
-const code = ref('')
-const recovery = ref<string[]>()
-const error = ref<string>()
-const busy = ref(false)
+const { setup, code, recovery, error, busy, start, enable, copyRecovery: copy } = useTotpSetup()
 const disableOpen = ref(false)
-
-function copy() {
-  void navigator.clipboard.writeText(recovery.value!.join('\n'))
-}
-
-async function start() {
-  error.value = undefined
-  const { data, error: problem } = await api.POST('/auth/totp/setup')
-  if (problem) return (error.value = new ApiError(problem).message)
-  setup.value = { secret: data.secret, qr: await qrSvg(data.url) }
-}
-
-async function enable() {
-  busy.value = true
-  error.value = undefined
-  const { data, error: problem } = await api.POST('/auth/totp/enable', {
-    body: { code: code.value },
-  })
-  busy.value = false
-  if (problem) return (error.value = new ApiError(problem).message)
-  recovery.value = data.recoveryCodes
-  setup.value = undefined
-  code.value = ''
-  await queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
-}
 
 async function disable() {
   busy.value = true
@@ -66,11 +38,6 @@ async function disable() {
       </template>
     </v-card-item>
     <v-card-text>
-      <v-alert v-if="me?.mustEnrollTotp" type="warning" variant="tonal" class="mb-3">
-        Администратору двухфакторная аутентификация обязательна: остальные разделы откроются после
-        подключения.
-      </v-alert>
-
       <template v-if="recovery">
         <p class="mb-2">
           Подключено. Сохраните резервные коды — каждый подходит один раз, если телефон потеряется.
@@ -89,8 +56,7 @@ async function disable() {
           Отсканируйте код приложением-аутентификатором (Google Authenticator, «Яндекс Ключ» и
           подобные) и введите шесть цифр, которые оно покажет.
         </p>
-        <!-- eslint-disable-next-line vue/no-v-html -- SVG собран нашим кодом -->
-        <div class="pk-qr mb-2" v-html="setup.qr" />
+        <QrCode :svg="setup.qr" class="mb-3" />
         <p class="text-body-small text-medium-emphasis mb-3">
           Не сканируется — введите ключ вручную: <code>{{ setup.secret }}</code>
         </p>
@@ -147,13 +113,6 @@ async function disable() {
 </template>
 
 <style scoped>
-.pk-qr :deep(svg) {
-  width: 180px;
-  height: 180px;
-  background: #fff;
-  padding: 8px;
-  border-radius: 8px;
-}
 .pk-codes {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

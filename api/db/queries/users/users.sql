@@ -1,9 +1,41 @@
 -- name: ListUsers :many
+-- Поиск, фильтры и страница: сотрудников федеральной сети — тысячи (решение 0064).
 select u.id, u.login, u.full_name, u.role, u.is_blocked, u.must_change_password, u.locked_until,
        u.version, u.created_at,
        array(select location_id from user_locations where user_id = u.id order by location_id)::uuid[] as location_ids
 from users u
-order by u.full_name, u.login;
+where (sqlc.narg(q)::text is null or u.login ilike '%' || sqlc.narg(q)::text || '%'
+       or u.full_name ilike '%' || sqlc.narg(q)::text || '%')
+  and (sqlc.narg(role)::text is null or u.role = sqlc.narg(role)::text)
+  and (sqlc.narg(location_id)::uuid is null
+       or exists (select 1 from user_locations ul where ul.user_id = u.id and ul.location_id = sqlc.narg(location_id)::uuid))
+  and (sqlc.narg(status)::text is null
+       or sqlc.narg(status)::text = 'blocked' and u.is_blocked
+       or sqlc.narg(status)::text = 'active' and not u.is_blocked and not u.must_change_password
+       or sqlc.narg(status)::text = 'temporary' and u.must_change_password and not u.is_blocked)
+order by
+    case when @sort::text = 'login' then u.login end,
+    case when @sort::text = '-login' then u.login end desc,
+    case when @sort::text = 'role' then u.role end,
+    case when @sort::text = '-role' then u.role end desc,
+    case when @sort::text = 'created' then u.created_at end,
+    case when @sort::text = '-created' then u.created_at end desc,
+    case when @sort::text = '-name' then u.full_name end desc,
+    u.full_name, u.login
+offset @row_offset
+limit nullif(@max_rows::int, 0);
+
+-- name: CountUsers :one
+select count(*)::int from users u
+where (sqlc.narg(q)::text is null or u.login ilike '%' || sqlc.narg(q)::text || '%'
+       or u.full_name ilike '%' || sqlc.narg(q)::text || '%')
+  and (sqlc.narg(role)::text is null or u.role = sqlc.narg(role)::text)
+  and (sqlc.narg(location_id)::uuid is null
+       or exists (select 1 from user_locations ul where ul.user_id = u.id and ul.location_id = sqlc.narg(location_id)::uuid))
+  and (sqlc.narg(status)::text is null
+       or sqlc.narg(status)::text = 'blocked' and u.is_blocked
+       or sqlc.narg(status)::text = 'active' and not u.is_blocked and not u.must_change_password
+       or sqlc.narg(status)::text = 'temporary' and u.must_change_password and not u.is_blocked);
 
 -- name: GetUser :one
 select u.id, u.login, u.full_name, u.role, u.is_blocked, u.must_change_password, u.locked_until,

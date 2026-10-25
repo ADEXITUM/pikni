@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -138,6 +139,19 @@ func TestAssetLifecycle(t *testing.T) {
 	rows, _ = f.svc.List(f.accountant, assets.Filter{Status: &written})
 	if len(rows) != 1 {
 		t.Fatalf("written-off filter: %d", len(rows))
+	}
+	// Страница ведомости и итог по всему фильтру.
+	for i := range 3 {
+		if _, err := f.svc.Create(f.accountant, f.blg, nil, assets.Fields{Name: fmt.Sprintf("Стул %d", i), Category: "furniture",
+			AcceptedAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), CostKopeck: 100_000}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := assets.Filter{Offset: 1, Limit: 2}
+	rows, _ = f.svc.List(f.accountant, page)
+	totals, err := f.svc.Totals(f.accountant, page)
+	if err != nil || len(rows) != 2 || totals.Total != 3 || totals.CostKopecks != 300_000 {
+		t.Fatalf("page: %d rows, totals %+v, %v", len(rows), totals, err)
 	}
 }
 

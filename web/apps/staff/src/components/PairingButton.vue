@@ -2,6 +2,7 @@
 import { mdiCellphoneLink, mdiCellphoneLinkOff } from '@mdi/js'
 import { qrSvg } from '@pikni/scanner'
 import { ref, watch } from 'vue'
+import QrCode from '@/components/QrCode.vue'
 
 import { closePairing, openPairing, pcPairing } from '@/pairing'
 
@@ -65,7 +66,9 @@ async function stop() {
           </p>
           <v-progress-circular v-if="busy" indeterminate class="d-block mx-auto" />
           <!-- eslint-disable-next-line vue/no-v-html -- SVG собран нашим кодом -->
-          <div v-if="qr" class="pk-qr" data-test="pairing-qr" v-html="qr" />
+          <div class="d-flex justify-center">
+            <QrCode :svg="qr" :size="220" data-test="pairing-qr" />
+          </div>
         </template>
         <v-alert v-if="error" type="error" class="mt-4">{{ error }}</v-alert>
       </v-card-text>
@@ -77,17 +80,3 @@ async function stop() {
     </v-card>
   </v-dialog>
 </template>
-
-<style scoped>
-.pk-qr {
-  display: flex;
-  justify-content: center;
-}
-.pk-qr :deep(svg) {
-  width: 220px;
-  height: 220px;
-  background: #fff;
-  padding: 8px;
-  border-radius: 8px;
-}
-</style>
