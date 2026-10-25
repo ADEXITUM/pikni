@@ -180,9 +180,10 @@ tasks:
     dir: api
     env:
       DATABASE_URL: postgres://pikni_app:pikni_app@localhost:5432/pikni_fed?sslmode=disable
+    # План (ревизии и сотрудники) создаётся при первом запуске, около 15 минут; дальше за секунды
+    # выдаются только новые сеансы — без входа сеанс истекает через 12 часов.
     cmds:
-      - cmd: mkdir -p ../.demo && go run ./cmd/admin seed-load -stocktakes 500 -scanners 10000 -file ../.demo/load-fed.json
-        if: '[ ! -f ../.demo/load-fed.json ]'
+      - mkdir -p ../.demo && go run ./cmd/admin seed-load -stocktakes 500 -scanners 10000 -file ../.demo/load-fed.json
       - go run ./cmd/loadtest -url http://localhost:8081 -plan ../.demo/load-fed.json -scanners {{.SCANNERS | default "2000"}} -d {{.DURATION | default "3m"}} -ramp 1m
 
   scenario:

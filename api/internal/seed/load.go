@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,27 +63,38 @@ func Load(ctx context.Context, pool *pgxpool.Pool, stocktakes, scanners int, w i
 	docs := documents.NewService(pool, catalog.NewService(pool), marks.NewService(pool))
 	perStore := max(2, scanners/len(stores))
 	var plan LoadPlan
-	var users, links, sessions [][]any
+	var logins, names []string
+	var homes []uuid.UUID
+	var tokens [][]byte
+	var csrfs []string
 	began := time.Now()
 	for k, s := range stores {
+		// Повторный запуск продолжает идущие ревизии и тех же сотрудников — заново выдаются только
+		// сеансы: без входа сеанс истекает через 12 часов.
 		var manager uuid.UUID
 		if err := pool.QueryRow(ctx, `insert into users (login, full_name, role, password_hash, must_change_password)
-			values ($1, $2, 'store_manager', 'x', false) returning id`, "load-upr-"+s.Code, "Управляющий "+s.Code).Scan(&manager); err != nil {
+			values ($1, $2, 'store_manager', 'x', false)
+			on conflict ((lower(login))) do update set full_name = excluded.full_name returning id`, "load-upr-"+s.Code, "Управляющий "+s.Code).Scan(&manager); err != nil {
 			return err
 		}
-		if _, err := pool.Exec(ctx, `insert into user_locations (user_id, location_id) values ($1, $2)`, manager, s.ID); err != nil {
+		if _, err := pool.Exec(ctx, `insert into user_locations (user_id, location_id) values ($1, $2) on conflict do nothing`, manager, s.ID); err != nil {
 			return err
 		}
-		mctx := auth.WithSession(ctx, auth.Session{UserID: manager, Role: "store_manager", LocationIDs: []uuid.UUID{s.ID}, TOTPEnabled: true})
-		doc, err := docs.CreateStocktake(mctx, s.ID, documents.Scope{}, "Федеральная ревизия — нагрузочное испытание")
+		var doc uuid.UUID
+		err := pool.QueryRow(ctx, `select id from documents where kind = 'stocktake' and location_id = $1 and status = 'counting'
+			order by created_at desc limit 1`, s.ID).Scan(&doc)
+		if errors.Is(err, pgx.ErrNoRows) {
+			mctx := auth.WithSession(ctx, auth.Session{UserID: manager, Role: "store_manager", LocationIDs: []uuid.UUID{s.ID}, TOTPEnabled: true})
+			if doc, err = docs.CreateStocktake(mctx, s.ID, documents.Scope{}, "Федеральная ревизия — нагрузочное испытание"); err != nil {
+				return err
+			}
+			var version int32
+			if err := pool.QueryRow(ctx, `select version from documents where id = $1`, doc).Scan(&version); err != nil {
+				return err
+			}
+			err = docs.StartStocktake(mctx, doc, version)
+		}
 		if err != nil {
-			return err
-		}
-		var version int32
-		if err := pool.QueryRow(ctx, `select version from documents where id = $1`, doc).Scan(&version); err != nil {
-			return err
-		}
-		if err := docs.StartStocktake(mctx, doc, version); err != nil {
 			return err
 		}
 		zoneCodes := map[uuid.UUID][]string{}
@@ -99,12 +112,12 @@ func Load(ctx context.Context, pool *pgxpool.Pool, stocktakes, scanners int, w i
 			if j%2 == 1 {
 				zone = s.Floor
 			}
-			id := uuid.Must(uuid.NewV7())
 			token, csrf := rand.Text(), rand.Text()
 			hash := sha256.Sum256([]byte(token))
-			users = append(users, []any{id, fmt.Sprintf("load-%s-%d", s.Code, j+1), "Кладовщик " + s.Code, "storekeeper", "x", false})
-			links = append(links, []any{id, s.ID})
-			sessions = append(sessions, []any{id, hash[:], csrf, time.Now().Add(24 * time.Hour)})
+			logins = append(logins, fmt.Sprintf("load-%s-%d", s.Code, j+1))
+			names = append(names, "Кладовщик "+s.Code)
+			homes = append(homes, s.ID)
+			tokens, csrfs = append(tokens, hash[:]), append(csrfs, csrf)
 			// Каждый сканирует свою часть зоны: марки делятся по кругу между сотрудниками зоны.
 			var codes []string
 			all := zoneCodes[zone]
@@ -118,13 +131,38 @@ func Load(ctx context.Context, pool *pgxpool.Pool, stocktakes, scanners int, w i
 		}
 	}
 	err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		if _, err := tx.CopyFrom(ctx, pgx.Identifier{"users"}, []string{"id", "login", "full_name", "role", "password_hash", "must_change_password"}, pgx.CopyFromRows(users)); err != nil {
+		rows, err := tx.Query(ctx, `insert into users (login, full_name, role, password_hash, must_change_password)
+			select l, n, 'storekeeper', 'x', false from unnest($1::text[], $2::text[]) as t(l, n)
+			on conflict ((lower(login))) do update set full_name = excluded.full_name
+			returning lower(login), id`, logins, names)
+		if err != nil {
 			return err
 		}
-		if _, err := tx.CopyFrom(ctx, pgx.Identifier{"user_locations"}, []string{"user_id", "location_id"}, pgx.CopyFromRows(links)); err != nil {
+		byLogin := map[string]uuid.UUID{}
+		for rows.Next() {
+			var login string
+			var id uuid.UUID
+			if err := rows.Scan(&login, &id); err != nil {
+				return err
+			}
+			byLogin[login] = id
+		}
+		if err := rows.Err(); err != nil {
 			return err
 		}
-		_, err := tx.CopyFrom(ctx, pgx.Identifier{"sessions"}, []string{"user_id", "token_hash", "csrf_token", "expires_at"}, pgx.CopyFromRows(sessions))
+		ids := make([]uuid.UUID, len(logins))
+		for i, l := range logins {
+			ids[i] = byLogin[strings.ToLower(l)]
+		}
+		if _, err := tx.Exec(ctx, `insert into user_locations (user_id, location_id)
+			select * from unnest($1::uuid[], $2::uuid[]) on conflict do nothing`, ids, homes); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `delete from sessions where user_id = any($1)`, ids); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `insert into sessions (user_id, token_hash, csrf_token, expires_at)
+			select u, t, c, now() + interval '7 days' from unnest($1::uuid[], $2::bytea[], $3::text[]) as x(u, t, c)`, ids, tokens, csrfs)
 		return err
 	})
 	if err != nil {
