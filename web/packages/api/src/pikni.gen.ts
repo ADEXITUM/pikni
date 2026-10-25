@@ -2309,6 +2309,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Каталог отчётов
+         * @description Отчёты, доступные пользователю по роли (ОТ-1, ОТ-2).
+         */
+        get: operations["listReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Построить отчёт на экране */
+        post: operations["runReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/{code}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отчёт в Excel или PDF
+         * @description Лёгкий отчёт возвращается сразу файлом. Тяжёлый ставится в очередь (202): файл появится в «Моих отчётах», о готовности придёт уведомление (ОТ-3).
+         */
+        post: operations["exportReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Мои отчёты
+         * @description Отчёты, сформированные в фоне за последние семь дней.
+         */
+        get: operations["listReportFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/report-files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Скачать отчёт */
+        get: operations["downloadReportFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Дашборд руководителя
+         * @description Показатели и графики по доступным точкам или одной точке за период (ОТ-4).
+         */
+        get: operations["getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Центр уведомлений
+         * @description Последние 50 уведомлений пользователя и число непрочитанных (УВ-2).
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отметить прочитанным
+         * @description Без id — все уведомления пользователя.
+         */
+        post: operations["readNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/marks/{code}": {
         parameters: {
             query?: never;
@@ -2849,6 +3003,111 @@ export interface components {
             /** @enum {string} */
             result: "found" | "elsewhere";
             duplicate: boolean;
+        };
+        ReportColumn: {
+            title: string;
+            /** @enum {string} */
+            kind: "text" | "int" | "money" | "liters" | "date" | "percent";
+            sum: boolean;
+        };
+        ReportDef: {
+            code: string;
+            title: string;
+            description: string;
+            params: ("period" | "date" | "locations" | "categories" | "brands" | "group" | "days")[];
+            columns: components["schemas"]["ReportColumn"][];
+            /** @description Файл формируется в фоне */
+            heavy: boolean;
+        };
+        ReportParams: {
+            /** Format: date */
+            from?: string;
+            /** Format: date */
+            to?: string;
+            /** Format: date */
+            date?: string;
+            locationIds?: string[];
+            categoryIds?: string[];
+            brandIds?: string[];
+            /** @enum {string} */
+            group?: "location" | "category" | "brand" | "cashier" | "day";
+            days?: number;
+        };
+        ReportExport: {
+            params: components["schemas"]["ReportParams"];
+            /** @enum {string} */
+            format: "xlsx" | "pdf";
+        };
+        ReportTable: {
+            title: string;
+            columns: components["schemas"]["ReportColumn"][];
+            rows: unknown[][];
+            /** @description Строк больше предела — сузьте фильтр */
+            truncated: boolean;
+        };
+        ReportFile: {
+            /** Format: uuid */
+            id: string;
+            report: string;
+            title: string;
+            /** @enum {string} */
+            format: "xlsx" | "pdf";
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            error?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        ChartPoint: {
+            label: string;
+            /** Format: double */
+            value: number;
+        };
+        Dashboard: {
+            /**
+             * Format: double
+             * @description Стоимость запаса по себестоимости, ₽
+             */
+            stockCost: number;
+            /** Format: double */
+            revenue: number;
+            /**
+             * Format: double
+             * @description Оборачиваемость запаса в днях; нет — не было продаж
+             */
+            turnoverDays?: number;
+            /**
+             * Format: double
+             * @description Доля неликвида (без продаж 90 дней) в стоимости запаса, %
+             */
+            deadShare: number;
+            egaisMismatches: number;
+            unconfirmedTtn: number;
+            /**
+             * Format: double
+             * @description Бой за период по себестоимости, ₽
+             */
+            breakage: number;
+            revenueByDay: components["schemas"]["ChartPoint"][];
+            stockByCategory: components["schemas"]["ChartPoint"][];
+            stockByLocation: components["schemas"]["ChartPoint"][];
+        };
+        Notification: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            title: string;
+            body: string;
+            /** @description Экран приложения, куда ведёт уведомление */
+            link?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            readAt?: string;
         };
         Reservation: {
             /** Format: uuid */
@@ -7991,6 +8250,217 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AssetAuditState"];
                 };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Каталог */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ReportDef"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    runReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportParams"];
+            };
+        };
+        responses: {
+            /** @description Таблица отчёта */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportTable"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    exportReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportExport"];
+            };
+        };
+        responses: {
+            /** @description Файл */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Отчёт формируется в фоне */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportFile"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listReportFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файлы */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ReportFile"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    downloadReportFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDashboard: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                locationId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Показатели */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dashboard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                unread?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Уведомления */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Notification"][];
+                        unread: number;
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    readNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Отмечено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

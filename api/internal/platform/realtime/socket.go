@@ -10,7 +10,8 @@ import (
 	"github.com/coder/websocket"
 )
 
-// Тема — вид и UUID; лишнего клиент подписать не может.
+// Тема — вид и UUID; лишнего клиент подписать не может. Тема user:<id> — уведомления, на неё
+// подписывается только сам пользователь.
 var topicPattern = regexp.MustCompile(`^(doc|location|product|shift|pair):[0-9a-f-]{36}$`)
 
 // maxTopics — экран подписывается на несколько тем; сотня — с большим запасом.
@@ -21,9 +22,9 @@ type command struct {
 	Unsubscribe []string `json:"unsubscribe"`
 }
 
-// Serve обслуживает WebSocket. Вход проверяет вызывающий; библиотека сверяет Origin с адресом
+// Serve обслуживает WebSocket пользователя user. Вход проверяет вызывающий; библиотека сверяет Origin с адресом
 // сервера, поэтому чужой сайт не откроет соединение с cookie пользователя.
-func (h *Hub) Serve(w http.ResponseWriter, r *http.Request) error {
+func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, user string) error {
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		return err
@@ -46,8 +47,8 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request) error {
 			if json.Unmarshal(data, &cmd) != nil {
 				continue
 			}
-			h.subscribe(s, valid(cmd.Subscribe), true)
-			h.subscribe(s, valid(cmd.Unsubscribe), false)
+			h.subscribe(s, valid(cmd.Subscribe, user), true)
+			h.subscribe(s, valid(cmd.Unsubscribe, user), false)
 		}
 	}()
 
@@ -73,10 +74,10 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
-func valid(topics []string) []string {
+func valid(topics []string, user string) []string {
 	out := make([]string, 0, len(topics))
 	for _, t := range topics {
-		if topicPattern.MatchString(t) {
+		if topicPattern.MatchString(t) || t == "user:"+user {
 			out = append(out, t)
 		}
 	}

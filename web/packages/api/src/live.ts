@@ -13,6 +13,7 @@ export interface LiveEvent {
     | 'paired'
     | 'paired_scan'
     | 'unpaired'
+    | 'notification'
   id: string
   topics: string[]
   // Код со смартфона-сканера и идентификатор его скана — у событий сопряжения.

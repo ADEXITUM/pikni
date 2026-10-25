@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 
 import LocationPicker from '@/components/LocationPicker.vue'
+import NotificationBell from '@/components/NotificationBell.vue'
 import PairingButton from '@/components/PairingButton.vue'
 import PikniLogo from '@/components/PikniLogo.vue'
 import UserMenu from '@/components/UserMenu.vue'
@@ -28,7 +29,8 @@ const items = computed(() => {
   return navItems.filter(
     (item) =>
       canOpen(user, router.resolve({ name: item.route })) &&
-      (!item.forEditors || user.permissions.includes('refs.edit')),
+      (!item.forEditors || user.permissions.includes('refs.edit')) &&
+      (!item.forRoles || item.forRoles.includes(user.role)),
   )
 })
 // В нижней панели помещается четыре кнопки: если разделов больше, последняя — «Ещё».
@@ -85,6 +87,7 @@ onBeforeUnmount(() => stops.forEach((s) => s()))
     />
     <template #append>
       <PairingButton v-if="!xs" />
+      <NotificationBell />
       <UserMenu />
     </template>
   </v-app-bar>

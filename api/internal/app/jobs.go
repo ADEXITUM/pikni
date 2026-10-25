@@ -1,0 +1,81 @@
+package app
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+
+	"github.com/ADEXITUM/pikni/api/internal/notify"
+	"github.com/ADEXITUM/pikni/api/internal/reconcile"
+	"github.com/ADEXITUM/pikni/api/internal/reports"
+)
+
+// Периодические задачи. River выбирает ведущий экземпляр API, поэтому при нескольких
+// экземплярах каждая задача выполняется один раз, а при отказе ведущего её подхватит другой.
+type (
+	notifyArgs    struct{}
+	sweepArgs     struct{}
+	dailyRestArgs struct{}
+	cleanupArgs   struct{}
+)
+
+func (notifyArgs) Kind() string    { return "notify" }
+func (sweepArgs) Kind() string     { return "reservations_sweep" }
+func (dailyRestArgs) Kind() string { return "egais_daily_rests" }
+func (cleanupArgs) Kind() string   { return "report_cleanup" }
+
+// task — работник River из обычной функции.
+type task[T river.JobArgs] struct {
+	river.WorkerDefaults[T]
+	run func(context.Context) error
+}
+
+func (t *task[T]) Work(ctx context.Context, _ *river.Job[T]) error { return t.run(ctx) }
+
+func every[T river.JobArgs](interval time.Duration, args T) *river.PeriodicJob {
+	return river.NewPeriodicJob(river.PeriodicInterval(interval),
+		func() (river.JobArgs, *river.InsertOpts) {
+			// Одна задача за интервал: если ведущий сменился, дубль не встанет в очередь.
+			return args, &river.InsertOpts{MaxAttempts: 3, UniqueOpts: river.UniqueOpts{ByPeriod: interval}}
+		},
+		&river.PeriodicJobOpts{RunOnStart: true})
+}
+
+// Jobs собирает фоновые задачи: отчёты по запросу, уведомления, снятие броней, ежедневный
+// запрос остатков ЕГАИС (если подключён УТМ) и очистку «Моих отчётов».
+func Jobs(pool *pgxpool.Pool, log *slog.Logger, egais bool) (*river.Client[pgx.Tx], error) {
+	rep, err := reports.NewService(pool)
+	if err != nil {
+		return nil, err
+	}
+	notes := notify.NewService(pool)
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &reports.Worker{Svc: rep})
+	river.AddWorker(workers, &task[notifyArgs]{run: func(ctx context.Context) error {
+		_, err := notes.Scan(ctx)
+		return err
+	}})
+	river.AddWorker(workers, &task[sweepArgs]{run: Reservations(pool).Sweep})
+	river.AddWorker(workers, &task[dailyRestArgs]{run: reconcile.NewService(pool).RequestDaily})
+	river.AddWorker(workers, &task[cleanupArgs]{run: rep.Cleanup})
+
+	periodic := []*river.PeriodicJob{
+		every(time.Minute, notifyArgs{}),
+		every(time.Minute, sweepArgs{}),
+		every(time.Hour, cleanupArgs{}),
+	}
+	if egais {
+		periodic = append(periodic, every(time.Hour, dailyRestArgs{}))
+	}
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Logger:       log,
+		Queues:       map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 4}},
+		Workers:      workers,
+		PeriodicJobs: periodic,
+	})
+}

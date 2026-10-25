@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"sort"
 	"time"
 
@@ -92,10 +91,15 @@ type snapshot struct {
 // Report сравнивает последний снимок остатков ЕГАИС с учётом точки. В отчёт попадают только
 // расхождения.
 func (s *Service) Report(ctx context.Context, location uuid.UUID) (Report, error) {
-	var r Report
 	if err := auth.CheckLocation(ctx, apispec.PermissionEgaisReconcile, location); err != nil {
-		return r, err
+		return Report{}, err
 	}
+	return s.Differences(ctx, location)
+}
+
+// Differences — то же сравнение без проверки прав: для фоновых уведомлений о расхождениях.
+func (s *Service) Differences(ctx context.Context, location uuid.UUID) (Report, error) {
+	var r Report
 	_ = s.pool.QueryRow(ctx, `select max(created_at) from egais_messages where location_id = $1 and doc_type = 'QueryRests'`,
 		location).Scan(&r.RequestedAt)
 	var raw []byte
@@ -220,25 +224,16 @@ func (s *Service) Report(ctx context.Context, location uuid.UUID) (Report, error
 	return r, nil
 }
 
-// Run раз в interval запрашивает остатки точек, у которых снимку больше суток (ежедневная сверка).
-func (s *Service) Run(ctx context.Context, interval time.Duration, log *slog.Logger) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		if _, err := s.pool.Exec(ctx, `
-			insert into egais_messages (location_id, direction, doc_type, payload)
-			select l.id, 'out', 'QueryRests', '{}'
-			from locations l
-			where l.is_active and l.fsrar_id is not null
-			  and not exists (select 1 from egais_rests_snapshots r where r.location_id = l.id and r.taken_at > now() - interval '1 day')
-			  and not exists (select 1 from egais_messages m where m.location_id = l.id and m.doc_type = 'QueryRests'
-			                  and m.created_at > now() - interval '1 day')`); err != nil && ctx.Err() == nil {
-			log.Warn("daily egais reconciliation", "error", err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-	}
+// RequestDaily запрашивает остатки точек, у которых снимку больше суток (ежедневная сверка). Её
+// запускает фоновая задача раз в час.
+func (s *Service) RequestDaily(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into egais_messages (location_id, direction, doc_type, payload)
+		select l.id, 'out', 'QueryRests', '{}'
+		from locations l
+		where l.is_active and l.fsrar_id is not null
+		  and not exists (select 1 from egais_rests_snapshots r where r.location_id = l.id and r.taken_at > now() - interval '1 day')
+		  and not exists (select 1 from egais_messages m where m.location_id = l.id and m.doc_type = 'QueryRests'
+		                  and m.created_at > now() - interval '1 day')`)
+	return err
 }

@@ -3887,6 +3887,236 @@ paths:
           $ref: "#/components/responses/Problem"
 
 
+  /reports:
+    get:
+      operationId: listReports
+      summary: Каталог отчётов
+      description: Отчёты, доступные пользователю по роли (ОТ-1, ОТ-2).
+      tags: [reports]
+      x-permission: reports.view
+      responses:
+        "200":
+          description: Каталог
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReportDef"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /reports/{code}:
+    post:
+      operationId: runReport
+      summary: Построить отчёт на экране
+      tags: [reports]
+      x-permission: reports.view
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportParams"
+      responses:
+        "200":
+          description: Таблица отчёта
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportTable"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /reports/{code}/export:
+    post:
+      operationId: exportReport
+      summary: Отчёт в Excel или PDF
+      description: >
+        Лёгкий отчёт возвращается сразу файлом. Тяжёлый ставится в очередь (202): файл появится в
+        «Моих отчётах», о готовности придёт уведомление (ОТ-3).
+      tags: [reports]
+      x-permission: reports.view
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportExport"
+      responses:
+        "200":
+          description: Файл
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "202":
+          description: Отчёт формируется в фоне
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportFile"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /report-files:
+    get:
+      operationId: listReportFiles
+      summary: Мои отчёты
+      description: Отчёты, сформированные в фоне за последние семь дней.
+      tags: [reports]
+      x-permission: reports.view
+      responses:
+        "200":
+          description: Файлы
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReportFile"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /report-files/{id}:
+    get:
+      operationId: downloadReportFile
+      summary: Скачать отчёт
+      tags: [reports]
+      x-permission: reports.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Файл
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      summary: Дашборд руководителя
+      description: Показатели и графики по доступным точкам или одной точке за период (ОТ-4).
+      tags: [reports]
+      x-permission: reports.view
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Показатели
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      summary: Центр уведомлений
+      description: Последние 50 уведомлений пользователя и число непрочитанных (УВ-2).
+      tags: [notifications]
+      x-permission: authenticated
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Уведомления
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, unread]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  unread:
+                    type: integer
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /notifications/read:
+    post:
+      operationId: readNotifications
+      summary: Отметить прочитанным
+      description: Без id — все уведомления пользователя.
+      tags: [notifications]
+      x-permission: authenticated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        "204":
+          description: Отмечено
+        default:
+          $ref: "#/components/responses/Problem"
+
+
   /marks/{code}:
     get:
       operationId: getMark
@@ -5060,6 +5290,207 @@ components:
           enum: [found, elsewhere]
         duplicate:
           type: boolean
+
+    ReportColumn:
+      type: object
+      required: [title, kind, sum]
+      properties:
+        title:
+          type: string
+        kind:
+          type: string
+          enum: [text, int, money, liters, date, percent]
+        sum:
+          type: boolean
+
+    ReportDef:
+      type: object
+      required: [code, title, description, params, columns, heavy]
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        params:
+          type: array
+          items:
+            type: string
+            enum: [period, date, locations, categories, brands, group, days]
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportColumn"
+        heavy:
+          type: boolean
+          description: Файл формируется в фоне
+
+    ReportParams:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        date:
+          type: string
+          format: date
+        locationIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        categoryIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        brandIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        group:
+          type: string
+          enum: [location, category, brand, cashier, day]
+        days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+
+    ReportExport:
+      type: object
+      required: [params, format]
+      properties:
+        params:
+          $ref: "#/components/schemas/ReportParams"
+        format:
+          type: string
+          enum: [xlsx, pdf]
+
+    ReportTable:
+      type: object
+      required: [title, columns, rows, truncated]
+      properties:
+        title:
+          type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportColumn"
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        truncated:
+          type: boolean
+          description: Строк больше предела — сузьте фильтр
+
+    ReportFile:
+      type: object
+      required: [id, report, title, format, status, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        report:
+          type: string
+        title:
+          type: string
+        format:
+          type: string
+          enum: [xlsx, pdf]
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        error:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    ChartPoint:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+        value:
+          type: number
+          format: double
+
+    Dashboard:
+      type: object
+      required: [stockCost, revenue, breakage, deadShare, egaisMismatches, unconfirmedTtn, revenueByDay, stockByCategory, stockByLocation]
+      properties:
+        stockCost:
+          type: number
+          format: double
+          description: Стоимость запаса по себестоимости, ₽
+        revenue:
+          type: number
+          format: double
+        turnoverDays:
+          type: number
+          format: double
+          description: Оборачиваемость запаса в днях; нет — не было продаж
+        deadShare:
+          type: number
+          format: double
+          description: Доля неликвида (без продаж 90 дней) в стоимости запаса, %
+        egaisMismatches:
+          type: integer
+        unconfirmedTtn:
+          type: integer
+        breakage:
+          type: number
+          format: double
+          description: Бой за период по себестоимости, ₽
+        revenueByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartPoint"
+        stockByCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartPoint"
+        stockByLocation:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartPoint"
+
+    Notification:
+      type: object
+      required: [id, kind, title, body, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        link:
+          type: string
+          description: Экран приложения, куда ведёт уведомление
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
 
     Reservation:
       type: object

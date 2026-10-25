@@ -19,11 +19,13 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/labels"
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
+	"github.com/ADEXITUM/pikni/api/internal/notify"
 	"github.com/ADEXITUM/pikni/api/internal/pairing"
 	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/pos"
 	"github.com/ADEXITUM/pikni/api/internal/posspec"
 	"github.com/ADEXITUM/pikni/api/internal/reconcile"
+	"github.com/ADEXITUM/pikni/api/internal/reports"
 	"github.com/ADEXITUM/pikni/api/internal/reservations"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
 	"github.com/ADEXITUM/pikni/api/internal/users"
@@ -41,9 +43,11 @@ type (
 	labelsHandler    = labels.Handler
 	locationsHandler = locations.Handler
 	marksHandler     = marks.Handler
+	notifyHandler    = notify.Handler
 	pairingHandler   = pairing.Handler
 	posStaffHandler  = pos.StaffHandler
 	reconcileHandler = reconcile.Handler
+	reportsHandler   = reports.Handler
 	resHandler       = reservations.Handler
 	stockHandler     = stock.Handler
 	usersHandler     = users.Handler
@@ -60,9 +64,11 @@ type API struct {
 	*labelsHandler
 	*locationsHandler
 	*marksHandler
+	*notifyHandler
 	*pairingHandler
 	*posStaffHandler
 	*reconcileHandler
+	*reportsHandler
 	*resHandler
 	*stockHandler
 	*usersHandler
@@ -95,6 +101,10 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 	locs := locations.NewService(pool)
 	res := reservations.NewService(pool, cat, mk)
 	tills := pos.NewService(pool, cat, mk, docs, locs, egais.NewGovsim(govsimURL), crpt.NewGovsim(govsimURL), res)
+	rep, err := reports.NewService(pool)
+	if err != nil {
+		return err
+	}
 	api := &API{
 		assetsHandler:    assets.NewHandler(assets.NewService(pool)),
 		auditHandler:     audit.NewHandler(pool),
@@ -105,9 +115,11 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 		labelsHandler:    labels.NewHandler(labels.NewService(pool)),
 		locationsHandler: locations.NewHandler(locs),
 		marksHandler:     marks.NewHandler(mk),
+		notifyHandler:    notify.NewHandler(notify.NewService(pool)),
 		pairingHandler:   pairing.NewHandler(pairing.NewService(pool)),
 		posStaffHandler:  pos.NewStaffHandler(tills),
 		reconcileHandler: reconcile.NewHandler(reconcile.NewService(pool)),
+		reportsHandler:   reports.NewHandler(rep),
 		resHandler:       reservations.NewHandler(res),
 		stockHandler:     stock.NewHandler(stock.NewService(pool, mk)),
 		usersHandler:     users.NewHandler(users.NewService(pool)),
@@ -129,10 +141,11 @@ func Register(e *echo.Echo, pool *pgxpool.Pool, govsimURL string, hub *realtime.
 		if err != nil {
 			return echo.ErrUnauthorized
 		}
-		if _, err := sessions.Authenticate(c.Request().Context(), cookie.Value); err != nil {
+		sess, err := sessions.Authenticate(c.Request().Context(), cookie.Value)
+		if err != nil {
 			return echo.ErrUnauthorized
 		}
-		return hub.Serve(c.Response(), c.Request())
+		return hub.Serve(c.Response(), c.Request(), sess.UserID.String())
 	})
 	posspec.RegisterHandlersWithOptions(e,
 		posspec.NewStrictHandler(pos.NewHandler(tills), []posspec.StrictMiddlewareFunc{tills.Middleware()}),
