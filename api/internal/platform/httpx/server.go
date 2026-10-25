@@ -4,6 +4,7 @@ package httpx
 import (
 	"log/slog"
 	"net/http"
+	"sync/atomic"
 
 	echootel "github.com/labstack/echo-opentelemetry"
 	"github.com/labstack/echo/v5"
@@ -19,12 +20,24 @@ func NewServer(log *slog.Logger, serviceName string) *echo.Echo {
 	e.IPExtractor = echo.ExtractIPFromXFFHeader()
 
 	e.Use(middleware.RequestID())
+	e.Use(countInFlight)
 	e.Use(echootel.NewMiddlewareWithConfig(echootel.Config{ServerName: serviceName, Skipper: isProbe}))
 	e.Use(requestLogger(log))
 	e.Use(middleware.Recover())
 	e.Use(crossOriginProtection())
 
 	return e
+}
+
+// InFlight — запросов в обработке сейчас: метрика pikni.http.in_flight показывает очередь под нагрузкой.
+var InFlight atomic.Int64
+
+func countInFlight(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		InFlight.Add(1)
+		defer InFlight.Add(-1)
+		return next(c)
+	}
 }
 
 // Изменяющие запросы с чужих сайтов отклоняются по заголовкам Sec-Fetch-Site и Origin,

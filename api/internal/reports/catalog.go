@@ -97,7 +97,9 @@ const saleLines = `from pos_receipt_lines rl
 	join variants v on v.id = rl.variant_id
 	join products p on p.id = v.product_id`
 
-const saleFilter = `(r.created_on_device_at at time zone l.timezone)::date between @from::date and @to::date
+// Первое условие — для индекса по времени чека (с запасом в сутки на часовые пояса), второе — точное.
+const saleFilter = `r.created_on_device_at >= @from::date - interval '1 day' and r.created_on_device_at < @to::date + interval '2 days'
+	and (r.created_on_device_at at time zone l.timezone)::date between @from::date and @to::date
 	and (@locs::uuid[] is null or l.id = any(@locs::uuid[]))
 	and (@me::uuid is null or s.cashier_id = @me::uuid)
 	and ` + productFilter

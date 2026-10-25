@@ -59,7 +59,8 @@ func (s *Service) Dashboard(ctx context.Context, from, to time.Time, location *u
 		            where @locs::uuid[] is null or b.location_id = any(@locs::uuid[])), 0)::float8,
 		  coalesce((select sum(rl.qty * rl.price) from pos_receipt_lines rl join pos_receipts r on r.id = rl.receipt_id
 		            join pos_shifts s on s.id = r.shift_id join pos_devices d on d.id = s.device_id join locations l on l.id = d.location_id
-		            where (r.created_on_device_at at time zone l.timezone)::date between @from::date and @to::date
+		            where r.created_on_device_at >= @from::date - interval '1 day' and r.created_on_device_at < @to::date + interval '2 days'
+		              and (r.created_on_device_at at time zone l.timezone)::date between @from::date and @to::date
 		              and (@locs::uuid[] is null or l.id = any(@locs::uuid[]))), 0)::float8,
 		  coalesce((select -sum(m.cost_amount) from stock_moves m join documents d on d.id = m.document_id
 		            where d.kind = 'sale' and m.bucket = 'on_hand' and m.doc_date between @from::date and @to::date
@@ -103,12 +104,19 @@ func (s *Service) Dashboard(ctx context.Context, from, to time.Time, location *u
 		})
 	}
 	if d.RevenueByDay, err = series(`
-		select to_char(g.day, 'YYYY-MM-DD'), coalesce(sum(rl.qty * rl.price), 0)::float8
+		with sales as (
+			select (r.created_on_device_at at time zone l.timezone)::date as day, sum(rl.qty * rl.price) as amount
+			from pos_receipts r join pos_shifts s on s.id = r.shift_id join pos_devices dv on dv.id = s.device_id
+			join locations l on l.id = dv.location_id join pos_receipt_lines rl on rl.receipt_id = r.id
+			where r.created_on_device_at >= @from::date - interval '1 day' and r.created_on_device_at < @to::date + interval '2 days'
+			  and (r.created_on_device_at at time zone l.timezone)::date between @from::date and @to::date
+			  and (@locs::uuid[] is null or l.id = any(@locs::uuid[]))
+			group by 1
+		)
+		select to_char(g.day, 'YYYY-MM-DD'), coalesce(s.amount, 0)::float8
 		from generate_series(@from::date, @to::date, interval '1 day') as g(day)
-		left join (pos_receipts r join pos_shifts s on s.id = r.shift_id join pos_devices dv on dv.id = s.device_id
-		           join locations l on l.id = dv.location_id join pos_receipt_lines rl on rl.receipt_id = r.id)
-		  on (r.created_on_device_at at time zone l.timezone)::date = g.day and (@locs::uuid[] is null or l.id = any(@locs::uuid[]))
-		group by g.day order by g.day`); err != nil {
+		left join sales s on s.day = g.day
+		order by g.day`); err != nil {
 		return d, err
 	}
 	if d.StockByCategory, err = series(`
