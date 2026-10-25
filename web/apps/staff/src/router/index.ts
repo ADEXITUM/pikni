@@ -152,6 +152,24 @@ const router = createRouter({
       meta: { title: 'Инвентаризация имущества', permission: 'assets.view', scans: true },
     },
     {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/pages/DashboardPage.vue'),
+      meta: { title: 'Дашборд', permission: 'reports.view' },
+    },
+    {
+      path: '/reports',
+      name: 'reports',
+      component: () => import('@/pages/ReportsPage.vue'),
+      meta: { title: 'Отчёты', permission: 'reports.view' },
+    },
+    {
+      path: '/reports/files',
+      name: 'report-files',
+      component: () => import('@/pages/ReportFilesPage.vue'),
+      meta: { title: 'Мои отчёты', permission: 'reports.view' },
+    },
+    {
       path: '/stock',
       name: 'stock',
       component: () => import('@/pages/StockPage.vue'),

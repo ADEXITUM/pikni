@@ -24,7 +24,7 @@ func TestEventsReachSubscribers(t *testing.T) {
 	hub := realtime.NewHub(db.App, slog.Default())
 	go hub.Run(ctx)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = hub.Serve(w, r)
+		_ = hub.Serve(w, r, "u1")
 	}))
 	defer srv.Close()
 

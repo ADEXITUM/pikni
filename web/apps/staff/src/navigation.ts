@@ -1,8 +1,11 @@
+import type { Role } from '@pikni/api'
 import {
   mdiAccountGroupOutline,
   mdiBarcodeScan,
   mdiBookmarkOutline,
   mdiBookshelf,
+  mdiChartBar,
+  mdiViewDashboardOutline,
   mdiDeskLamp,
   mdiTagOutline,
   mdiScaleBalance,
@@ -20,7 +23,20 @@ import {
 // Разделы меню по порядку. Право берётся из meta.permission маршрута, поэтому раздел
 // сам появляется только у тех, кому он доступен. forEditors — служебные справочники: в меню
 // они у тех, кто их ведёт, остальным открываются по ссылке, например из карточки точки.
-export const navItems: { title: string; icon: string; route: string; forEditors?: true }[] = [
+export const navItems: {
+  title: string
+  icon: string
+  route: string
+  forEditors?: true
+  // Раздел только для этих ролей: например, дашборд руководителя продавцу не нужен.
+  forRoles?: Role[]
+}[] = [
+  {
+    title: 'Дашборд',
+    icon: mdiViewDashboardOutline,
+    route: 'dashboard',
+    forRoles: ['manager', 'accountant', 'store_manager'],
+  },
   { title: 'Сканер', icon: mdiBarcodeScan, route: 'scan' },
   { title: 'Наличие', icon: mdiMapSearchOutline, route: 'availability' },
   { title: 'Товары', icon: mdiBottleWineOutline, route: 'products' },
@@ -29,6 +45,7 @@ export const navItems: { title: string; icon: string; route: string; forEditors?
   { title: 'Брони', icon: mdiBookmarkOutline, route: 'reservations' },
   { title: 'Сверка с ЕГАИС', icon: mdiScaleBalance, route: 'reconciliation' },
   { title: 'Ценники', icon: mdiTagOutline, route: 'price-tags' },
+  { title: 'Отчёты', icon: mdiChartBar, route: 'reports' },
   { title: 'Имущество', icon: mdiDeskLamp, route: 'assets' },
   { title: 'Точки сети', icon: mdiStorefrontOutline, route: 'locations' },
   { title: 'Правила продажи', icon: mdiClockAlertOutline, route: 'sale-rules', forEditors: true },

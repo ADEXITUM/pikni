@@ -8,10 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -383,22 +381,6 @@ func (s *Service) Sweep(ctx context.Context) error {
 	}
 	_, err = s.q.AnonymizeReservations(ctx)
 	return err
-}
-
-// Run выполняет Sweep раз в interval до отмены контекста.
-func (s *Service) Run(ctx context.Context, interval time.Duration, log *slog.Logger) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		if err := s.Sweep(ctx); err != nil && ctx.Err() == nil {
-			log.Warn("reservations sweep", "error", err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-	}
 }
 
 // Peek — бронь без проверки прав сотрудника: касса сверяет точку сама.

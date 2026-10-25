@@ -53,7 +53,9 @@ export function useLogout() {
 
 // homeRoute — стартовый экран: у сотрудников магазина — сканер, у ролей сети — каталог.
 // Без сессии guard и так уведёт на вход.
-export function homeRoute(me: Me | null): 'scan' | 'products' {
+// Руководитель и бухгалтер начинают с дашборда, администратор — с каталога, магазин — со сканера.
+export function homeRoute(me: Me | null): 'scan' | 'products' | 'dashboard' {
+  if (me?.role === 'manager' || me?.role === 'accountant') return 'dashboard'
   return me && networkRoles.has(me.role) ? 'products' : 'scan'
 }
 
