@@ -105,6 +105,12 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 				}
 			}
 
+		case Transfer:
+			if unitCosts, err = s.shipTransfer(ctx, tx, q, doc, lines, docMarks, ev); err != nil {
+				return err
+			}
+			status = StatusInTransit
+
 		case FloorTransfer:
 			dest := *doc.DestZoneID
 			var items []egais.Item
@@ -139,7 +145,7 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 			}
 		}
 
-		if doc.Kind != Receipt {
+		if doc.Kind != Receipt && doc.Kind != Transfer {
 			unitCosts, err = stock.Apply(ctx, tx, stock.Doc{ID: id, Date: doc.DocDate}, moves)
 			if se, ok := errors.AsType[*stock.ShortageError](err); ok {
 				return s.describeShortage(ctx, q, lines, se)

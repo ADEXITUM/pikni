@@ -22,13 +22,14 @@ join locations l on l.id = z.location_id
 where z.location_id = @location_id;
 
 -- name: CreateDocument :one
-insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, author_id, comment)
-values (@kind, @number, @doc_date, @location_id, @zone_id, sqlc.narg(dest_zone_id), @author_id, @comment)
+insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status)
+values (@kind, @number, @doc_date, @location_id, @zone_id, sqlc.narg(dest_zone_id), sqlc.narg(dest_location_id), @author_id,
+        @comment, coalesce(sqlc.narg(status)::text, 'draft'))
 returning id;
 
 -- name: LockDocument :one
 select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
-       receiving_mode, ttn_id, unmapped
+       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment
 from documents
 where id = @id
 for update;
@@ -39,11 +40,16 @@ select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as lo
        coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.comment, d.created_at, d.posted_at, d.version,
        sp.name as supplier_name, d.ttn_number, d.receiving_mode, d.unmapped,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
-       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
+       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty,
+       d.dest_location_id, dl.name as dest_location_name, d.transfer_id, tr.number as transfer_number,
+       rc.id as receipt_id, rc.number as receipt_number
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
+left join locations dl on dl.id = d.dest_location_id
+left join documents tr on tr.id = d.transfer_id
+left join documents rc on rc.transfer_id = d.id and rc.kind = 'receipt'
 left join users au on au.id = d.author_id
 left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
@@ -57,19 +63,23 @@ select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as lo
        coalesce(au.full_name, 'ЕГАИС')::text as author_name, pu.full_name as posted_by_name, d.created_at, d.posted_at, d.version,
        sp.name as supplier_name, d.ttn_number, d.receiving_mode,
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
-       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty
+       (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty,
+       d.dest_location_id, dl.name as dest_location_name
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
 left join zones dz on dz.id = d.dest_zone_id
+left join locations dl on dl.id = d.dest_location_id
 left join users au on au.id = d.author_id
 left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
 where (d.kind = any(@kinds_all::text[])
-       or (d.kind = any(@kinds_own::text[]) and d.location_id = any(@own_locations::uuid[])))
+       or (d.kind = any(@kinds_own::text[])
+           and (d.location_id = any(@own_locations::uuid[]) or d.dest_location_id = any(@own_locations::uuid[]))))
   and (sqlc.narg(kind)::text is null or d.kind = sqlc.narg(kind)::text)
   and (sqlc.narg(status)::text is null or d.status = sqlc.narg(status)::text)
-  and (sqlc.narg(location_id)::uuid is null or d.location_id = sqlc.narg(location_id)::uuid)
+  and (sqlc.narg(location_id)::uuid is null or d.location_id = sqlc.narg(location_id)::uuid
+       or d.dest_location_id = sqlc.narg(location_id)::uuid)
   and (sqlc.narg(after)::uuid is null or d.id < sqlc.narg(after)::uuid)
 order by d.id desc
 limit @max_rows;
@@ -244,3 +254,36 @@ update document_packages set to_open = true where document_id = @document_id and
 select count(*)::integer
 from scans
 where document_id = @document_id and status = 'foreign' and undone_at is null;
+
+-- ---------- перемещение между точками
+
+-- name: StorageZone :one
+-- Склад точки: у распределительного склада — склад, у магазина — склад магазина.
+select z.id, l.kind as location_kind, l.is_active as location_active, l.fsrar_id, l.name,
+       (now() at time zone l.timezone)::date as local_date
+from zones z
+join locations l on l.id = z.location_id
+where z.location_id = @location_id and z.kind in ('warehouse', 'backroom');
+
+-- name: InsertRequestLine :exec
+insert into document_lines (document_id, line_no, variant_id, qty, qty_plan)
+values (@document_id, @line_no, @variant_id, 0, @qty_plan);
+
+-- name: SetComment :exec
+update documents set comment = @comment where id = @id;
+
+-- name: TransferByTTN :one
+-- Перемещение, по которому отправлена ТТН: её идентификатор в ЕГАИС — ответ УТМ на отправку.
+select m.document_id::uuid
+from egais_messages m
+join documents d on d.id = m.document_id
+where m.direction = 'out' and m.doc_type = 'WayBill' and m.external_id = @external_id and d.kind = 'transfer';
+
+-- name: SetTransfer :exec
+update documents set transfer_id = @transfer_id where id = @id;
+
+-- name: ReceiptForTransfer :one
+select id from documents where transfer_id = @transfer_id and kind = 'receipt';
+
+-- name: SetReceiptTTN :exec
+update documents set ttn_id = @ttn_id where id = @id;

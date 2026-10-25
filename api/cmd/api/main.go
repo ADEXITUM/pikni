@@ -18,6 +18,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/platform/httpx"
 	"github.com/ADEXITUM/pikni/api/internal/platform/logging"
+	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/platform/telemetry"
 )
 
@@ -78,7 +79,9 @@ func run() error {
 	httpx.RegisterHealth(e, version)
 	httpx.RegisterReady(e, log, map[string]httpx.Check{"database": pool.Ping})
 
-	if err := app.Register(e, pool, cfg.EgaisURL); err != nil {
+	hub := realtime.NewHub(pool, log)
+	go hub.Run(ctx)
+	if err := app.Register(e, pool, cfg.EgaisURL, hub); err != nil {
 		return err
 	}
 	if cfg.EgaisURL != "" {

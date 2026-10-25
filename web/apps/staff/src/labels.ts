@@ -37,9 +37,14 @@ export const documentKindLabels: Record<DocumentKind, string> = {
   opening: 'Ввод начальных остатков',
   floor_transfer: 'Передача в зал',
   receipt: 'Поступление',
+  sale: 'Продажа',
+  transfer: 'Перемещение',
 }
 
 export const documentStatusLabels: Record<DocumentStatus, string> = {
+  requested: 'Заявка',
+  rejected: 'Отклонена',
+  in_transit: 'В пути',
   draft: 'Черновик',
   awaiting_egais: 'Ожидает ЕГАИС',
   posted: 'Проведён',
@@ -48,6 +53,9 @@ export const documentStatusLabels: Record<DocumentStatus, string> = {
 }
 
 export const documentStatusColors: Record<DocumentStatus, string> = {
+  requested: 'info',
+  rejected: 'error',
+  in_transit: 'warning',
   draft: 'secondary',
   awaiting_egais: 'warning',
   posted: 'success',

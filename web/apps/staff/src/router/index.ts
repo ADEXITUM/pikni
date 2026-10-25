@@ -86,10 +86,28 @@ const router = createRouter({
       meta: { title: 'Документы', permission: 'availability.view' },
     },
     {
+      path: '/documents/transfer/new',
+      name: 'transfer-new',
+      component: () => import('@/pages/TransferNewPage.vue'),
+      meta: { title: 'Заявка на перемещение', permission: 'transfer.request', scans: true },
+    },
+    {
       path: '/documents/:id',
       name: 'document',
       component: () => import('@/pages/DocumentPage.vue'),
       meta: { title: 'Документ', permission: 'availability.view', scans: true },
+    },
+    {
+      path: '/availability',
+      name: 'availability',
+      component: () => import('@/pages/AvailabilityPage.vue'),
+      meta: { title: 'Наличие по сети', permission: 'availability.view', scans: true },
+    },
+    {
+      path: '/availability/:productId',
+      name: 'availability-card',
+      component: () => import('@/pages/AvailabilityCardPage.vue'),
+      meta: { title: 'Наличие', permission: 'availability.view' },
     },
     {
       path: '/stock',

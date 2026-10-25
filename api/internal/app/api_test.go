@@ -20,6 +20,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/auth/password"
 	"github.com/ADEXITUM/pikni/api/internal/platform/dbtest"
 	"github.com/ADEXITUM/pikni/api/internal/platform/httpx"
+	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
 
@@ -36,7 +37,7 @@ func newBrowser(t *testing.T) (*browser, *dbtest.DB) {
 	t.Helper()
 	db := dbtest.New(t)
 	e := httpx.NewServer(slog.New(slog.DiscardHandler), "pikni-test")
-	if err := app.Register(e, db.App, "http://127.0.0.1:1"); err != nil {
+	if err := app.Register(e, db.App, "http://127.0.0.1:1", realtime.NewHub(db.App, slog.Default())); err != nil {
 		t.Fatal(err)
 	}
 	return &browser{t: t, e: e, header: http.Header{}}, db

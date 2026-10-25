@@ -305,3 +305,56 @@ func TestCigarettePacks(t *testing.T) {
 		t.Fatalf("pack is introduced at the store: %+v %v", v, err)
 	}
 }
+
+func TestTransferBetweenPoints(t *testing.T) {
+	t.Parallel()
+	s := New(t)
+	ctx := t.Context()
+	if _, err := s.CreateShipment(ctx, sim.ShipmentRequest{Supplier: Supplier, Recipient: Store,
+		Positions: []sim.Item{{Alcocode: Vodka, Qty: 3}, {Alcocode: Beer, Qty: 6}}}); err != nil {
+		t.Fatal(err)
+	}
+	_, in := waybill(t, s, Store)
+	marks := in.Positions[0].Marks
+	send(t, s, Store, "WayBillAct", sim.WayBillAct{TTNID: in.ID, Positions: []sim.ActPosition{
+		{Identity: 1, QtyAccepted: 3, Marks: marks}, {Identity: 2, QtyAccepted: 6},
+	}})
+
+	out := sim.TTN{Number: "ПМ-2026-000001", Date: "2026-10-24", Consignee: Store2, Positions: []sim.TTNPosition{
+		{Identity: 1, Alcocode: Vodka, Qty: 2, Marked: true, Marks: marks[:2]},
+		{Identity: 2, Alcocode: Beer, Qty: 10},
+	}}
+	if tk := ticket(t, s, Store, send(t, s, Store, "WayBill", out)); tk.Result != "rejected" {
+		t.Fatalf("more beer than on the register: %+v", tk)
+	}
+	out.Positions[1].Qty = 4
+	if tk := ticket(t, s, Store, send(t, s, Store, "WayBill", out)); tk.Result != "accepted" {
+		t.Fatalf("transfer: %+v", tk)
+	}
+	if m, _ := s.Mark(ctx, marks[0]); m.Status != "in_transit" {
+		t.Fatalf("shipped mark: %+v", m)
+	}
+	_, got := waybill(t, s, Store2)
+	if got.Shipper.FSRARID != Store || got.Number != out.Number {
+		t.Fatalf("TTN at the receiver: %+v", got)
+	}
+	// Получатель принял одну бутылку и три банки: вторая бутылка и банка вернулись отправителю.
+	send(t, s, Store2, "WayBillAct", sim.WayBillAct{TTNID: got.ID, Positions: []sim.ActPosition{
+		{Identity: 1, QtyAccepted: 1, Marks: marks[:1]}, {Identity: 2, QtyAccepted: 3},
+	}})
+	if m, _ := s.Mark(ctx, marks[0]); m.Owner != Store2 || m.Status != "on_balance" {
+		t.Fatalf("accepted mark: %+v", m)
+	}
+	if m, _ := s.Mark(ctx, marks[1]); m.Owner != Store || m.Status != "on_balance" {
+		t.Fatalf("returned mark: %+v", m)
+	}
+	rests, _, err := s.Rests(ctx, Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rests {
+		if r.Alcocode == Beer && r.Register == 1 && r.Qty != 3 {
+			t.Fatalf("shipper beer after the act: %+v", r)
+		}
+	}
+}

@@ -2,6 +2,7 @@ import {
   mdiAccountGroupOutline,
   mdiBarcodeScan,
   mdiBookshelf,
+  mdiMapSearchOutline,
   mdiBottleWineOutline,
   mdiCashRegister,
   mdiClockAlertOutline,
@@ -17,6 +18,7 @@ import {
 // они у тех, кто их ведёт, остальным открываются по ссылке, например из карточки точки.
 export const navItems: { title: string; icon: string; route: string; forEditors?: true }[] = [
   { title: 'Сканер', icon: mdiBarcodeScan, route: 'scan' },
+  { title: 'Наличие', icon: mdiMapSearchOutline, route: 'availability' },
   { title: 'Товары', icon: mdiBottleWineOutline, route: 'products' },
   { title: 'Остатки', icon: mdiPackageVariantClosed, route: 'stock' },
   { title: 'Документы', icon: mdiFileDocumentMultipleOutline, route: 'documents' },

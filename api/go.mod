@@ -7,6 +7,7 @@ toolchain go1.27.3
 require (
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/caarlos0/env/v11 v11.4.1
+	github.com/coder/websocket v1.8.15
 	github.com/exaring/otelpgx v0.13.0
 	github.com/getkin/kin-openapi v0.144.0
 	github.com/google/uuid v1.6.0

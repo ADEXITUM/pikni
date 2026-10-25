@@ -41,6 +41,11 @@ var problems = map[error]*echo.HTTPError{
 	auth.ErrForbidden:   echo.NewHTTPError(http.StatusForbidden, "Недостаточно прав для этой точки"),
 	ErrModeTooWeak:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Продукцию с марками принимают выборочно или поштучно"),
 	ErrUnknownMode:      echo.NewHTTPError(http.StatusUnprocessableEntity, "Режим приёмки есть только у поступления"),
+	ErrSameLocation:     echo.NewHTTPError(http.StatusUnprocessableEntity, "Точка-отправитель и получатель совпадают"),
+	ErrNoStorage:        echo.NewHTTPError(http.StatusUnprocessableEntity, "У точки нет склада для перемещения"),
+	ErrNotRequested:     echo.NewHTTPError(http.StatusConflict, "Заявка уже согласована или отклонена"),
+	ErrNoFSRAR:          echo.NewHTTPError(http.StatusUnprocessableEntity, "У точки не указан ФСРАР ID — ТТН в ЕГАИС не отправить"),
+	ErrTTNPending:       echo.NewHTTPError(http.StatusConflict, "ТТН ещё не пришла из ЕГАИС — подождите и проведите приёмку позже"),
 }
 
 func problem(err error) error {
@@ -126,6 +131,7 @@ func toSummary(r store.ListDocumentsRow) apispec.DocumentSummary {
 		ZoneID: r.ZoneID, ZoneKind: apispec.ZoneKind(r.ZoneKind), DestZoneID: r.DestZoneID,
 		DestZoneKind: zoneKind(r.DestZoneKind), AuthorName: r.AuthorName, PostedByName: r.PostedByName,
 		LineCount: r.LineCount, TotalQty: r.TotalQty, CreatedAt: r.CreatedAt, PostedAt: r.PostedAt, Version: r.Version,
+		DestLocationID: r.DestLocationID, DestLocationName: r.DestLocationName,
 	}
 }
 
@@ -137,7 +143,9 @@ func toDocument(d Detail) apispec.Document {
 		ZoneID: r.ZoneID, ZoneKind: apispec.ZoneKind(r.ZoneKind), DestZoneID: r.DestZoneID,
 		DestZoneKind: zoneKind(r.DestZoneKind), AuthorName: r.AuthorName, PostedByName: r.PostedByName,
 		LineCount: r.LineCount, TotalQty: r.TotalQty, CreatedAt: r.CreatedAt, PostedAt: r.PostedAt, Version: r.Version,
-		Comment: r.Comment, CanEdit: d.CanEdit, CanPost: d.CanPost,
+		Comment: r.Comment, CanEdit: d.CanEdit, CanPost: d.CanPost, CanApprove: &d.CanApprove,
+		DestLocationID: r.DestLocationID, DestLocationName: r.DestLocationName,
+		TransferID: r.TransferID, TransferNumber: r.TransferNumber, ReceiptID: r.ReceiptID, ReceiptNumber: r.ReceiptNumber,
 		Lines: make([]apispec.DocumentLine, len(d.Lines)), Scans: make([]apispec.DocumentScan, len(d.Scans)),
 	}
 	for i, l := range d.Lines {
@@ -271,6 +279,44 @@ func (h *Handler) CreateFloorTransfer(ctx context.Context, req apispec.CreateFlo
 		return nil, err
 	}
 	return apispec.CreateFloorTransfer201JSONResponse(doc), nil
+}
+
+func (h *Handler) CreateTransfer(ctx context.Context, req apispec.CreateTransferRequestObject) (apispec.CreateTransferResponseObject, error) {
+	lines := make([]TransferLine, len(req.Body.Lines))
+	for i, l := range req.Body.Lines {
+		lines[i] = TransferLine{VariantID: l.VariantID, Qty: l.Qty}
+	}
+	id, err := h.svc.CreateTransfer(ctx, req.Body.FromLocationID, req.Body.ToLocationID, lines, comment(req.Body.Comment))
+	if err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.CreateTransfer201JSONResponse(doc), nil
+}
+
+func (h *Handler) ApproveTransfer(ctx context.Context, req apispec.ApproveTransferRequestObject) (apispec.ApproveTransferResponseObject, error) {
+	if err := h.svc.DecideTransfer(ctx, req.ID, req.Body.Version, true, ""); err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.ApproveTransfer200JSONResponse(doc), nil
+}
+
+func (h *Handler) RejectTransfer(ctx context.Context, req apispec.RejectTransferRequestObject) (apispec.RejectTransferResponseObject, error) {
+	if err := h.svc.DecideTransfer(ctx, req.ID, req.Body.Version, false, req.Body.Reason); err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.RejectTransfer200JSONResponse(doc), nil
 }
 
 func (h *Handler) GetDocument(ctx context.Context, req apispec.GetDocumentRequestObject) (apispec.GetDocumentResponseObject, error) {

@@ -15,7 +15,7 @@ const (
 
 // TTN — товарно-транспортная накладная от поставщика.
 type TTN struct {
-	ID        string        `json:"ttn_id"`
+	ID        string        `json:"ttn_id,omitempty"`
 	Number    string        `json:"number"`
 	Date      string        `json:"date"`
 	Shipper   Party         `json:"shipper"`

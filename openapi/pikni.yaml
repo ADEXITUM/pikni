@@ -2032,6 +2032,90 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /documents/transfer:
+    post:
+      operationId: createTransfer
+      summary: Заявка на перемещение в свою точку
+      description: >
+        Подаёт точка-получатель (СО-4, НЛ-3): что, сколько, из какой точки и почему.
+        Отправитель согласует или отклонит заявку, соберёт и отгрузит товар с ТТН в ЕГАИС.
+      tags: [documents]
+      x-permission: transfer.request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewTransfer"
+      responses:
+        "201":
+          description: Заявка создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/approve:
+    post:
+      operationId: approveTransfer
+      summary: Согласовать заявку на перемещение
+      description: После согласования отправитель собирает товар сканированием и отгружает (проведение).
+      tags: [documents]
+      x-permission: transfer.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: Заявка согласована
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/reject:
+    post:
+      operationId: rejectTransfer
+      summary: Отклонить заявку на перемещение
+      tags: [documents]
+      x-permission: transfer.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRejection"
+      responses:
+        "200":
+          description: Заявка отклонена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /documents/{id}:
     parameters:
       - name: id
@@ -2241,6 +2325,183 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /availability:
+    get:
+      operationId: searchAvailability
+      summary: Наличие по сети — поиск
+      description: >
+        Позиции с остатками: в точках фильтра (scopeQty), по сети (networkQty) и в текущей точке
+        (hereQty). Фильтры по точкам задают, где считать остаток и что значит «только в наличии».
+      tags: [availability]
+      x-permission: availability.view
+      parameters:
+        - name: q
+          in: query
+          description: Слова наименования, часть артикула, штрихкод, алкокод, GTIN или скан марки
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          description: Категория вместе с подкатегориями
+          schema:
+            type: string
+            format: uuid
+        - name: kindCode
+          in: query
+          schema:
+            type: string
+        - name: brandId
+          in: query
+          description: Бренд
+          schema:
+            type: string
+            format: uuid
+        - name: countryCode
+          in: query
+          schema:
+            type: string
+        - name: volumeMl
+          in: query
+          schema:
+            type: integer
+        - name: abvFrom
+          in: query
+          schema:
+            type: number
+            format: double
+        - name: abvTo
+          in: query
+          schema:
+            type: number
+            format: double
+        - name: priceFrom
+          in: query
+          description: Розничная цена от, ₽
+          schema:
+            type: number
+            format: double
+        - name: priceTo
+          in: query
+          schema:
+            type: number
+            format: double
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: locationId
+          in: query
+          description: Точка
+          schema:
+            type: string
+            format: uuid
+        - name: locationKind
+          in: query
+          schema:
+            $ref: "#/components/schemas/LocationKind"
+        - name: inStock
+          in: query
+          description: Только то, что есть в точках фильтра
+          schema:
+            type: boolean
+        - name: attrs
+          in: query
+          description: >
+            Характеристики категории, JSON: значение — точное совпадение, объект {"min", "max"} —
+            диапазон числа. Например {"color": "красное", "age": {"min": 5}}
+          schema:
+            type: string
+        - name: here
+          in: query
+          description: Текущая точка пользователя — для столбца «здесь»
+          schema:
+            type: string
+            format: uuid
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, price, stock, new]
+            default: name
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        "200":
+          description: Страница позиций
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityPage"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /availability/{productId}:
+    get:
+      operationId: getAvailability
+      summary: Карточка наличия позиции
+      description: Таблица «вариант × точка» — в зале, на складе, в резерве, в пути — и точки для карты.
+      tags: [availability]
+      x-permission: availability.view
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Карточка наличия
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityCard"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /availability/variants/{variantId}/similar:
+    get:
+      operationId: getSimilar
+      summary: Похожие товары
+      description: >
+        Три подборки (НЛ-6): другой объём или тара позиции, другие разновидности линейки и аналоги —
+        тот же вид продукции и объём, цена в пределах ±15 %, в наличии в текущей точке.
+      tags: [availability]
+      x-permission: availability.view
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: here
+          in: query
+          description: Текущая точка — для наличия аналогов «здесь»
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Подборки
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimilarGroups"
         default:
           $ref: "#/components/responses/Problem"
 
@@ -2501,6 +2762,8 @@ components:
         - document.created
         - document.posted
         - document.cancelled
+        - transfer.approved
+        - transfer.rejected
 
     AuditEntry:
       type: object
@@ -2799,6 +3062,220 @@ components:
           items:
             type: string
             format: uuid
+
+    AvailabilityItem:
+      type: object
+      required: [productId, name, categoryName, countryName, variants, scopeQty, networkQty, hereQty]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        categoryName:
+          type: string
+        kindCode:
+          type: string
+        accounting:
+          $ref: "#/components/schemas/EgaisAccounting"
+        abv:
+          type: number
+          format: double
+        brandName:
+          type: string
+        countryName:
+          type: string
+        lineName:
+          type: string
+        variety:
+          type: string
+        variants:
+          type: integer
+        minPrice:
+          type: number
+          format: double
+          description: Розничная цена, ₽ — наименьшая среди вариантов
+        maxPrice:
+          type: number
+          format: double
+        scopeQty:
+          type: integer
+          description: Остаток в точках фильтра
+        networkQty:
+          type: integer
+        hereQty:
+          type: integer
+
+    AvailabilityPage:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityItem"
+        total:
+          type: integer
+
+    AvailabilityAttribute:
+      type: object
+      required: [code, name, value]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        value:
+          type: string
+          description: Значение для показа — с единицей измерения
+
+    AvailabilityVariant:
+      type: object
+      required: [id, article, label]
+      properties:
+        id:
+          type: string
+          format: uuid
+        article:
+          type: string
+        label:
+          type: string
+          example: 0,5 л, стекло
+        volumeMl:
+          type: integer
+        price:
+          type: number
+          format: double
+
+    AvailabilityLocation:
+      type: object
+      required: [id, code, name, city, kind]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        kind:
+          $ref: "#/components/schemas/LocationKind"
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+
+    AvailabilityCell:
+      type: object
+      required: [variantId, locationId, floor, storage, reserved, inTransit]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        floor:
+          type: integer
+          description: В торговом зале
+        storage:
+          type: integer
+          description: На складе магазина или распределительном складе
+        reserved:
+          type: integer
+        inTransit:
+          type: integer
+
+    AvailabilityCard:
+      type: object
+      required: [productId, name, categoryName, countryName, crptMarked, attributes, variants, locations, cells]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        categoryName:
+          type: string
+        kindCode:
+          type: string
+        accounting:
+          $ref: "#/components/schemas/EgaisAccounting"
+        abv:
+          type: number
+          format: double
+        brandName:
+          type: string
+        countryName:
+          type: string
+        lineName:
+          type: string
+        variety:
+          type: string
+        crptMarked:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityAttribute"
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityVariant"
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityLocation"
+        cells:
+          type: array
+          description: Только ячейки, где что-то есть
+          items:
+            $ref: "#/components/schemas/AvailabilityCell"
+
+    SimilarItem:
+      type: object
+      required: [variantId, productId, name, label, hereQty, networkQty]
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        label:
+          type: string
+        price:
+          type: number
+          format: double
+        hereQty:
+          type: integer
+        networkQty:
+          type: integer
+
+    SimilarGroups:
+      type: object
+      required: [pack, line, analogs]
+      properties:
+        pack:
+          type: array
+          description: Другой объём или тара той же позиции
+          items:
+            $ref: "#/components/schemas/SimilarItem"
+        line:
+          type: array
+          description: Другие разновидности той же линейки
+          items:
+            $ref: "#/components/schemas/SimilarItem"
+        analogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimilarItem"
 
     LocationKind:
       type: string
@@ -4166,17 +4643,18 @@ components:
 
     DocumentKind:
       type: string
-      enum: [opening, floor_transfer, receipt]
+      enum: [opening, floor_transfer, receipt, sale, transfer]
       description: >
         opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала,
-        receipt — поступление по ТТН ЕГАИС
+        receipt — поступление по ТТН ЕГАИС, sale — продажа смены кассы, transfer — перемещение между точками
 
     DocumentStatus:
       type: string
-      enum: [draft, awaiting_egais, posted, egais_rejected, cancelled]
+      enum: [requested, rejected, draft, in_transit, awaiting_egais, posted, egais_rejected, cancelled]
       description: >
         draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС,
-        posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён
+        posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён;
+        у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути
 
     DocumentSummary:
       type: object
@@ -4237,6 +4715,12 @@ components:
         version:
           type: integer
           format: int32
+        destLocationId:
+          type: string
+          format: uuid
+          description: Точка-получатель перемещения
+        destLocationName:
+          type: string
 
     DocumentList:
       type: object
@@ -4365,6 +4849,21 @@ components:
             canPost:
               type: boolean
               description: Текущий пользователь может провести документ
+            canApprove:
+              type: boolean
+              description: Заявку на перемещение можно согласовать или отклонить
+            transferId:
+              type: string
+              format: uuid
+              description: У поступления по перемещению — само перемещение
+            transferNumber:
+              type: string
+            receiptId:
+              type: string
+              format: uuid
+              description: У отгруженного перемещения — поступление у получателя
+            receiptNumber:
+              type: string
             receipt:
               $ref: "#/components/schemas/ReceiptInfo"
             exchange:
@@ -4487,6 +4986,47 @@ components:
     FloorDirection:
       type: string
       enum: [to_floor, from_floor]
+
+    NewTransfer:
+      type: object
+      required: [fromLocationId, toLocationId, lines]
+      properties:
+        fromLocationId:
+          type: string
+          format: uuid
+        toLocationId:
+          type: string
+          format: uuid
+        comment:
+          type: string
+          maxLength: 1000
+          description: Причина — например, «покупатель ждёт в магазине»
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [variantId, qty]
+            properties:
+              variantId:
+                type: string
+                format: uuid
+              qty:
+                type: integer
+                format: int32
+                minimum: 1
+
+    TransferRejection:
+      type: object
+      required: [version, reason]
+      properties:
+        version:
+          type: integer
+          format: int32
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
 
     NewFloorTransfer:
       type: object

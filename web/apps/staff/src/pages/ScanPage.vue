@@ -16,11 +16,14 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import ScanCamera from '@pikni/ui/ScanCamera.vue'
+
+import SimilarProducts from '@/components/SimilarProducts.vue'
 import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'
 import { documentKindLabels, markStatusLabels, zoneLabels } from '@/labels'
 import { load, save } from '@/preferences'
 import { useMe } from '@/session'
+import { ALL_LOCATIONS, useCurrentLocation } from '@/stores/currentLocation'
 import { formatAbv, formatPrice, variantLabel } from '@/products'
 import { codeKindLabels, useScanner } from '@/scanning'
 
@@ -119,6 +122,12 @@ async function loadMark(entry: Entry) {
 }
 
 // Код в адресе — скан ручным сканером на другом экране: шапка приложения прислала его сюда.
+const currentLocation = useCurrentLocation()
+const here = computed(() =>
+  currentLocation.selected && currentLocation.selected !== ALL_LOCATIONS
+    ? currentLocation.selected
+    : null,
+)
 const route = useRoute()
 const router = useRouter()
 watch(
@@ -366,6 +375,23 @@ const title = (e: Entry) =>
             смартфона.
           </template>
         </v-alert>
+
+        <div
+          v-if="current.status === 'found' && current.result?.product && current.result.variant"
+          class="mt-4"
+        >
+          <div class="d-flex align-center mb-2">
+            <span class="text-title-small flex-grow-1">Похожие товары</span>
+            <v-btn
+              :to="{ name: 'availability-card', params: { productId: current.result.product.id } }"
+              size="small"
+              variant="text"
+              data-test="availability-link"
+              >Наличие по сети</v-btn
+            >
+          </div>
+          <SimilarProducts :variant-id="current.result.variant.id" :here="here" />
+        </div>
 
         <div v-if="current.mark" class="mt-4" data-test="mark">
           <div class="text-title-small mb-1">

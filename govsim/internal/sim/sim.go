@@ -208,10 +208,21 @@ func (s *Sim) Receive(ctx context.Context, fsrar, docType string, payload json.R
 			return err
 		}
 		ticket := Ticket{ReplyID: id.String(), DocType: docType, Result: "accepted"}
-		err := s.process(ctx, tx, fsrar, docType, id, payload)
+		// Документ обрабатывается в точке сохранения: отказ на середине откатывает уже сделанное
+		// по предыдущим позициям, а сам документ и квитанция об отказе остаются.
+		sp, err := tx.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		err = s.process(ctx, sp, fsrar, docType, id, payload)
 		if r, ok := errors.AsType[rejection](err); ok {
 			ticket.Result, ticket.Reason = "rejected", r.reason
+			if err := sp.Rollback(ctx); err != nil {
+				return err
+			}
 		} else if err != nil {
+			return err
+		} else if err := sp.Commit(ctx); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `update documents set status = $2, reject_reason = nullif($3, '') where id = $1`,
@@ -225,6 +236,8 @@ func (s *Sim) Receive(ctx context.Context, fsrar, docType string, payload json.R
 
 func (s *Sim) process(ctx context.Context, tx pgx.Tx, fsrar, docType string, doc uuid.UUID, payload []byte) error {
 	switch docType {
+	case "WayBill":
+		return wayBill(ctx, tx, fsrar, doc, payload)
 	case "WayBillAct":
 		return wayBillAct(ctx, tx, fsrar, doc, payload)
 	case "TransferToShop":
@@ -329,6 +342,9 @@ func wayBillAct(ctx context.Context, tx pgx.Tx, fsrar string, doc uuid.UUID, pay
 			return reject("Позиция %d: принято %d из %d", pos.Identity, a.QtyAccepted, pos.Qty)
 		}
 		if !pos.Marked {
+			if err := returnToShipper(ctx, tx, ttn.Shipper.FSRARID, pos.Alcocode, pos.Qty-a.QtyAccepted); err != nil {
+				return err
+			}
 			if a.QtyAccepted > 0 {
 				if _, err := tx.Exec(ctx, `insert into rests (fsrar_id, alcocode, register, qty) values ($1, $2, 1, $3)
 					on conflict (fsrar_id, alcocode, register) do update set qty = rests.qty + excluded.qty`,
