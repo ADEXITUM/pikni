@@ -153,3 +153,69 @@ func TestTransferBetweenStores(t *testing.T) {
 	}
 	f.integrity(t)
 }
+
+// ЕГАИС отклонила ТТН перемещения: её можно отправить повторно, а если причину не устранить —
+// вернуть товар отправителю.
+func TestRejectedTransfer(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	ctx := t.Context()
+	f.opening(t, []string{"PKN0000000000001"}, 5)
+	other := f.newStore(t, "МГ-02")
+	for loc, fsrar := range map[uuid.UUID]string{f.store: "030000100011", other: "030000100012"} {
+		if _, err := f.db.App.Exec(ctx, `update locations set fsrar_id = $2 where id = $1`, loc, fsrar); err != nil {
+			t.Fatal(err)
+		}
+	}
+	doc, err := f.svc.CreateTransfer(f.session(t, "storekeeper", other), f.store, other,
+		[]documents.TransferLine{{VariantID: f.vodka.variant, Qty: 1}, {VariantID: f.beer.variant, Qty: 2}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.DecideTransfer(f.keeper, doc, f.version(t, doc), true, ""); err != nil {
+		t.Fatal(err)
+	}
+	f.scan(t, f.keeper, doc, "PKN0000000000001", nil)
+	if err := f.svc.SetLine(f.keeper, doc, f.beer.variant, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Post(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	reject := func() {
+		t.Helper()
+		if err := pgx.BeginFunc(ctx, f.db.App, func(tx pgx.Tx) error { return f.svc.ApplyTicket(ctx, tx, doc, false) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reject()
+	if err := f.svc.ResendTransfer(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	var waybills int
+	if err := f.db.App.QueryRow(ctx, `select count(*) from egais_messages where document_id = $1 and doc_type = 'WayBill'`, doc).Scan(&waybills); err != nil || waybills != 2 {
+		t.Fatalf("waybills after resend: %d %v", waybills, err)
+	}
+	if d, _ := f.svc.Get(f.keeper, doc); d.Doc.Status != documents.StatusInTransit {
+		t.Fatalf("status after resend: %s", d.Doc.Status)
+	}
+	reject()
+	if err := f.svc.ReturnTransfer(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.onHand(t, f.beer.variant, f.backroom); n != 5 {
+		t.Fatalf("sender beer after return: %d", n)
+	}
+	if m, _ := f.marks.Find(ctx, "PKN0000000000001"); m == nil || m.Status != "in_stock" || m.LocationID != f.store {
+		t.Fatalf("mark after return: %+v", m)
+	}
+	d, _ := f.svc.Get(f.keeper, doc)
+	if d.Doc.Status != documents.StatusCancelled {
+		t.Fatalf("transfer after return: %s", d.Doc.Status)
+	}
+	var receipt string
+	if err := f.db.App.QueryRow(ctx, `select status from documents where transfer_id = $1 and kind = 'receipt'`, doc).Scan(&receipt); err != nil || receipt != "cancelled" {
+		t.Fatalf("receiver's receipt: %s %v", receipt, err)
+	}
+	f.integrity(t)
+}

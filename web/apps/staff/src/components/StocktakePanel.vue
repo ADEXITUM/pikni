@@ -116,7 +116,7 @@ const { mutate: zoneAction } = action(
 async function askStart() {
   const yes = await confirm({
     title: `Начать подсчёт ${props.doc.number}?`,
-    text: 'Учётный остаток зафиксируется, товары ревизии в точке заблокируются до её завершения: продать и переместить их будет нельзя.',
+    text: 'Учётный остаток зафиксируется. Приход, перемещения и списания товаров ревизии остановятся до её завершения; продажи идут, если ревизия не строгая, — проданное за время подсчёта сличение учтёт само.',
     confirmText: 'Начать',
   })
   if (yes) start(undefined)
@@ -291,7 +291,8 @@ const formUrl = (form: 'inv3' | 'inv19', format: 'pdf' | 'xlsx') =>
 
     <v-alert v-if="status === 'draft'" type="info" variant="tonal" class="mb-4">
       Ревизия создана. Когда комиссия будет на местах, нажмите «Начать подсчёт»: с этого момента
-      учётный остаток зафиксирован, а товары ревизии заблокированы.
+      учётный остаток зафиксирован, приход и перемещения товаров ревизии остановлены. Касса работает
+      — проданное во время подсчёта сличение учтёт.
     </v-alert>
 
     <!-- Подсчёт: выбор зоны, затем сканирование в неё. -->
@@ -547,6 +548,7 @@ const formUrl = (form: 'inv3' | 'inv19', format: 'pdf' | 'xlsx') =>
             <th>Товар</th>
             <th class="d-none d-sm-table-cell">Зона</th>
             <th class="text-end">Учёт</th>
+            <th class="text-end d-none d-md-table-cell">Продано за подсчёт</th>
             <th class="text-end">Факт</th>
             <th class="text-end">Разница</th>
             <th v-if="showCost" class="text-end">Сумма</th>
@@ -562,6 +564,9 @@ const formUrl = (form: 'inv3' | 'inv19', format: 'pdf' | 'xlsx') =>
             </td>
             <td class="d-none d-sm-table-cell">{{ zoneLabels[l.zoneKind] }}</td>
             <td class="text-end">{{ l.bookQty }}</td>
+            <td class="text-end d-none d-md-table-cell text-medium-emphasis">
+              {{ l.soldQty || '' }}
+            </td>
             <td class="text-end">{{ l.factQty }}</td>
             <td
               class="text-end font-weight-bold"

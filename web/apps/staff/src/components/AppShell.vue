@@ -93,8 +93,8 @@ onBeforeUnmount(() => stops.forEach((s) => s()))
   </v-app-bar>
 
   <!-- ПК — меню полностью, планшет — только значки, смартфон — нижняя панель. -->
-  <v-navigation-drawer v-if="!xs" permanent :rail="!mdAndUp">
-    <v-list nav>
+  <v-navigation-drawer v-if="!xs" permanent :rail="!mdAndUp" tag="div">
+    <v-list nav role="navigation" aria-label="Разделы">
       <v-list-item
         v-for="item in items"
         :key="item.route"

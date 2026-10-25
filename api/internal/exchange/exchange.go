@@ -12,6 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ADEXITUM/pikni/api/internal/documents"
 	"github.com/ADEXITUM/pikni/api/internal/egais"
@@ -46,8 +50,25 @@ func (e *Exchanger) Run(ctx context.Context, interval time.Duration) {
 	}
 }
 
+var tracer = otel.Tracer("github.com/ADEXITUM/pikni/api/internal/exchange")
+
+// idle — родитель без записи: пустые опросы УТМ раз в несколько секунд не засоряют трассировки.
+// Отправка и приём сообщения начинают собственную трассировку (traced).
+var idle = trace.NewSpanContext(trace.SpanContextConfig{TraceID: trace.TraceID{1}, SpanID: trace.SpanID{1}})
+
+func traced(ctx context.Context, name, docType string, fn func(context.Context) error) error {
+	ctx, span := tracer.Start(ctx, name, trace.WithNewRoot(), trace.WithAttributes(attribute.String("egais.doc_type", docType)))
+	defer span.End()
+	err := fn(ctx)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+
 // Once — один круг обмена: сначала отправка, потом приём.
 func (e *Exchanger) Once(ctx context.Context) error {
+	ctx = trace.ContextWithSpanContext(ctx, idle)
 	return errors.Join(e.send(ctx), e.receive(ctx))
 }
 
@@ -68,7 +89,11 @@ func (e *Exchanger) send(ctx context.Context) error {
 			if m.FsrarID == nil {
 				continue
 			}
-			reply, err := e.gw.Send(ctx, *m.FsrarID, m.DocType, m.Payload)
+			var reply string
+			err := traced(ctx, "egais.send", m.DocType, func(ctx context.Context) (err error) {
+				reply, err = e.gw.Send(ctx, *m.FsrarID, m.DocType, m.Payload)
+				return err
+			})
 			if err != nil {
 				// УТМ недоступен или ответил ошибкой: сообщение остаётся в очереди и уйдёт позже.
 				text := err.Error()
@@ -106,11 +131,13 @@ func (e *Exchanger) receive(ctx context.Context) error {
 			continue
 		}
 		for _, m := range msgs {
-			if err := e.handle(ctx, l, m); err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if err := e.gw.Ack(ctx, l.FsrarID, m.ID); err != nil {
+			err := traced(ctx, "egais.receive", m.Type, func(ctx context.Context) error {
+				if err := e.handle(ctx, l, m); err != nil {
+					return err
+				}
+				return e.gw.Ack(ctx, l.FsrarID, m.ID)
+			})
+			if err != nil {
 				errs = append(errs, err)
 			}
 		}

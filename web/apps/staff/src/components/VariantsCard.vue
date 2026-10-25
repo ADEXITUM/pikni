@@ -3,6 +3,7 @@ import { mdiBarcode, mdiPencilOutline, mdiPlus, mdiTableLarge } from '@mdi/js'
 import { api, ApiError, type Variant } from '@pikni/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
+import { useDisplay } from 'vuetify'
 
 import { confirm } from '@/confirm'
 import BarcodeDialog from '@/components/BarcodeDialog.vue'
@@ -19,6 +20,7 @@ const props = defineProps<{
 }>()
 
 const queryClient = useQueryClient()
+const { xs } = useDisplay()
 const key = computed(() => ['variants', props.productId])
 const {
   data: variants,
@@ -124,6 +126,55 @@ async function askRemoveBarcode(v: Variant, code: string) {
       <p v-else-if="!variants?.length" class="text-body-medium text-medium-emphasis">
         Вариантов пока нет. Без варианта позицию нельзя принять на склад и продать.
       </p>
+      <!-- На смартфоне — список: в таблице цена уезжала за край экрана. -->
+      <v-list v-else-if="xs" lines="two" class="pa-0">
+        <v-list-item
+          v-for="v in variants"
+          :key="v.id"
+          :class="{ 'text-disabled': !v.isActive }"
+          class="px-0"
+          :data-test="`variant-${v.id}`"
+        >
+          <v-list-item-title class="pk-wrap">
+            {{ variantLabel(v) }}
+            <v-chip v-if="!v.isActive" size="x-small" class="ml-1">в архиве</v-chip>
+          </v-list-item-title>
+          <v-list-item-subtitle class="pk-wrap">
+            {{ [v.article, ...v.barcodes.map((b) => b.code)].join(' · ') }}
+          </v-list-item-subtitle>
+          <template #append>
+            <div class="text-end">
+              <v-btn
+                variant="text"
+                size="small"
+                :color="belowMin(v) ? 'error' : undefined"
+                title="История цен"
+                data-test="variant-price"
+                @click="openPrices(v)"
+              >
+                {{
+                  v.retailPrice !== undefined
+                    ? formatPrice(v.retailPrice)
+                    : canEdit
+                      ? 'назначить'
+                      : '—'
+                }}
+              </v-btn>
+              <div v-if="belowMin(v)" class="text-body-small text-error">
+                ниже МРЦ {{ formatPrice(v.minPrice!) }}
+              </div>
+            </div>
+            <v-btn
+              v-if="canEdit"
+              :icon="mdiPencilOutline"
+              variant="text"
+              size="small"
+              title="Изменить вариант"
+              @click="edit(v)"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
       <v-table v-else density="comfortable">
         <thead>
           <tr>
@@ -235,5 +286,8 @@ async function askRemoveBarcode(v: Variant, code: string) {
 <style scoped>
 .pk-variant {
   min-width: 150px;
+}
+.pk-wrap {
+  white-space: normal;
 }
 </style>

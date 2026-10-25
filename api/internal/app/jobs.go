@@ -9,6 +9,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ADEXITUM/pikni/api/internal/notify"
 	"github.com/ADEXITUM/pikni/api/internal/reconcile"
@@ -36,6 +41,19 @@ type task[T river.JobArgs] struct {
 }
 
 func (t *task[T]) Work(ctx context.Context, _ *river.Job[T]) error { return t.run(ctx) }
+
+// traceJob — каждая задача начинает свою трассировку: её запросы к базе и внешним системам
+// видны одним деревом, как у HTTP-запроса.
+var traceJob = river.WorkerMiddlewareFunc(func(ctx context.Context, job *rivertype.JobRow, doInner func(context.Context) error) error {
+	ctx, span := otel.Tracer("github.com/ADEXITUM/pikni/api/internal/app").Start(ctx, "job "+job.Kind,
+		trace.WithNewRoot(), trace.WithAttributes(attribute.Int64("river.job_id", job.ID), attribute.Int("river.attempt", job.Attempt)))
+	defer span.End()
+	err := doInner(ctx)
+	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+})
 
 func every[T river.JobArgs](interval time.Duration, args T) *river.PeriodicJob {
 	return river.NewPeriodicJob(river.PeriodicInterval(interval),
@@ -74,6 +92,7 @@ func Jobs(pool *pgxpool.Pool, log *slog.Logger, egais bool) (*river.Client[pgx.T
 	}
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:       log,
+		Middleware:   []rivertype.Middleware{traceJob},
 		Queues:       map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 4}},
 		Workers:      workers,
 		PeriodicJobs: periodic,

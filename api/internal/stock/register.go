@@ -73,9 +73,12 @@ func checkBlocked(ctx context.Context, tx pgx.Tx, doc uuid.UUID, moves []Move) e
 	}
 	var variant uuid.UUID
 	var number string
-	err := tx.QueryRow(ctx, `select t.variant_id, stocktake_blocks(t.location_id, t.zone_id, t.variant_id, $4)
+	// Продажа во время подсчёта разрешена, если ревизия не останавливает продажи (решение 0060).
+	err := tx.QueryRow(ctx, `select t.variant_id, b.number
 		from (select unnest($1::uuid[]) as location_id, unnest($2::uuid[]) as zone_id, unnest($3::uuid[]) as variant_id) t
-		where stocktake_blocks(t.location_id, t.zone_id, t.variant_id, $4) is not null
+		cross join lateral (select stocktake_blocks(t.location_id, t.zone_id, t.variant_id, $4) as number) b
+		where b.number is not null
+		  and (coalesce((select kind from documents where id = $4), '') <> 'sale' or stocktake_stops_sales(b.number))
 		limit 1`, locations, zones, variants, doc).Scan(&variant, &number)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil

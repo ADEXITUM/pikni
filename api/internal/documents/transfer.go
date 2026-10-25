@@ -271,3 +271,108 @@ func (s *Service) createTransferReceipt(ctx context.Context, q *store.Queries, d
 	}
 	return nil
 }
+
+var ErrNotRejected = errors.New("transfer was not rejected by EGAIS")
+
+// lockRejected — перемещение, ТТН которого отклонила ЕГАИС; решает точка-отправитель.
+func (s *Service) lockRejected(ctx context.Context, q *store.Queries, id uuid.UUID, version int32) (store.LockDocumentRow, error) {
+	doc, err := q.LockDocument(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return doc, ErrNotFound
+	}
+	if err != nil {
+		return doc, err
+	}
+	if doc.Kind != Transfer || !canView(ctx, doc.Kind, doc.LocationID, doc.DestLocationID) {
+		return doc, ErrNotFound
+	}
+	if err := auth.CheckLocation(ctx, apispec.PermissionTransferEdit, doc.LocationID); err != nil {
+		return doc, err
+	}
+	if doc.Status != StatusEgaisRejected {
+		return doc, ErrNotRejected
+	}
+	if doc.Version != version {
+		return doc, ErrConflict
+	}
+	return doc, nil
+}
+
+// ResendTransfer отправляет ТТН повторно — например, после того как в имитаторе или у получателя
+// исправили причину отказа. Учёт не меняется: товар и так «в пути».
+func (s *Service) ResendTransfer(ctx context.Context, id uuid.UUID, version int32) error {
+	return db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		doc, err := s.lockRejected(ctx, q, id, version)
+		if err != nil {
+			return err
+		}
+		var payload []byte
+		if err := tx.QueryRow(ctx, `select payload from egais_messages where document_id = $1 and direction = 'out'
+			and doc_type = $2 order by created_at desc limit 1`, id, egais.WayBill).Scan(&payload); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `insert into egais_messages (location_id, direction, doc_type, document_id, payload)
+			values ($1, 'out', $2, $3, $4)`, doc.LocationID, egais.WayBill, id, payload); err != nil {
+			return err
+		}
+		if err := q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: id, Status: StatusInTransit}); err != nil {
+			return err
+		}
+		return audit.Record(ctx, tx, audit.Event{Action: apispec.AuditActionTransferResent, EntityType: audit.EntityDocument,
+			EntityID: id.String(), Data: map[string]any{"number": doc.Number}})
+	})
+}
+
+// ReturnTransfer отменяет отклонённое перемещение: товар из «в пути» получателя возвращается в зону
+// отправителя, марки — на его остаток, поступление у получателя отменяется. В ЕГАИС ничего не
+// уходит: отклонённая ТТН баланс не меняла.
+func (s *Service) ReturnTransfer(ctx context.Context, id uuid.UUID, version int32) error {
+	return db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		doc, err := s.lockRejected(ctx, q, id, version)
+		if err != nil {
+			return err
+		}
+		lines, err := q.ListLines(ctx, store.ListLinesParams{DocumentID: id})
+		if err != nil {
+			return err
+		}
+		dest, destZone := *doc.DestLocationID, *doc.DestZoneID
+		var moves []stock.Move
+		for _, l := range lines {
+			if l.Qty == 0 {
+				continue
+			}
+			moves = append(moves,
+				stock.Move{VariantID: l.VariantID, LocationID: dest, ZoneID: destZone, Qty: -l.Qty, InTransit: true},
+				stock.Move{VariantID: l.VariantID, LocationID: doc.LocationID, ZoneID: doc.ZoneID, Qty: l.Qty})
+		}
+		docMarks, err := q.DocumentMarks(ctx, id)
+		if err != nil {
+			return err
+		}
+		codes := make([]string, len(docMarks))
+		for i, m := range docMarks {
+			codes[i] = m.Code
+		}
+		ev := marks.Event{DocumentID: id, UserID: userID(ctx)}
+		if len(codes) > 0 {
+			if err := marks.Unship(ctx, tx, ev, dest, doc.LocationID, doc.ZoneID, codes); err != nil {
+				return err
+			}
+		}
+		if _, err := stock.Apply(ctx, tx, stock.Doc{ID: id, Date: doc.DocDate}, moves); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `update documents set status = 'cancelled', version = version + 1
+			where transfer_id = $1 and kind = 'receipt' and status = 'draft'`, id); err != nil {
+			return err
+		}
+		if err := q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: id, Status: StatusCancelled}); err != nil {
+			return err
+		}
+		return audit.Record(ctx, tx, audit.Event{Action: apispec.AuditActionTransferReturned, EntityType: audit.EntityDocument,
+			EntityID: id.String(), Data: map[string]any{"number": doc.Number}})
+	})
+}

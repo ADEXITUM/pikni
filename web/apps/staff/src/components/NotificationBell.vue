@@ -54,7 +54,13 @@ function open(n: Notification) {
 <template>
   <v-menu location="bottom end" :close-on-content-click="false" max-width="400">
     <template #activator="{ props }">
-      <v-btn v-bind="props" icon variant="text" aria-label="Уведомления" data-test="bell">
+      <v-btn
+        v-bind="props"
+        icon
+        variant="text"
+        :aria-label="data?.unread ? `Уведомления: ${data.unread} непрочитанных` : 'Уведомления'"
+        data-test="bell"
+      >
         <v-badge :model-value="!!data?.unread" :content="data?.unread" color="error">
           <v-icon :icon="mdiBellOutline" />
         </v-badge>

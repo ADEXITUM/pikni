@@ -1,0 +1,8 @@
+# Подключение дашбордов «Пикни» к Grafana из образа otel-lgtm.
+apiVersion: 1
+providers:
+  - name: pikni
+    folder: Пикни
+    type: file
+    options:
+      path: /otel-lgtm/pikni-dashboards

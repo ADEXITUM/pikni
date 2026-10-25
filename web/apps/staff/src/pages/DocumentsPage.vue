@@ -221,7 +221,15 @@ const zones = (d: (typeof items.value)[number]) =>
       Документов пока нет.
     </p>
 
-    <v-list v-else lines="three" class="pk-list" data-test="documents">
+    <!-- Строки — ссылки, а role="list" допускает только пункты списка. -->
+    <v-list
+      v-else
+      lines="three"
+      class="pk-list"
+      role="group"
+      aria-label="Документы"
+      data-test="documents"
+    >
       <v-list-item
         v-for="d in items"
         :key="d.id"

@@ -38,7 +38,13 @@ const themePreference = computed<ThemePreference>({
 <template>
   <v-menu v-if="me" :close-on-content-click="false">
     <template #activator="{ props }">
-      <v-btn v-bind="props" icon :title="me.fullName" data-test="user-menu">
+      <v-btn
+        v-bind="props"
+        icon
+        :title="me.fullName"
+        :aria-label="`${initials} — ${me.fullName}, меню профиля`"
+        data-test="user-menu"
+      >
         <v-avatar color="primary" size="34" class="text-body-medium font-weight-bold">{{
           initials
         }}</v-avatar>

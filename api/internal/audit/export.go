@@ -63,6 +63,8 @@ var actionTitles = map[apispec.AuditAction]string{
 	apispec.AuditActionReservationCancelled:   "Снятие брони",
 	apispec.AuditActionReservationIssued:      "Выдача брони",
 	apispec.AuditActionStocktakeStarted:       "Начало подсчёта ревизии",
+	apispec.AuditActionTransferResent:         "Повторная отправка ТТН перемещения",
+	apispec.AuditActionTransferReturned:       "Возврат отклонённого перемещения отправителю",
 	apispec.AuditActionAuthLoginQr:            "Вход по QR-коду",
 	apispec.AuditActionAuthTotpEnabled:        "Подключение второго фактора",
 	apispec.AuditActionAuthTotpDisabled:       "Отключение второго фактора",

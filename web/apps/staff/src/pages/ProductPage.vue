@@ -307,6 +307,29 @@ function discard() {
   dropped.value = []
 }
 
+// Без права правки карточка — описание, а не форма: поля ввода выглядели бы как изменяемые.
+const facts = computed(() => {
+  const d = describe(form)
+  const kind = kinds.value?.find((k) => k.code === form.kindCode)
+  const rows: { label: string; value: string }[] = [
+    { label: changeLabels.category, value: display(d.category) },
+    { label: 'Вид продукции ЕГАИС', value: kind ? `${kind.code} — ${kind.name}` : '—' },
+    { label: changeLabels.abv, value: display(d.abv) },
+    { label: 'Маркировка «Честным знаком»', value: display(d.crpt) },
+    { label: changeLabels.producer, value: display(d.producer) },
+    { label: changeLabels.brand, value: display(d.brand) },
+    { label: changeLabels.line, value: display(d.line) },
+    { label: changeLabels.variety, value: display(d.variety) },
+    { label: changeLabels.country, value: display(d.country) },
+    { label: changeLabels.region, value: display(d.region) },
+    ...visibleSchema.value.map((a) => ({
+      label: a.name,
+      value: display(form.attributes[a.code]) + (a.unit && !isEmpty(form.attributes[a.code]) ? ` ${a.unit}` : ''),
+    })),
+  ]
+  return rows.filter((r) => r.value !== '—')
+})
+
 const title = computed(() =>
   isNew.value ? 'Новая позиция' : product.value ? product.value.name : '',
 )
@@ -338,7 +361,18 @@ async function submit(event: SubmitEventPromise) {
       {{ loadError?.message }}
     </v-alert>
 
-    <v-form v-if="isNew || product" :readonly="!canEdit" @submit.prevent="submit">
+    <v-card v-if="product && !canEdit" class="mb-4" data-test="product-facts">
+      <v-card-text>
+        <dl class="pk-facts">
+          <template v-for="r in facts" :key="r.label">
+            <dt class="text-body-medium text-medium-emphasis">{{ r.label }}</dt>
+            <dd class="text-body-large">{{ r.value }}</dd>
+          </template>
+        </dl>
+      </v-card-text>
+    </v-card>
+
+    <v-form v-else-if="isNew || product" @submit.prevent="submit">
       <v-card title="Основное" class="mb-4">
         <v-card-text>
           <v-row density="compact">
@@ -422,7 +456,7 @@ async function submit(event: SubmitEventPromise) {
                 v-model="form.productLineId"
                 :items="lineOptions"
                 label="Линейка"
-                :disabled="!form.brandId || !canEdit"
+                :disabled="!form.brandId"
                 hint="Позиции бренда, которые различаются разновидностью"
                 persistent-hint
                 clearable
@@ -541,5 +575,22 @@ async function submit(event: SubmitEventPromise) {
 <style scoped>
 .pk-product {
   max-width: 960px;
+}
+.pk-facts dd {
+  margin: 0;
+}
+.pk-facts {
+  display: grid;
+  grid-template-columns: minmax(160px, 260px) 1fr;
+  gap: 8px 16px;
+}
+@media (max-width: 599px) {
+  .pk-facts {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .pk-facts dd {
+    margin: 0 0 12px;
+  }
 }
 </style>

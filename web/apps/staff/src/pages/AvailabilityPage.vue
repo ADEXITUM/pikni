@@ -174,6 +174,7 @@ const price = (i: AvailabilityItem) =>
       <v-select
         :model-value="filters.sort"
         :items="sortItems"
+        aria-label="Сортировка"
         density="compact"
         hide-details
         class="pk-sort"
@@ -381,7 +382,7 @@ const price = (i: AvailabilityItem) =>
 
     <v-card>
       <v-progress-linear v-if="isPending" indeterminate />
-      <v-list lines="two">
+      <v-list lines="two" role="group" aria-label="Товары">
         <v-list-item
           v-for="i in items"
           :key="i.productId"

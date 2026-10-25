@@ -1845,6 +1845,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents/{id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Отправить ТТН перемещения повторно
+         * @description Перемещение, ТТН которого отклонила ЕГАИС, — после устранения причины. Товар остаётся «в пути».
+         */
+        post: operations["resendTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Вернуть товар отклонённого перемещения отправителю
+         * @description Товар из «в пути» получателя возвращается в зону отправителя, поступление у получателя отменяется.
+         */
+        post: operations["returnTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{id}/cancel": {
         parameters: {
             query?: never;
@@ -2724,7 +2764,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.login_qr" | "auth.totp_enabled" | "auth.totp_disabled" | "api_key.created" | "api_key.revoked" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started" | "asset.created" | "asset.updated" | "asset.moved" | "asset.status_changed" | "asset.writeoff_requested" | "asset.written_off" | "asset.writeoff_rejected" | "asset.audit_finished";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.login_qr" | "auth.totp_enabled" | "auth.totp_disabled" | "api_key.created" | "api_key.revoked" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "transfer.resent" | "transfer.returned" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started" | "asset.created" | "asset.updated" | "asset.moved" | "asset.status_changed" | "asset.writeoff_requested" | "asset.written_off" | "asset.writeoff_rejected" | "asset.audit_finished";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -4546,6 +4586,8 @@ export interface components {
             zoneIds?: string[];
             categoryIds?: string[];
             brandIds?: string[];
+            /** @description Остановить и продажи на время подсчёта (годовая инвентаризация). По умолчанию торговля идёт, сличение учитывает проданное */
+            stopSales?: boolean;
             comment?: string;
         };
         StocktakeZone: {
@@ -4573,7 +4615,11 @@ export interface components {
             name: string;
             label: string;
             accounting?: components["schemas"]["EgaisAccounting"];
+            /** @description Учёт — остаток на начало подсчёта минус проданное за время подсчёта */
             bookQty: number;
+            /** @description Продано за время подсчёта */
+            soldQty: number;
+            /** @description Факт — посчитанное минус проданное после подсчёта товара */
             factQty: number;
             /**
              * Format: double
@@ -7728,6 +7774,60 @@ export interface operations {
         };
         responses: {
             /** @description Проведённый документ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    resendTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description ТТН отправлена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    returnTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVersion"];
+            };
+        };
+        responses: {
+            /** @description Перемещение отменено */
             200: {
                 headers: {
                     [name: string]: unknown;

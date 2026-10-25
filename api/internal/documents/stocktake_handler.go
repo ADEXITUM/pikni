@@ -27,6 +27,7 @@ func (h *Handler) CreateStocktake(ctx context.Context, req apispec.CreateStockta
 	if b.BrandIds != nil {
 		scope.Brands = *b.BrandIds
 	}
+	scope.Strict = b.StopSales != nil && *b.StopSales
 	id, err := h.svc.CreateStocktake(ctx, b.LocationID, scope, comment(b.Comment))
 	if err != nil {
 		return nil, problem(err)
@@ -81,7 +82,7 @@ func (h *Handler) GetStocktake(ctx context.Context, req apispec.GetStocktakeRequ
 	for i, l := range sh.Lines {
 		line := apispec.StocktakeLine{
 			ZoneID: l.ZoneID, ZoneKind: apispec.ZoneKind(l.ZoneKind), VariantID: l.VariantID, Article: l.Article, Name: l.Name,
-			Label: catalog.PackLabel(l.VolumeMl, l.NetWeightG, l.Container, l.GiftPack), BookQty: int(l.BookQty), FactQty: int(l.FactQty),
+			Label: catalog.PackLabel(l.VolumeMl, l.NetWeightG, l.Container, l.GiftPack), BookQty: int(l.BookQty), SoldQty: int(l.SoldQty), FactQty: int(l.FactQty),
 		}
 		if l.EgaisAccounting != nil {
 			a := apispec.EgaisAccounting(*l.EgaisAccounting)
