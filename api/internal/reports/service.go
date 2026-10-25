@@ -27,6 +27,7 @@ var (
 	ErrNotFound  = errors.New("report not found")
 	ErrBadParams = errors.New("invalid report parameters")
 	ErrNotReady  = errors.New("report file is not ready")
+	ErrTooLarge  = errors.New("report is too large for the screen")
 )
 
 // maxRows — отчёт на экране и в файле не больше этого числа строк: больше человек не прочтёт,
@@ -153,8 +154,17 @@ func (s *Service) Run(ctx context.Context, code string, p Params) (Def, Table, e
 	if err != nil {
 		return d, Table{}, err
 	}
-	rows, err := s.pool.Query(ctx, d.SQL, args)
+	// На экране отчёт ждут, поэтому время ограничено: отчёт по большой сети целиком выгружают файлом,
+	// он строится в фоне (решение 0064).
+	qctx, cancel := context.WithTimeout(ctx, screenTimeout)
+	defer cancel()
+	// План — под выбранные точки и период: общий план кэшированного запроса с условием «точки не
+	// выбраны или точка из списка» не использует индекс и читает журнал всей сети.
+	rows, err := s.pool.Query(qctx, d.SQL, pgx.QueryExecModeDescribeExec, args)
 	if err != nil {
+		if qctx.Err() != nil && ctx.Err() == nil {
+			return d, Table{}, ErrTooLarge
+		}
 		return d, Table{}, fmt.Errorf("report %s: %w", code, err)
 	}
 	defer rows.Close()
@@ -169,7 +179,34 @@ func (s *Service) Run(ctx context.Context, code string, p Params) (Def, Table, e
 		}
 		t.Rows = append(t.Rows, vals)
 	}
+	if err := rows.Err(); err != nil && qctx.Err() != nil && ctx.Err() == nil {
+		return d, t, ErrTooLarge
+	}
 	return d, t, rows.Err()
+}
+
+const screenTimeout = 20 * time.Second
+
+// Background — выгрузку строить в фоне: тяжёлый отчёт за период длиннее месяца или отчёт по всей
+// сети, когда в ней больше 50 точек.
+func (s *Service) Background(ctx context.Context, code string, p Params) bool {
+	d, ok := find(code)
+	if !ok {
+		return false
+	}
+	if d.Heavy && (p.From.IsZero() || p.To.Sub(p.From) > 31*24*time.Hour) {
+		return true
+	}
+	// Без выбора точек отчёт берёт все доступные: у сотрудника магазина — свои, у руководства — всю сеть.
+	points := len(p.Locations)
+	if points == 0 {
+		if sess, ok := auth.FromContext(ctx); ok && len(sess.LocationIDs) > 0 {
+			points = len(sess.LocationIDs)
+		} else {
+			_ = s.pool.QueryRow(ctx, `select count(*) from locations where is_active`).Scan(&points)
+		}
+	}
+	return points > 50
 }
 
 // plain приводит значение базы к числу, строке или дате — для JSON и Excel.

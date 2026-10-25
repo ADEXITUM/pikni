@@ -22,13 +22,32 @@ retail as (
     where pr.kind = 'retail' and pr.valid_from <= now()
     order by pr.variant_id, pr.valid_from desc
 ),
-stock as (
-    select b.variant_id,
-           coalesce(sum(b.on_hand) filter (where b.location_id in (select id from scope)), 0)::integer as scope_qty,
-           sum(b.on_hand)::integer as network_qty,
-           coalesce(sum(b.on_hand) filter (where b.location_id = sqlc.narg(here)::uuid), 0)::integer as here_qty
+-- Сеть — из network_stock (обновляется раз в минуту); выбранные точки и своя — живые, по индексу точки.
+scoped as (
+    select b.variant_id, sum(b.on_hand)::integer as qty
     from stock_balances b
+    where (sqlc.narg(city)::text is not null or sqlc.narg(location_id)::uuid is not null
+           or sqlc.narg(location_kind)::text is not null)
+      and b.location_id in (select id from scope)
     group by b.variant_id
+),
+here as (
+    select b.variant_id, sum(b.on_hand)::integer as qty
+    from stock_balances b
+    where b.location_id = sqlc.narg(here)::uuid
+    group by b.variant_id
+),
+stock as (
+    select v.id as variant_id,
+           case when sqlc.narg(city)::text is null and sqlc.narg(location_id)::uuid is null
+                     and sqlc.narg(location_kind)::text is null then coalesce(n.on_hand, 0)
+                else coalesce(sc.qty, 0) end as scope_qty,
+           coalesce(n.on_hand, 0) as network_qty,
+           coalesce(h.qty, 0) as here_qty
+    from variants v
+    left join network_stock n on n.variant_id = v.id
+    left join scoped sc on sc.variant_id = v.id
+    left join here h on h.variant_id = v.id
 ),
 vs as (
     select v.id, v.product_id, r.kopecks,
@@ -168,7 +187,7 @@ candidates as (
                      order by pr.valid_from desc limit 1), 0)::bigint as price_kopecks,
            coalesce((select sum(s.on_hand) from stock_balances s
                      where s.variant_id = v.id and s.location_id = sqlc.narg(here)::uuid), 0)::integer as here_qty,
-           coalesce((select sum(s.on_hand) from stock_balances s where s.variant_id = v.id), 0)::integer as network_qty,
+           coalesce((select n.on_hand from network_stock n where n.variant_id = v.id), 0)::integer as network_qty,
            case
                when p.id = (select product_id from base) then 'pack'
                when p.product_line_id = (select product_line_id from base) then 'line'

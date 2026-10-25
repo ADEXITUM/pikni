@@ -104,7 +104,7 @@ func (s *Service) CreateReceipt(ctx context.Context, tx pgx.Tx, fsrar string, tt
 	var unmapped []Unmapped
 	marked := false
 	for _, p := range ttn.Positions {
-		v, err := s.catalog.FindVariant(ctx, catalog.Scan{Kind: apispec.ScanKindAlcocode, Code: p.Alcocode})
+		v, err := s.catalog.WithTx(tx).FindVariant(ctx, catalog.Scan{Kind: apispec.ScanKindAlcocode, Code: p.Alcocode})
 		if err != nil {
 			return uuid.Nil, err
 		}

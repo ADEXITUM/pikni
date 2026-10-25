@@ -81,6 +81,75 @@ tasks:
       - task: migrate
       - task: seed
 
+  # Демо-данные (решение 0063): реальный каталог, сеть «Чекушка» — 3 крупных магазина, 1 у дома,
+  # 2 склада — и год работы. Генерация занимает около часа, поэтому результат сохраняется копиями
+  # баз в .demo/, а `task demo` восстанавливает их за пару минут.
+  demo:
+    desc: Демо-данные в локальную базу — из готовой копии, а если её нет, собрать (около часа)
+    cmds:
+      - cmd: task demo:restore
+        if: '[ -f .demo/pikni.dump ]'
+      - cmd: task demo:build
+        if: '[ ! -f .demo/pikni.dump ]'
+
+  demo:build:
+    desc: 'Собрать демо-данные заново и сохранить копию в .demo/ (дней истории: DAYS=365)'
+    prompt: Локальные базы pikni и govsim будут пересозданы. Продолжить?
+    vars:
+      DAYS: '{{.DAYS | default "365"}}'
+    cmds:
+      - task: up
+      - task: demo:recreate
+      - task: migrate
+      - '{{.COMPOSE}} exec -T postgres psql -U pikni_owner -d pikni -q -v ON_ERROR_STOP=1 -f /seed/dev.sql'
+      - cmd: go run ./cmd/admin import-catalog -file db/seed/catalog-full.csv
+        dir: api
+      - cmd: mkdir -p ../.demo && go run ./cmd/admin seed-demo-year -days {{.DAYS}} -rests ../.demo/rests.json
+        dir: api
+      - cmd: go run ./cmd/admin seed-users
+        dir: api
+      - cmd: go run ./cmd/govsim seed -catalog ../api/db/seed/catalog-full.csv && go run ./cmd/govsim seed-rests -file ../.demo/rests.json
+        dir: govsim
+      - '{{.COMPOSE}} exec -T postgres pg_dump -U postgres -Fc pikni > .demo/pikni.dump'
+      - '{{.COMPOSE}} exec -T postgres pg_dump -U postgres -Fc govsim > .demo/govsim.dump'
+
+  demo:restore:
+    desc: Восстановить демо-данные из копии в .demo/ (новые миграции применятся после)
+    prompt: Локальные базы pikni и govsim будут заменены копией. Продолжить?
+    cmds:
+      - task: up
+      - task: demo:recreate
+      - '{{.COMPOSE}} exec -T postgres pg_restore -U postgres -d pikni --single-transaction < .demo/pikni.dump'
+      - '{{.COMPOSE}} exec -T postgres pg_restore -U postgres -d govsim --single-transaction < .demo/govsim.dump'
+      - task: migrate
+
+  demo:recreate:
+    internal: true
+    cmds:
+      - task: govsim:db
+      - |
+        {{.COMPOSE}} exec -T postgres psql -U postgres -q -v ON_ERROR_STOP=1 <<'SQL'
+        drop database if exists pikni with (force);
+        create database pikni owner pikni_owner;
+        drop database if exists govsim with (force);
+        create database govsim owner govsim;
+        \c pikni
+        alter default privileges for role pikni_owner in schema public grant select, insert, update, delete on tables to pikni_app;
+        alter default privileges for role pikni_owner in schema public grant usage, select on sequences to pikni_app;
+        SQL
+
+  scenario:
+    desc: 'Состояние для проверки руками: task scenario -- list | all | stocktake-counting'
+    dir: api
+    cmds:
+      - go run ./cmd/admin scenario {{.CLI_ARGS}}
+
+  users:
+    desc: Учётные записи всех ролей с паролем «Пикни-демо-2026» (кассирам PIN 2468)
+    dir: api
+    cmds:
+      - go run ./cmd/admin seed-users
+
   admin:
     desc: 'Учётные записи из консоли: task admin -- create-admin -login admin'
     dir: api

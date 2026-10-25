@@ -80,9 +80,10 @@ func (s *Service) AddScan(ctx context.Context, docID uuid.UUID, in NewScan) (Sca
 			return err
 		}
 
-		classify := s.classify
+		ts := s.withTx(tx)
+		classify := ts.classify
 		if doc.Kind == Receipt {
-			classify = s.classifyReceipt
+			classify = ts.classifyReceipt
 		}
 		v, err := classify(ctx, q, doc, in)
 		if err != nil {

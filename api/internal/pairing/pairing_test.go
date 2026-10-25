@@ -33,19 +33,23 @@ func TestPairing(t *testing.T) {
 	phone := pc
 	svc := pairing.NewService(db.App)
 
-	conn, err := db.App.Acquire(ctx)
-	must(err)
-	defer conn.Release()
-	_, err = conn.Exec(ctx, "listen pikni_events")
-	must(err)
+	// События — в таблице realtime_events: следующее после уже прочитанного.
+	var last int64
 	next := func() map[string]string {
 		t.Helper()
-		wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		n, err := conn.Conn().WaitForNotification(wctx)
-		must(err)
+		var payload []byte
+		for deadline := time.Now().Add(5 * time.Second); ; {
+			err := db.App.QueryRow(ctx, `select id, payload from realtime_events where id > $1 order by id limit 1`, last).Scan(&last, &payload)
+			if err == nil {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("no event: %v", err)
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 		var ev map[string]any
-		must(json.Unmarshal([]byte(n.Payload), &ev))
+		must(json.Unmarshal(payload, &ev))
 		out := map[string]string{}
 		for k, v := range ev {
 			if s, ok := v.(string); ok {

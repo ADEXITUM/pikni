@@ -27,12 +27,14 @@ type (
 	sweepArgs     struct{}
 	dailyRestArgs struct{}
 	cleanupArgs   struct{}
+	networkArgs   struct{}
 )
 
 func (notifyArgs) Kind() string    { return "notify" }
 func (sweepArgs) Kind() string     { return "reservations_sweep" }
 func (dailyRestArgs) Kind() string { return "egais_daily_rests" }
 func (cleanupArgs) Kind() string   { return "report_cleanup" }
+func (networkArgs) Kind() string   { return "network_stock" }
 
 // task — работник River из обычной функции.
 type task[T river.JobArgs] struct {
@@ -81,11 +83,17 @@ func Jobs(pool *pgxpool.Pool, log *slog.Logger, egais bool) (*river.Client[pgx.T
 	river.AddWorker(workers, &task[sweepArgs]{run: Reservations(pool).Sweep})
 	river.AddWorker(workers, &task[dailyRestArgs]{run: reconcile.NewService(pool).RequestDaily})
 	river.AddWorker(workers, &task[cleanupArgs]{run: rep.Cleanup})
+	// Остаток по сети для «Наличия» — раз в минуту (решение 0064).
+	river.AddWorker(workers, &task[networkArgs]{run: func(ctx context.Context) error {
+		_, err := pool.Exec(ctx, "select refresh_network_stock()")
+		return err
+	}})
 
 	periodic := []*river.PeriodicJob{
 		every(time.Minute, notifyArgs{}),
 		every(time.Minute, sweepArgs{}),
 		every(time.Hour, cleanupArgs{}),
+		every(time.Minute, networkArgs{}),
 	}
 	if egais {
 		periodic = append(periodic, every(time.Hour, dailyRestArgs{}))

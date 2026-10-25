@@ -96,6 +96,9 @@ func newFixture(t *testing.T) *fixture {
 	put(f.taiga07, f.khv, "floor", 1)
 	put(f.beluga, f.blg, "floor", 4)
 	put(f.pricy, f.blg, "floor", 4)
+	// Остаток по сети — из представления, которое на стенде обновляет фоновая задача.
+	_, err = db.App.Exec(ctx, "select refresh_network_stock()")
+	must(err)
 	return f
 }
 

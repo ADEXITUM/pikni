@@ -1,5 +1,6 @@
 // govsim — учебный имитатор смежных систем стенда «Пикни»: ЕГАИС с УТМ точек, ГИС МТ «Честный знак»
-// и поставщик. Подкоманды: serve — HTTP, migrate — схема, seed — участники и продукция из каталога.
+// и поставщик. Подкоманды: serve — HTTP, migrate — схема, seed — участники и продукция из каталога,
+// seed-rests — остатки точек после генерации демо-года.
 package main
 
 import (
@@ -29,7 +30,7 @@ func env(name, fallback string) string {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: govsim serve | migrate | seed -catalog FILE")
+		fmt.Fprintln(os.Stderr, "usage: govsim serve | migrate | seed -catalog FILE | seed-rests -file FILE")
 		os.Exit(2)
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -63,6 +64,20 @@ func run(ctx context.Context, log *slog.Logger, cmd string, args []string) error
 		n, err := sim.New(pool).Seed(ctx, f)
 		if err == nil {
 			fmt.Printf("Seeded participants and %d products.\n", n)
+		}
+		return err
+	case "seed-rests":
+		fs := flag.NewFlagSet("seed-rests", flag.ExitOnError)
+		file := fs.String("file", "", "остатки точек (pikni-admin seed-demo-year -rests)")
+		_ = fs.Parse(args)
+		f, err := os.Open(*file)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = f.Close() }()
+		marks, rests, err := sim.New(pool).SeedRests(ctx, f)
+		if err == nil {
+			fmt.Printf("Balances: %d marks, %d quantity rests.\n", marks, rests)
 		}
 		return err
 	case "serve":

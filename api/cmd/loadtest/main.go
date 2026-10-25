@@ -3,6 +3,10 @@
 //
 //	go run ./cmd/loadtest -url http://localhost:8080 -login director -password ... -users 80 -tills 20 -d 60s
 //
+// Федеральная ревизия (решение 0063): сотрудники из плана pikni-admin seed-load сканируют марки.
+//
+//	go run ./cmd/loadtest -url http://localhost:8080 -plan load.json -d 3m -ramp 2m
+//
 // Вход выполняется один раз: ограничение 10 попыток в минуту с адреса не даёт сотне пользователей
 // войти разом, поэтому виртуальные пользователи работают в одном сеансе — для сервера это та же
 // сотня параллельных запросов.
@@ -44,7 +48,16 @@ func main() {
 	tills := flag.Int("tills", 20, "виртуальных касс")
 	posKey := flag.String("pos-key", "", "ключ кассы; без него кассы читают каталог через API сотрудника")
 	duration := flag.Duration("d", 60*time.Second, "длительность")
+	planFile := flag.String("plan", "", "план федеральной ревизии (pikni-admin seed-load)")
+	ramp := flag.Duration("ramp", time.Minute, "разгон: за это время подключаются все сотрудники плана")
+	think := flag.Duration("think", 1500*time.Millisecond, "пауза сотрудника между сканами")
+	limit := flag.Int("scanners", 0, "сколько сотрудников плана задействовать; 0 — всех")
+	conns := flag.Int("conns", 1000, "соединений с API — пул обратного прокси")
 	flag.Parse()
+	if *planFile != "" {
+		stocktake(*base, *planFile, *duration, *ramp, *think, *limit, *conns)
+		return
+	}
 
 	cookie, csrf, err := signIn(*base, *login, *password)
 	if err != nil {
@@ -64,7 +77,8 @@ func main() {
 		{"stock", "GET", "/api/v1/stock/balances?locationId=@loc", nil, 10},
 		{"me", "GET", "/api/v1/auth/me", nil, 10},
 		{"notifications", "GET", "/api/v1/notifications", nil, 10},
-		{"report", "POST", "/api/v1/reports/stock_on_date", map[string]any{}, 5},
+		// Отчёт на экране смотрят по точке; по всей сети его выгружают файлом в фоне.
+		{"report", "POST", "/api/v1/reports/stock_on_date", map[string]any{"locationIds": []string{"@loc"}}, 5},
 	}
 	till := []request{{"pos-catalog", "GET", "/api/pos/v1/catalog", nil, 1}}
 	if *posKey == "" {
@@ -96,10 +110,12 @@ func main() {
 			if strings.Contains(path, "%s") {
 				path = fmt.Sprintf(path, words[rand.IntN(len(words))])
 			}
-			path = strings.ReplaceAll(path, "@loc", locations[rand.IntN(len(locations))])
+			loc := locations[rand.IntN(len(locations))]
+			path = strings.ReplaceAll(path, "@loc", loc)
 			var body []byte
 			if r.body != nil {
 				body, _ = json.Marshal(r.body)
+				body = bytes.ReplaceAll(body, []byte("@loc"), []byte(loc))
 			}
 			req, _ := http.NewRequestWithContext(context.Background(), r.method, *base+path, bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
