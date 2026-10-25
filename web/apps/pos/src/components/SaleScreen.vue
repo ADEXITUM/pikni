@@ -63,6 +63,7 @@ const reservation = ref<PosReservation | null>(null)
 function loadReservation(r: PosReservation) {
   if (lines.value.length && !confirm('Заменить текущий чек выдачей брони?')) return
   resetReceipt()
+  refusal.value = ''
   reservation.value = r
   lines.value = r.marks.length
     ? r.marks.map((m) => ({ item: r.item, qty: 1, markCode: m }))
