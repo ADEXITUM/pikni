@@ -175,6 +175,14 @@ tasks:
     cmds:
       - go run ./cmd/api
 
+  federal:web:
+    desc: Сайт на федеральной сети — http://localhost:5175 (нужен task federal:api)
+    dir: web
+    env:
+      PIKNI_API_URL: http://localhost:8081
+    cmds:
+      - npm run dev -w @pikni/staff -- --port 5175 --strictPort
+
   load:stocktake:
     desc: 'Федеральная ревизия на task federal:api: SCANNERS=2000 сотрудников сканируют, DURATION=3m'
     dir: api
