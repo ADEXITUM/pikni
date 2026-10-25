@@ -16,19 +16,17 @@ async function signIn(page: Page, login: string): Promise<Session> {
   expect(r.status, `вход ${login}`).toBe(200)
   const cookie = r.headers.getSetCookie()[0]!.split(';')[0]!
   const [name, value] = cookie.split('=') as [string, string]
-  await page
-    .context()
-    .addCookies([
-      {
-        name,
-        value,
-        domain: 'localhost',
-        path: '/api',
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Lax',
-      },
-    ])
+  await page.context().addCookies([
+    {
+      name,
+      value,
+      domain: 'localhost',
+      path: '/api',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+    },
+  ])
   const me = (await r.json()) as { csrfToken: string }
   return { cookie, csrf: me.csrfToken }
 }
