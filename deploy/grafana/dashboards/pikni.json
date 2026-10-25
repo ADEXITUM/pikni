@@ -1,0 +1,76 @@
+{
+  "title": "Пикни — состояние",
+  "uid": "pikni-overview",
+  "schemaVersion": 39,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "1m",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Запросов в секунду",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"pikni-api\"}[5m]))" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Доля ошибок 5xx, %",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(http_server_request_duration_seconds_count{service_name=\"pikni-api\",http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{service_name=\"pikni-api\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Время ответа p95, мс",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"pikni-api\",http_request_method=\"GET\"}[5m])))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Чеки и сканы в минуту",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "60 * sum(rate(pikni_receipts_total[5m]))", "legendFormat": "чеки" },
+        { "expr": "60 * sum(rate(pikni_scans_total[5m]))", "legendFormat": "сканы" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Очередь в ЕГАИС по точкам",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "max by (location) (pikni_egais_queue)", "legendFormat": "{{location}}" }]
+    },
+    {
+      "type": "stat",
+      "title": "УТМ недоступен, точек",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "max(pikni_egais_utm_down)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Недостачи к разбору, шт.",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "max(pikni_stock_deficit)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Фоновых задач в очереди",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "max(pikni_jobs_waiting)" }]
+    }
+  ]
+}

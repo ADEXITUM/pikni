@@ -345,3 +345,25 @@ func TestSessionManagement(t *testing.T) {
 		t.Errorf("expired sessions are listed: %d", n)
 	}
 }
+
+func TestDemoLogin(t *testing.T) {
+	svc, db, _ := newTestService(t)
+	if _, _, err := svc.DemoLogin(t.Context(), "cashier", Client{}); err == nil {
+		t.Fatal("demo login outside demo mode")
+	}
+	svc.Demo = true
+	if _, err := db.App.Exec(t.Context(), `insert into locations (code, name, kind, city, timezone, subject_code)
+		values ('МГ-01', 'Магазин', 'store', 'Благовещенск', 'Asia/Yakutsk', '28')`); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		sess, _, err := svc.DemoLogin(t.Context(), "cashier", Client{})
+		if err != nil || sess.Login != "demo-cashier" || len(sess.LocationIDs) != 1 || sess.MustChangePassword {
+			t.Fatalf("demo cashier: %+v %v", sess, err)
+		}
+	}
+	admin, _, err := svc.DemoLogin(t.Context(), "admin", Client{})
+	if err != nil || admin.MustEnrollTOTP() {
+		t.Fatalf("demo admin: %+v %v", admin, err)
+	}
+}

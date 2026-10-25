@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,6 +27,10 @@ import (
 var version = "dev"
 
 func main() {
+	// В образе без оболочки нет curl: проверку живучести для Docker выполняет сам бинарник.
+	if len(os.Args) > 1 && os.Args[1] == "-healthcheck" {
+		os.Exit(healthcheck())
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "pikni-api:", err)
 		os.Exit(1)
@@ -81,6 +86,11 @@ func run() error {
 
 	hub := realtime.NewHub(pool, log)
 	go hub.Run(ctx)
+	app.Version = version
+	app.Demo = cfg.Env == "demo"
+	if err := app.Metrics(pool); err != nil {
+		return err
+	}
 	if err := app.Register(e, pool, cfg.EgaisURL, hub); err != nil {
 		return err
 	}
@@ -116,4 +126,25 @@ func run() error {
 
 	log.Info("server stopped")
 	return nil
+}
+
+func healthcheck() int {
+	addr := os.Getenv("HTTP_ADDR")
+	switch {
+	case addr == "":
+		addr = "localhost:8080"
+	case addr[0] == ':':
+		addr = "localhost" + addr
+	}
+	client := http.Client{Timeout: 3 * time.Second}
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+addr+"/healthz", nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		return 1
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
 }

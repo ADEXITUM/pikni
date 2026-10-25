@@ -1,0 +1,10 @@
+# Контекст сборки образов: только исходники.
+**/node_modules
+**/dist
+**/.cache
+**/e2e/.auth
+**/playwright-report
+**/test-results
+.git
+docs
+*.exe

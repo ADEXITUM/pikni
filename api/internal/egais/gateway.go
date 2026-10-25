@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ErrUnavailable — УТМ точки не отвечает: сообщение остаётся в очереди и уйдёт позже.
@@ -53,7 +55,7 @@ type Govsim struct {
 }
 
 func NewGovsim(base string) *Govsim {
-	return &Govsim{base: base, client: &http.Client{Timeout: 10 * time.Second}}
+	return &Govsim{base: base, client: &http.Client{Timeout: 10 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}}
 }
 
 // chequeTimeout — касса ждёт ответа ЕГАИС на чек не дольше 3 с (п. 4.3 backend.md).

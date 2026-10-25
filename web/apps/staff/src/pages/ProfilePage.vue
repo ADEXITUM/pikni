@@ -5,7 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed } from 'vue'
 
 import { confirm } from '@/confirm'
+import PhoneLoginCard from '@/components/PhoneLoginCard.vue'
 import SoundSettingsCard from '@/components/SoundSettingsCard.vue'
+import TwoFactorCard from '@/components/TwoFactorCard.vue'
 import { describeDevice } from '@/device'
 import { formatAgo } from '@/format'
 import { roleLabels } from '@/labels'
@@ -96,6 +98,8 @@ const actionError = computed(() => endError.value ?? endOthersError.value)
       </v-card-actions>
     </v-card>
 
+    <TwoFactorCard />
+    <PhoneLoginCard />
     <SoundSettingsCard class="mb-4" />
 
     <v-card>

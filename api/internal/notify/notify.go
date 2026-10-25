@@ -169,6 +169,15 @@ var rules = []rule{
 		},
 	},
 	{
+		kind: "backup_missing", permission: apispec.PermissionUsersManage,
+		sql: `select null::uuid, null::uuid, null::uuid, to_char(now(), 'YYYYMMDD'), ''
+			where not exists (select 1 from backups where ok and started_at > now() - interval '26 hours')`,
+		render: func(r []any) (string, string, string, string) {
+			return "backup:" + str(r[3]), "Нет резервной копии за последние сутки",
+				"Проверьте задание резервного копирования на сервере", "/system"
+		},
+	},
+	{
 		kind: "below_min", permission: apispec.PermissionReceiptEdit,
 		sql: `select m.location_id, m.location_id, null::uuid, count(*)::text, to_char(now(), 'YYYYMMDD')
 			from assortment_matrix m

@@ -4,6 +4,8 @@ import {
   mdiBarcodeScan,
   mdiBookmarkOutline,
   mdiBookshelf,
+  mdiHeartPulse,
+  mdiKeyChain,
   mdiChartBar,
   mdiViewDashboardOutline,
   mdiDeskLamp,
@@ -54,4 +56,6 @@ export const navItems: {
   { title: 'Сотрудники', icon: mdiAccountGroupOutline, route: 'users' },
   { title: 'Кассы', icon: mdiCashRegister, route: 'pos-devices' },
   { title: 'Журнал действий', icon: mdiHistory, route: 'audit' },
+  { title: 'Ключи API', icon: mdiKeyChain, route: 'api-keys' },
+  { title: 'Состояние системы', icon: mdiHeartPulse, route: 'system' },
 ]

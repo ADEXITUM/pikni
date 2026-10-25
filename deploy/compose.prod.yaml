@@ -1,0 +1,91 @@
+# Стенд «Пикни» на одном сервере (решение 0008). Запуск: docker compose -f compose.prod.yaml
+# --env-file .env up -d. Два экземпляра API проверяют отказоустойчивость (п. 4.4.3): фоновые задачи
+# выполняет ведущий, при его остановке — второй.
+name: pikni
+
+x-api: &api
+  image: ${PIKNI_IMAGE:-ghcr.io/adexitum/pikni-api}:${PIKNI_VERSION:-latest}
+  restart: unless-stopped
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+  environment:
+    PIKNI_ENV: ${PIKNI_ENV:-demo}
+    DATABASE_URL: postgres://pikni_app:${PIKNI_APP_PASSWORD}@postgres:5432/pikni?sslmode=disable
+    EGAIS_URL: http://govsim:8090
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+  healthcheck:
+    test: ["CMD", "/usr/local/bin/pikni-api", "-healthcheck"]
+    interval: 15s
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: pikni
+      PIKNI_OWNER_PASSWORD: ${PIKNI_OWNER_PASSWORD}
+      PIKNI_APP_PASSWORD: ${PIKNI_APP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ../api/db/initdb/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+      - ${PIKNI_BACKUP_DIR:-/var/backups/pikni}:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d pikni"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    image: ${PIKNI_IMAGE:-ghcr.io/adexitum/pikni-api}:${PIKNI_VERSION:-latest}
+    entrypoint: ["/usr/local/bin/pikni-migrate"]
+    environment:
+      DATABASE_MIGRATOR_URL: postgres://pikni_owner:${PIKNI_OWNER_PASSWORD}@postgres:5432/pikni?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *api
+  api-2:
+    <<: *api
+
+  govsim:
+    image: ${PIKNI_IMAGE:-ghcr.io/adexitum/pikni-api}:${PIKNI_VERSION:-latest}
+    restart: unless-stopped
+    entrypoint: ["/usr/local/bin/govsim", "serve"]
+    environment:
+      GOVSIM_ADDR: :8090
+      GOVSIM_DATABASE_URL: postgres://govsim:${GOVSIM_PASSWORD}@postgres:5432/govsim?sslmode=disable
+      GOVSIM_PUBLIC_URL: https://${PIKNI_DOMAIN:-localhost}/sim
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8090:8090"
+
+  web:
+    image: ${PIKNI_WEB_IMAGE:-ghcr.io/adexitum/pikni-web}:${PIKNI_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      PIKNI_DOMAIN: ${PIKNI_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy:/data
+    depends_on: [api, api-2]
+
+  # Метрики, журналы и трассировки (OpenTelemetry → Grafana), п. 4.1.5.
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.37.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./grafana/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards/pikni:ro
+      - ./grafana/alerting:/otel-lgtm/grafana/conf/provisioning/alerting:ro
+
+volumes:
+  pgdata:
+  caddy:

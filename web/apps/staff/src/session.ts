@@ -88,6 +88,10 @@ export async function sessionGuard(
   if (me.mustChangePassword && to.name !== 'change-password') {
     return { name: 'change-password', query: { redirect: to.fullPath } }
   }
+  // Администратор без второго фактора сначала подключает его в профиле (ПБ-3).
+  if (me.mustEnrollTotp && to.name !== 'profile' && to.name !== 'change-password') {
+    return { name: 'profile' }
+  }
   if (!canOpen(me, to)) {
     return { name: 'forbidden' }
   }
@@ -95,7 +99,7 @@ export async function sessionGuard(
 }
 
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
-const sessionlessPaths = new Set(['/auth/login', '/auth/me'])
+const sessionlessPaths = new Set(['/auth/login', '/auth/me', '/auth/login/totp', '/auth/qr/redeem'])
 
 export function sessionMiddleware(client: QueryClient, router: Router): Middleware {
   return {

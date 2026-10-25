@@ -1,0 +1,23 @@
+# Образ сервера: API, миграции, служебная утилита и имитатор ЕГАИС — один образ, разные команды
+# (решение 0007). Сборка из корня репозитория: docker build -f deploy/Dockerfile.api .
+FROM golang:1.27 AS build
+WORKDIR /src
+COPY go.work go.work.sum ./
+COPY api/go.mod api/go.sum api/
+COPY govsim/go.mod govsim/go.sum govsim/
+RUN go mod download -C api && go mod download -C govsim
+COPY api api
+COPY govsim govsim
+ARG VERSION=dev
+ENV CGO_ENABLED=0
+RUN go build -C api -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/pikni-api ./cmd/api \
+ && go build -C api -trimpath -ldflags "-s -w" -o /out/pikni-migrate ./cmd/migrate \
+ && go build -C api -trimpath -ldflags "-s -w" -o /out/pikni-admin ./cmd/admin \
+ && go build -C govsim -trimpath -ldflags "-s -w" -o /out/govsim ./cmd/govsim
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/ /usr/local/bin/
+COPY api/db/seed /seed
+ENV HTTP_ADDR=:8080 PIKNI_ENV=prod LOG_FORMAT=json
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/pikni-api"]
