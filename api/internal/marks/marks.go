@@ -393,3 +393,34 @@ func Release(ctx context.Context, tx pgx.Tx, user uuid.UUID, codes []string) (ma
 		Codes: released, FromStatuses: statuses, FromZoneIds: fromZones, UserID: &user, ToStatus: InStock,
 	})
 }
+
+// Unship возвращает марки из «в пути» точки transit на остаток зоны zone точки location: перемещение
+// отменено, товар остался у отправителя.
+func Unship(ctx context.Context, tx pgx.Tx, ev Event, transit, location, zone uuid.UUID, codes []string) error {
+	q := store.New(tx)
+	rows, err := q.LockMarks(ctx, codes)
+	if err != nil {
+		return err
+	}
+	found := make(map[string]store.LockMarksRow, len(rows))
+	for _, r := range rows {
+		found[r.Code] = r
+	}
+	statuses := make([]string, len(codes))
+	for i, c := range codes {
+		r, ok := found[c]
+		if !ok || r.Status != InTransit || r.LocationID != transit {
+			return &MisplacedError{Code: c, Status: r.Status}
+		}
+		statuses[i] = r.Status
+	}
+	if err := q.MoveMarks(ctx, store.MoveMarksParams{
+		Codes: codes, LocationID: location, ZoneID: &zone, Status: InStock, DocumentID: &ev.DocumentID,
+	}); err != nil {
+		return err
+	}
+	return q.InsertMarkEvents(ctx, store.InsertMarkEventsParams{
+		Codes: codes, FromStatuses: statuses, FromZoneIds: make([]uuid.UUID, len(codes)),
+		DocumentID: &ev.DocumentID, UserID: &ev.UserID, ToStatus: InStock, ToZoneID: &zone,
+	})
+}

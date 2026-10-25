@@ -77,7 +77,7 @@ const addCount = `-- name: AddCount :exec
 insert into stocktake_counts (document_id, zone_id, variant_id, qty)
 values ($1, $2, $3, greatest($4::integer, 0))
 on conflict (document_id, zone_id, variant_id) do update
-set qty = greatest(stocktake_counts.qty + $4::integer, 0)
+set qty = greatest(stocktake_counts.qty + $4::integer, 0), counted_at = now()
 `
 
 type AddCountParams struct {
@@ -439,7 +439,8 @@ func (q *Queries) DocumentMoves(ctx context.Context, documentID uuid.UUID) ([]Do
 
 const foundMarks = `-- name: FoundMarks :many
 select sm.mark_code, sm.zone_id, zn.kind as zone_kind, sm.kind, sm.variant_id, v.article, p.name,
-       bm.zone_id as book_zone_id, (e.code is not null)::boolean as known
+       bm.zone_id as book_zone_id, (e.code is not null)::boolean as known,
+       coalesce(e.status in ('in_stock', 'reserved'), false)::boolean as on_hand
 from stocktake_marks sm
 join zones zn on zn.id = sm.zone_id
 left join variants v on v.id = sm.variant_id
@@ -460,6 +461,7 @@ type FoundMarksRow struct {
 	Name       *string
 	BookZoneID *uuid.UUID
 	Known      bool
+	OnHand     bool
 }
 
 func (q *Queries) FoundMarks(ctx context.Context, id uuid.UUID) ([]FoundMarksRow, error) {
@@ -481,6 +483,7 @@ func (q *Queries) FoundMarks(ctx context.Context, id uuid.UUID) ([]FoundMarksRow
 			&i.Name,
 			&i.BookZoneID,
 			&i.Known,
+			&i.OnHand,
 		); err != nil {
 			return nil, err
 		}
@@ -1499,6 +1502,7 @@ join variants v on v.id = bm.variant_id
 join products p on p.id = v.product_id
 where bm.document_id = $1
   and not exists (select 1 from stocktake_marks sm where sm.document_id = bm.document_id and sm.mark_code = bm.mark_code)
+  and exists (select 1 from excise_marks e where e.code = bm.mark_code and e.status in ('in_stock', 'reserved'))
 order by p.name, bm.mark_code
 `
 
@@ -1681,7 +1685,7 @@ func (q *Queries) SetComment(ctx context.Context, arg SetCommentParams) error {
 const setCount = `-- name: SetCount :exec
 insert into stocktake_counts (document_id, zone_id, variant_id, qty)
 values ($1, $2, $3, $4)
-on conflict (document_id, zone_id, variant_id) do update set qty = excluded.qty
+on conflict (document_id, zone_id, variant_id) do update set qty = excluded.qty, counted_at = now()
 `
 
 type SetCountParams struct {
@@ -1856,12 +1860,25 @@ func (q *Queries) SnapshotMarks(ctx context.Context, id uuid.UUID) error {
 }
 
 const stocktakeSheet = `-- name: StocktakeSheet :many
-with fact as (
-    select c.zone_id, c.variant_id, c.qty from stocktake_counts c where c.document_id = $1
+with sold as (
+    select m.zone_id, m.variant_id, -sum(m.qty)::integer as qty
+    from stock_moves m
+    join documents sd on sd.id = m.document_id
+    join documents d on d.id = $1
+    where sd.kind = 'sale' and m.bucket = 'on_hand' and m.location_id = d.location_id and m.posted_at > d.counting_at
+    group by m.zone_id, m.variant_id
+),
+fact as (
+    select c.zone_id, c.variant_id,
+           c.qty - coalesce((select -sum(m.qty) from stock_moves m join documents sd on sd.id = m.document_id
+                             where sd.kind = 'sale' and m.bucket = 'on_hand' and m.zone_id = c.zone_id
+                               and m.variant_id = c.variant_id and m.posted_at > c.counted_at), 0)::integer as qty
+    from stocktake_counts c where c.document_id = $1
     union all
     select m.zone_id, m.variant_id, count(*)::integer from stocktake_marks m
+    left join excise_marks e on e.code = m.mark_code
     where m.document_id = $1 and m.variant_id is not null
-      and not (m.kind = 'foreign' and exists (select 1 from excise_marks e where e.code = m.mark_code))
+      and (case when m.kind = 'foreign' then e.code is null else e.status in ('in_stock', 'reserved') end)
     group by m.zone_id, m.variant_id
 ),
 keys as (
@@ -1871,7 +1888,9 @@ keys as (
 )
 select k.zone_id, zn.kind as zone_kind, k.variant_id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container,
        v.gift_pack, ke.egais_accounting, v.alcocode,
-       coalesce((select b.qty from stocktake_book b where b.document_id = $1 and b.zone_id = k.zone_id and b.variant_id = k.variant_id), 0)::integer as book_qty,
+       (coalesce((select b.qty from stocktake_book b where b.document_id = $1 and b.zone_id = k.zone_id and b.variant_id = k.variant_id), 0)
+        - coalesce((select so.qty from sold so where so.zone_id = k.zone_id and so.variant_id = k.variant_id), 0))::integer as book_qty,
+       coalesce((select so.qty from sold so where so.zone_id = k.zone_id and so.variant_id = k.variant_id), 0)::integer as sold_qty,
        coalesce((select sum(f.qty) from fact f where f.zone_id = k.zone_id and f.variant_id = k.variant_id), 0)::integer as fact_qty,
        coalesce((select b.cost_e4 from stocktake_book b where b.document_id = $1 and b.zone_id = k.zone_id and b.variant_id = k.variant_id),
                 (select (c.avg_cost * 10000)::bigint from variant_costs c where c.variant_id = k.variant_id), 0)::bigint as cost_e4
@@ -1896,11 +1915,14 @@ type StocktakeSheetRow struct {
 	EgaisAccounting *string
 	Alcocode        *string
 	BookQty         int32
+	SoldQty         int32
 	FactQty         int32
 	CostE4          int64
 }
 
-// Сличение по зонам и вариантам: учёт на старте и факт (подсчёт товара без марок или найденные марки).
+// Сличение по зонам и вариантам. Торговля во время подсчёта не останавливается (решение 0060):
+// учёт — остаток на старте минус проданное с начала подсчёта; факт — посчитанное минус проданное
+// после того, как товар в зоне посчитали, или найденные марки, которые ещё не проданы.
 func (q *Queries) StocktakeSheet(ctx context.Context, id uuid.UUID) ([]StocktakeSheetRow, error) {
 	rows, err := q.db.Query(ctx, stocktakeSheet, id)
 	if err != nil {
@@ -1923,6 +1945,7 @@ func (q *Queries) StocktakeSheet(ctx context.Context, id uuid.UUID) ([]Stocktake
 			&i.EgaisAccounting,
 			&i.Alcocode,
 			&i.BookQty,
+			&i.SoldQty,
 			&i.FactQty,
 			&i.CostE4,
 		); err != nil {

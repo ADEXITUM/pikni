@@ -4,6 +4,7 @@ import { api, ApiError, type AvailabilityCell, type AvailabilityLocation } from 
 import { useQuery } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 
 import LocationsMap, { type MapPoint } from '@/components/LocationsMap.vue'
 import SimilarProducts from '@/components/SimilarProducts.vue'
@@ -56,6 +57,20 @@ const cities = computed(() => {
   return [...groups.entries()].map(([city, locations]) => ({ city, locations }))
 })
 const columns = computed(() => cities.value.flatMap((c) => c.locations))
+
+// Смартфон: таблица точек не помещается, поэтому у каждого варианта — список точек, где он есть.
+// Своя точка — всегда и первой, остальные — по убыванию остатка.
+const { xs } = useDisplay()
+const total = (c?: AvailabilityCell) => (c ? c.floor + c.storage + c.reserved + c.inTransit : 0)
+function stocked(variantId: string) {
+  return columns.value
+    .filter((l) => l.id === here.value || total(cell(variantId, l.id)) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.id === here.value) - Number(a.id === here.value) ||
+        total(cell(variantId, b.id)) - total(cell(variantId, a.id)),
+    )
+}
 
 const points = computed<MapPoint[]>(() =>
   (card.value?.locations ?? []).flatMap((l) => {
@@ -116,7 +131,72 @@ function requestTransfer(article: string, from: string) {
         </v-chip>
       </div>
 
-      <v-card class="mb-4">
+      <v-card v-if="xs" class="mb-4" data-test="availability-list">
+        <template v-for="(v, i) in card.variants" :key="v.id">
+          <v-divider v-if="i" />
+          <v-card-item
+            :title="v.label"
+            :subtitle="`${v.article}${v.price ? ' · ' + formatPrice(v.price) : ''}`"
+          />
+          <v-list density="compact" class="py-0">
+            <v-menu v-for="l in stocked(v.id)" :key="l.id">
+              <template #activator="{ props }">
+                <v-list-item
+                  v-bind="props"
+                  :class="{ 'pk-here': l.id === here }"
+                  data-test="availability-row"
+                >
+                  <v-list-item-title>
+                    {{ l.code }}<span v-if="l.id === here"> · вы</span>
+                  </v-list-item-title>
+                  <v-list-item-subtitle>{{ l.city }}, {{ l.name }}</v-list-item-subtitle>
+                  <template #append>
+                    <div class="text-end">
+                      <div class="text-body-large">
+                        {{
+                          l.kind === 'store'
+                            ? `зал ${cell(v.id, l.id)?.floor ?? 0}`
+                            : `склад ${cell(v.id, l.id)?.storage ?? 0}`
+                        }}
+                      </div>
+                      <div v-if="cell(v.id, l.id)" class="text-body-small text-medium-emphasis">
+                        <template v-if="l.kind === 'store'"
+                          >склад {{ cell(v.id, l.id)!.storage }} ·
+                        </template>
+                        резерв {{ cell(v.id, l.id)!.reserved }} · в пути
+                        {{ cell(v.id, l.id)!.inTransit }}
+                      </div>
+                    </div>
+                  </template>
+                </v-list-item>
+              </template>
+              <v-list density="compact">
+                <v-list-item
+                  :prepend-icon="mdiTruckDeliveryOutline"
+                  title="Привезти в мою точку"
+                  :disabled="!canRequest || l.id === here"
+                  @click="requestTransfer(v.article, l.id)"
+                />
+                <v-list-item
+                  v-if="router.hasRoute('reservation-new')"
+                  :prepend-icon="mdiBookmarkOutline"
+                  title="Отложить для покупателя"
+                  :to="{ name: 'reservation-new', query: { article: v.article, location: l.id } }"
+                />
+              </v-list>
+            </v-menu>
+            <v-list-item v-if="!stocked(v.id).length">
+              <v-list-item-subtitle>Нет ни в одной точке</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </template>
+        <v-card-text class="text-body-small text-medium-emphasis">
+          У магазина крупно — в торговом зале, у склада — на складе. Нажмите на точку, чтобы
+          заказать перемещение в свою.
+        </v-card-text>
+      </v-card>
+
+      <v-card v-else class="mb-4">
         <div class="pk-table-wrap">
           <table class="pk-avail" data-test="availability-table">
             <thead>

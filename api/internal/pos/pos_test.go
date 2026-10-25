@@ -642,3 +642,59 @@ func TestReservationExpiresAndIsAnonymized(t *testing.T) {
 		t.Fatalf("anonymized: %q %q", r.CustomerName, r.CustomerPhone)
 	}
 }
+
+// Две кассы одновременно продают одну марку (П-15): проходит одна продажа, вторая получает отказ.
+func TestTwoTillsSameMark(t *testing.T) {
+	f := newFixture(t)
+	ctx := t.Context()
+	first := f.till(t)
+	admin := auth.WithSession(ctx, auth.Session{UserID: f.user(t, "boss2", "admin"), Role: "admin"})
+	_, key, err := f.svc.RegisterDevice(admin, f.store, "Касса 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := f.svc.Device(ctx, "Device "+key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := f.svc.Login(ctx, d, "kassir", "1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := f.svc.Authenticate(ctx, d, sess.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.OpenShift(ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	if second, err = f.svc.Authenticate(ctx, d, sess.Token); err != nil {
+		t.Fatal(err)
+	}
+	results := make(chan error, 2)
+	var start sync.WaitGroup
+	start.Add(1)
+	for _, pc := range []Context{first, second} {
+		go func() {
+			start.Wait()
+			_, err := f.svc.CreateReceipt(ctx, pc, NewReceipt{ID: uuid.New(), AgeConfirmed: true, CreatedAt: daytime,
+				Lines: []NewLine{vodkaLine(f, mark1)}})
+			results <- err
+		}()
+	}
+	start.Done()
+	ok, refused := 0, 0
+	for range 2 {
+		if err := <-results; err == nil {
+			ok++
+		} else if refusalCode(err) != "" {
+			refused++
+		} else {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if ok != 1 || refused != 1 {
+		t.Fatalf("sold %d, refused %d", ok, refused)
+	}
+	f.integrity(t)
+}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ADEXITUM/pikni/api/internal/app"
 	"github.com/ADEXITUM/pikni/api/internal/catalog"
+	"github.com/ADEXITUM/pikni/api/internal/demo"
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/users"
 )
@@ -21,7 +23,8 @@ import (
 const usage = `usage:
   pikni-admin create-admin -login <login> [-name <full name>]
   pikni-admin reset-password -login <login>
-  pikni-admin import-catalog -file <catalog.xlsx|catalog.csv> [-if-empty]`
+  pikni-admin import-catalog -file <catalog.xlsx|catalog.csv> [-if-empty]
+  pikni-admin seed-demo-year [-days 365]`
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -39,6 +42,7 @@ func run(args []string) error {
 	login := flags.String("login", "", "user login")
 	name := flags.String("name", "Администратор", "full name for create-admin")
 	file := flags.String("file", "", "catalog file for import-catalog")
+	days := flags.Int("days", 365, "seed-demo-year: how many days of history")
 	ifEmpty := flags.Bool("if-empty", false, "import-catalog: skip if the catalog already has products")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
@@ -62,6 +66,8 @@ func run(args []string) error {
 			return errors.New("-login is required\n" + usage)
 		}
 		return account(ctx, pool, cmd, *login, *name)
+	case "seed-demo-year":
+		return demo.Year(ctx, pool, *days, slog.Default())
 	case "import-catalog":
 		if *file == "" {
 			return errors.New("-file is required\n" + usage)

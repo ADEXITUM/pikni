@@ -1,5 +1,7 @@
 # Оповещения администратору (п. 4.1.5). Канал (Telegram или почта) — контакт-пойнт «admin»,
 # его создают в Grafana после развёртывания: токен бота и адрес не хранятся в репозитории.
+# Запросы мгновенные (instant): условию нужно одно число, а не ряд. Нет данных — не тревога
+# (нет ошибок 5xx — нет и ряда для доли ошибок).
 # «Нет резервной копии за сутки» приходит уведомлением в самой системе (правило backup_missing).
 apiVersion: 1
 groups:
@@ -11,19 +13,21 @@ groups:
       - uid: pikni-utm-down
         title: УТМ точки недоступен дольше 5 минут
         condition: C
+        noDataState: OK
         for: 0m
         labels: { severity: critical }
         data:
           - refId: A
             datasourceUid: prometheus
             relativeTimeRange: { from: 300, to: 0 }
-            model: { expr: "max(pikni_egais_utm_down)", refId: A }
+            model: { expr: "max(pikni_egais_utm_down)", instant: true, refId: A }
           - refId: C
             datasourceUid: __expr__
             model: { type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [0] } }], refId: C }
       - uid: pikni-error-rate
         title: Доля ошибок выше 1 %
         condition: C
+        noDataState: OK
         for: 5m
         labels: { severity: warning }
         data:
@@ -34,6 +38,7 @@ groups:
               expr: >
                 100 * sum(rate(http_server_request_duration_seconds_count{service_name="pikni-api",http_response_status_code=~"5.."}[5m]))
                 / sum(rate(http_server_request_duration_seconds_count{service_name="pikni-api"}[5m]))
+              instant: true
               refId: A
           - refId: C
             datasourceUid: __expr__
@@ -41,6 +46,7 @@ groups:
       - uid: pikni-latency
         title: Время ответа на чтение хуже 300 мс (p95)
         condition: C
+        noDataState: OK
         for: 10m
         labels: { severity: warning }
         data:
@@ -50,6 +56,7 @@ groups:
             model:
               expr: >
                 1000 * histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="pikni-api",http_request_method="GET"}[5m])))
+              instant: true
               refId: A
           - refId: C
             datasourceUid: __expr__
@@ -57,13 +64,14 @@ groups:
       - uid: pikni-egais-queue
         title: Растёт очередь сообщений в ЕГАИС
         condition: C
+        noDataState: OK
         for: 15m
         labels: { severity: warning }
         data:
           - refId: A
             datasourceUid: prometheus
             relativeTimeRange: { from: 1800, to: 0 }
-            model: { expr: "sum(pikni_egais_queue) - sum(pikni_egais_queue offset 15m)", refId: A }
+            model: { expr: "sum(pikni_egais_queue) - sum(pikni_egais_queue offset 15m)", instant: true, refId: A }
           - refId: C
             datasourceUid: __expr__
             model: { type: threshold, expression: A, conditions: [{ evaluator: { type: gt, params: [10] } }], refId: C }

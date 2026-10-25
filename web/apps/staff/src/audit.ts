@@ -61,6 +61,8 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'reservation.cancelled': 'Снятие брони',
   'reservation.issued': 'Выдача брони',
   'transfer.rejected': 'Отклонение заявки на перемещение',
+  'transfer.resent': 'Повторная отправка ТТН перемещения',
+  'transfer.returned': 'Возврат отклонённого перемещения отправителю',
   'asset.created': 'Принятие имущества к учёту',
   'auth.login_qr': 'Вход по QR-коду',
   'auth.totp_enabled': 'Подключение второго фактора',

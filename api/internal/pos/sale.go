@@ -242,9 +242,9 @@ func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code 
 			}
 		}
 	}
-	// Товар идущей ревизии не продаётся до её окончания (КС-2, п. 6).
+	// Товар идущей ревизии продаётся, если ревизия не останавливает продажи (решение 0060).
 	var stocktake *string
-	if err := s.pool.QueryRow(ctx, `select stocktake_blocks($1, $2, $3, null)`, pc.Device.LocationID, pc.Device.FloorZone, it.ID).Scan(&stocktake); err != nil {
+	if err := s.pool.QueryRow(ctx, `select case when stocktake_stops_sales(b) then b end from stocktake_blocks($1, $2, $3, null) b`, pc.Device.LocationID, pc.Device.FloorZone, it.ID).Scan(&stocktake); err != nil {
 		return nil, err
 	}
 	if stocktake != nil {

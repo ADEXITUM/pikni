@@ -30,6 +30,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - ../api/db/initdb/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+      - ../api/db/seed:/seed:ro
       - ${PIKNI_BACKUP_DIR:-/var/backups/pikni}:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d pikni"]
@@ -83,8 +84,9 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - ./grafana/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards/pikni:ro
-      - ./grafana/alerting:/otel-lgtm/grafana/conf/provisioning/alerting:ro
+      - ./grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/pikni.yaml:ro
+      - ./grafana/dashboards:/otel-lgtm/pikni-dashboards:ro
+      - ./grafana/alerting/pikni-rules.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/pikni-rules.yaml:ro
 
 volumes:
   pgdata:

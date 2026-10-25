@@ -41,9 +41,11 @@ type Scope struct {
 	Zones      []uuid.UUID `json:"zones,omitempty"`
 	Categories []uuid.UUID `json:"categories,omitempty"`
 	Brands     []uuid.UUID `json:"brands,omitempty"`
+	// Strict — на время подсчёта остановить и продажи, а не только приход и перемещения.
+	Strict bool `json:"strict,omitempty"`
 }
 
-func (s Scope) empty() bool { return len(s.Zones)+len(s.Categories)+len(s.Brands) == 0 }
+func (s Scope) empty() bool { return len(s.Zones)+len(s.Categories)+len(s.Brands) == 0 && !s.Strict }
 
 // CreateStocktake заводит ревизию точки: состав задаётся сразу, подсчёт начинается кнопкой «Старт».
 func (s *Service) CreateStocktake(ctx context.Context, location uuid.UUID, scope Scope, comment string) (uuid.UUID, error) {
@@ -97,8 +99,8 @@ func (s *Service) lockStocktake(ctx context.Context, q *store.Queries, id uuid.U
 	return doc, auth.CheckLocation(ctx, perm, doc.LocationID)
 }
 
-// StartStocktake начинает подсчёт: учёт зон и марок фиксируется, товары состава в точке
-// блокируются до конца ревизии.
+// StartStocktake начинает подсчёт: учёт зон и марок фиксируется; приход, перемещения и списания
+// товаров состава в точке блокируются до конца ревизии, продажи — только у строгой ревизии.
 func (s *Service) StartStocktake(ctx context.Context, id uuid.UUID, version int32) error {
 	return db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
@@ -134,6 +136,10 @@ func (s *Service) StartStocktake(ctx context.Context, id uuid.UUID, version int3
 		}
 		// Сначала статус: снимок учёта отбирает товары по блокировке этой ревизии.
 		if err := q.SetDocumentStatus(ctx, store.SetDocumentStatusParams{ID: id, Status: StatusCounting}); err != nil {
+			return err
+		}
+		// С этого момента продажи по товарам ревизии уменьшают её учёт.
+		if _, err := tx.Exec(ctx, `update documents set counting_at = now() where id = $1`, id); err != nil {
 			return err
 		}
 		if err := q.SnapshotBook(ctx, id); err != nil {
@@ -603,7 +609,8 @@ func (s *Service) applyStocktake(ctx context.Context, tx pgx.Tx, q *store.Querie
 	for _, m := range found {
 		zoneKind[m.ZoneID] = m.ZoneKind
 		switch {
-		case m.Kind == "moved" && m.BookZoneID != nil && m.VariantID != nil:
+		// Найденную, но проданную во время подсчёта марку переносить уже некуда.
+		case m.Kind == "moved" && m.BookZoneID != nil && m.VariantID != nil && m.OnHand:
 			movedPairs[key{*m.BookZoneID, m.ZoneID}] = append(movedPairs[key{*m.BookZoneID, m.ZoneID}], m.MarkCode)
 			moves = append(moves,
 				stock.Move{VariantID: *m.VariantID, LocationID: doc.LocationID, ZoneID: *m.BookZoneID, Qty: -1},

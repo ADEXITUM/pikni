@@ -2923,6 +2923,66 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /documents/{id}/resend:
+    post:
+      operationId: resendTransfer
+      summary: Отправить ТТН перемещения повторно
+      description: Перемещение, ТТН которого отклонила ЕГАИС, — после устранения причины. Товар остаётся «в пути».
+      tags: [documents]
+      x-permission: transfer.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: ТТН отправлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/return:
+    post:
+      operationId: returnTransfer
+      summary: Вернуть товар отклонённого перемещения отправителю
+      description: Товар из «в пути» получателя возвращается в зону отправителя, поступление у получателя отменяется.
+      tags: [documents]
+      x-permission: transfer.edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: Перемещение отменено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /documents/{id}/cancel:
     post:
       operationId: cancelDocument
@@ -4670,6 +4730,8 @@ components:
         - document.cancelled
         - transfer.approved
         - transfer.rejected
+        - transfer.resent
+        - transfer.returned
         - document.submitted
         - document.approved
         - document.returned
@@ -7945,6 +8007,9 @@ components:
           items:
             type: string
             format: uuid
+        stopSales:
+          type: boolean
+          description: Остановить и продажи на время подсчёта (годовая инвентаризация). По умолчанию торговля идёт, сличение учитывает проданное
         comment:
           type: string
           maxLength: 1000
@@ -7978,7 +8043,7 @@ components:
 
     StocktakeLine:
       type: object
-      required: [zoneId, zoneKind, variantId, article, name, label, bookQty, factQty]
+      required: [zoneId, zoneKind, variantId, article, name, label, bookQty, soldQty, factQty]
       properties:
         zoneId:
           type: string
@@ -7998,8 +8063,13 @@ components:
           $ref: "#/components/schemas/EgaisAccounting"
         bookQty:
           type: integer
+          description: Учёт — остаток на начало подсчёта минус проданное за время подсчёта
+        soldQty:
+          type: integer
+          description: Продано за время подсчёта
         factQty:
           type: integer
+          description: Факт — посчитанное минус проданное после подсчёта товара
         unitCost:
           type: number
           format: double

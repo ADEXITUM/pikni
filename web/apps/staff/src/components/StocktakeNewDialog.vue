@@ -17,6 +17,8 @@ const zoneIds = ref<string[]>([])
 const categoryIds = ref<string[]>([])
 const brandIds = ref<string[]>([])
 const comment = ref('')
+// По умолчанию касса работает: проданное во время подсчёта сличение учитывает (решение 0060).
+const stopSales = ref(false)
 
 const { data: categories } = useQuery({ ...categoriesQuery, enabled: open })
 const { data: brands } = useQuery({ ...brandsQuery, enabled: open })
@@ -26,7 +28,7 @@ const zoneItems = computed(() =>
 const brandItems = computed(() => (brands.value ?? []).map((b) => ({ value: b.id, title: b.name })))
 const scopeText = computed(() =>
   zoneIds.value.length || categoryIds.value.length || brandIds.value.length
-    ? 'Выборочная ревизия: блокируется и считается только выбранное.'
+    ? 'Выборочная ревизия: останавливается и считается только выбранное.'
     : 'Полная ревизия: все зоны и все товары точки.',
 )
 
@@ -44,6 +46,7 @@ const {
         categoryIds: categoryIds.value.length ? categoryIds.value : undefined,
         brandIds: brandIds.value.length ? brandIds.value : undefined,
         comment: comment.value.trim() || undefined,
+        stopSales: stopSales.value || undefined,
       },
     })
     if (error) throw new ApiError(error)
@@ -97,6 +100,14 @@ const {
           class="mb-2"
         />
         <v-text-field v-model="comment" label="Основание, комментарий" class="mb-2" />
+        <v-checkbox
+          v-model="stopSales"
+          label="Остановить и продажи на время подсчёта"
+          hint="Для годовой инвентаризации. Обычно касса работает, а сличение само учитывает проданное"
+          persistent-hint
+          density="compact"
+          class="mb-2"
+        />
         <p class="text-body-medium text-medium-emphasis">{{ scopeText }}</p>
         <v-alert v-if="error" type="error" class="mt-2">{{ error.message }}</v-alert>
       </v-card-text>

@@ -4,6 +4,7 @@ import { api, ApiError, type Product } from '@pikni/api'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 
 import { categoryItems } from '@/categories'
 import ImportDialog from '@/components/ImportDialog.vue'
@@ -17,6 +18,7 @@ const queryClient = useQueryClient()
 const importOpen = ref(false)
 const { data: me } = useMe()
 const canEdit = computed(() => me.value?.permissions.includes('refs.edit') ?? false)
+const { xs } = useDisplay()
 
 const filters = reactive({
   search: '',
@@ -92,6 +94,11 @@ const headers = [
   { title: 'Крепость', key: 'abv', sortable: false },
   { title: 'ЕГАИС', key: 'egaisAccounting', sortable: false },
 ]
+
+const details = (p: Product) =>
+  [p.categoryName, p.brandName, p.abv === undefined ? '' : formatAbv(p.abv)]
+    .filter(Boolean)
+    .join(' · ')
 
 function open(_: Event, { item }: { item: Product }) {
   void router.push({ name: 'product', params: { id: item.id } })
@@ -173,7 +180,28 @@ function open(_: Event, { item }: { item: Product }) {
       {{ error?.message }}
     </v-alert>
 
-    <v-card>
+    <!-- На смартфоне таблица превращается в стопку подписей — список читается лучше. -->
+    <v-card v-if="xs">
+      <v-progress-linear v-if="isPending" indeterminate />
+      <v-list lines="two" role="group" aria-label="Позиции">
+        <v-list-item
+          v-for="p in products"
+          :key="p.id"
+          :to="{ name: 'product', params: { id: p.id } }"
+          data-test="product-item"
+        >
+          <v-list-item-title>{{ p.name }}</v-list-item-title>
+          <v-list-item-subtitle>{{ details(p) }}</v-list-item-subtitle>
+          <template v-if="!p.isActive" #append>
+            <v-chip size="x-small">в архиве</v-chip>
+          </template>
+        </v-list-item>
+        <v-list-item v-if="!isPending && !products.length">
+          <v-list-item-title class="text-medium-emphasis">Позиций нет</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-card>
+    <v-card v-else>
       <v-data-table
         :headers="headers"
         :items="products"

@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ADEXITUM/pikni/api/internal/apispec"
+	"github.com/ADEXITUM/pikni/api/internal/auth"
 	"github.com/ADEXITUM/pikni/api/internal/documents"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
 )
@@ -188,5 +190,111 @@ func TestTorgForms(t *testing.T) {
 	}
 	if _, err := f.svc.TorgForm(f.keeper, opening, "torg2"); !errors.Is(err, documents.ErrFormNotApplicable) {
 		t.Fatalf("torg2 for an opening: %v", err)
+	}
+}
+
+// Торговля во время ревизии не останавливается: проданное до подсчёта товара уменьшает учёт,
+// проданное после — и учёт, и посчитанное; проданная марка не недостача и не излишек.
+func TestStocktakeWhileTrading(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t)
+	ctx := t.Context()
+	const m1, m2, m3 = "PKN0000000000001", "PKN0000000000002", "PKN0000000000003"
+	f.opening(t, []string{m1, m2, m3}, 10)
+	tr, _ := f.svc.CreateFloorTransfer(f.keeper, f.store, apispec.FloorDirectionToFloor, "")
+	f.scan(t, f.keeper, tr, m1, nil)
+	f.scan(t, f.keeper, tr, m2, nil)
+	if err := f.svc.SetLine(f.keeper, tr, f.beer.variant, 6); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Post(f.keeper, tr, f.version(t, tr)); err != nil {
+		t.Fatal(err)
+	}
+	keeper, _ := auth.FromContext(f.keeper)
+	var sale uuid.UUID
+	sell := func(lines ...documents.SaleLine) error {
+		return pgx.BeginFunc(ctx, f.db.App, func(tx pgx.Tx) error {
+			if sale == uuid.Nil {
+				var err error
+				if sale, err = f.svc.OpenSale(ctx, tx, f.store, f.floor, keeper.UserID, time.Now()); err != nil {
+					return err
+				}
+			}
+			return f.svc.RecordSale(ctx, tx, sale, f.store, f.floor, keeper.UserID, false, lines)
+		})
+	}
+
+	doc, err := f.svc.CreateStocktake(f.keeper, f.store, documents.Scope{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.StartStocktake(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	if err := sell(documents.SaleLine{VariantID: f.beer.variant, Qty: 2}); err != nil {
+		t.Fatalf("sale before counting: %v", err)
+	}
+	for range 4 {
+		f.countScan(t, doc, f.floor, f.beer.ean, nil)
+	}
+	f.countScan(t, doc, f.floor, m1, nil)
+	if err := sell(documents.SaleLine{VariantID: f.beer.variant, Qty: 1},
+		documents.SaleLine{VariantID: f.vodka.variant, Qty: 1, Mark: m1},
+		documents.SaleLine{VariantID: f.vodka.variant, Qty: 1, Mark: m2}); err != nil {
+		t.Fatalf("sale after counting: %v", err)
+	}
+	f.countScan(t, doc, f.backroom, m3, nil)
+	for range 4 {
+		f.countScan(t, doc, f.backroom, f.beer.ean, nil)
+	}
+	sh, _, err := f.svc.Sheet(f.keeper, doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range sh.Lines {
+		if l.FactQty != l.BookQty {
+			t.Fatalf("difference in %s %s: book %d, sold %d, fact %d", l.ZoneKind, l.Name, l.BookQty, l.SoldQty, l.FactQty)
+		}
+		if l.ZoneID == f.floor && l.VariantID == f.beer.variant && (l.BookQty != 3 || l.SoldQty != 3) {
+			t.Fatalf("floor beer: %+v", l)
+		}
+	}
+	if len(sh.NotFound) != 0 {
+		t.Fatalf("sold mark counted as missing: %+v", sh.NotFound)
+	}
+	for _, z := range []uuid.UUID{f.backroom, f.floor} {
+		if err := f.svc.SetZone(f.keeper, doc, z, "close"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.svc.FinishCounting(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Post(f.keeper, doc, f.version(t, doc)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Decide(f.manager, doc, f.version(t, doc), true, ""); err != nil {
+		t.Fatal(err)
+	}
+	var acts int
+	if err := f.db.App.QueryRow(ctx, `select count(*) from egais_messages where document_id = $1`, doc).Scan(&acts); err != nil || acts != 0 {
+		t.Fatalf("acts for a stocktake without differences: %d %v", acts, err)
+	}
+	if n := f.onHand(t, f.beer.variant, f.floor); n != 3 {
+		t.Fatalf("floor beer after stocktake: %d", n)
+	}
+	f.integrity(t)
+
+	// Строгая ревизия останавливает и продажи.
+	strict, err := f.svc.CreateStocktake(f.keeper, f.store, documents.Scope{Strict: true}, "Годовая")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.StartStocktake(f.keeper, strict, f.version(t, strict)); err != nil {
+		t.Fatal(err)
+	}
+	var be *stock.BlockedError
+	if err := sell(documents.SaleLine{VariantID: f.beer.variant, Qty: 1}); !errors.As(err, &be) {
+		t.Fatalf("sale during a strict stocktake: %v", err)
 	}
 }

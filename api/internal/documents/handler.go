@@ -47,6 +47,7 @@ var problems = map[error]*echo.HTTPError{
 	ErrNoStorage:        echo.NewHTTPError(http.StatusUnprocessableEntity, "У точки нет склада для перемещения"),
 	ErrNotRequested:     echo.NewHTTPError(http.StatusConflict, "Заявка уже согласована или отклонена"),
 	ErrNoFSRAR:          echo.NewHTTPError(http.StatusUnprocessableEntity, "У точки не указан ФСРАР ID — ТТН в ЕГАИС не отправить"),
+	ErrNotRejected:      echo.NewHTTPError(http.StatusConflict, "ЕГАИС не отклоняла это перемещение"),
 	ErrTTNPending:       echo.NewHTTPError(http.StatusConflict, "ТТН ещё не пришла из ЕГАИС — подождите и проведите приёмку позже"),
 	ErrUnknownReason:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Причина списания не найдена или в архиве"),
 	ErrPhotoRequired:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Для этой причины нужна фотография — прикрепите снимок"),
@@ -499,4 +500,26 @@ func (h *Handler) SetReceivingMode(ctx context.Context, req apispec.SetReceiving
 		return nil, err
 	}
 	return apispec.SetReceivingMode200JSONResponse(doc), nil
+}
+
+func (h *Handler) ResendTransfer(ctx context.Context, req apispec.ResendTransferRequestObject) (apispec.ResendTransferResponseObject, error) {
+	if err := h.svc.ResendTransfer(ctx, req.ID, req.Body.Version); err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.ResendTransfer200JSONResponse(doc), nil
+}
+
+func (h *Handler) ReturnTransfer(ctx context.Context, req apispec.ReturnTransferRequestObject) (apispec.ReturnTransferResponseObject, error) {
+	if err := h.svc.ReturnTransfer(ctx, req.ID, req.Body.Version); err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.ReturnTransfer200JSONResponse(doc), nil
 }

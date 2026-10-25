@@ -50,6 +50,7 @@ import { enqueue, isOffline, pendingFor, rejected } from '@/offline'
 import { load, save } from '@/preferences'
 import { accountingLabels, formatPrice, variantLabel } from '@/products'
 import { useScanner } from '@/scanning'
+import { useMe } from '@/session'
 
 const route = useRoute()
 const router = useRouter()
@@ -297,6 +298,34 @@ async function askPost() {
 const rejectOpen = ref(false)
 const rejectReason = ref('')
 const approveComment = ref('')
+// Перемещение, отклонённое ЕГАИС: отправитель отправляет ТТН повторно или возвращает товар.
+const { data: me } = useMe()
+const canResolve = computed(() => me.value?.permissions.includes('transfer.edit') ?? false)
+const { mutate: resolve, isPending: resolving } = useMutation({
+  mutationFn: async (action: 'resend' | 'return') => {
+    const opts = { params: { path: { id: id.value } }, body: { version: doc.value!.version } }
+    const { data, error } =
+      action === 'resend'
+        ? await api.POST('/documents/{id}/resend', opts)
+        : await api.POST('/documents/{id}/return', opts)
+    if (error) throw new ApiError(error)
+    return data
+  },
+  onSuccess: (data) => {
+    queryClient.setQueryData(key.value, data)
+    void queryClient.invalidateQueries({ queryKey: ['documents'] })
+  },
+  onError: (e) => (actionError.value = e.message),
+})
+async function askReturn() {
+  const ok = await confirm({
+    title: 'Вернуть товар отправителю?',
+    text: 'Перемещение отменится: товар и марки вернутся на склад отправителя, поступление у получателя отменится.',
+    confirmText: 'Вернуть',
+    danger: true,
+  })
+  if (ok) resolve('return')
+}
 // Утверждение (ПБ-8): списание и сторно проводятся только после решения другого сотрудника.
 const pending = computed(() => doc.value?.status === 'pending_approval')
 
@@ -507,6 +536,35 @@ async function printTags(format: LabelFormat) {
                 data-test="approve"
                 @click="decide(true)"
                 >Согласовать</v-btn
+              >
+            </div>
+          </template>
+        </v-alert>
+        <v-alert
+          v-if="doc.status === 'egais_rejected'"
+          type="error"
+          variant="tonal"
+          class="mb-4"
+          data-test="transfer-rejected"
+        >
+          ЕГАИС отклонила ТТН — причина в журнале обмена ниже. Товар числится «в пути». Устраните
+          причину и отправьте ТТН ещё раз или верните товар на склад отправителя.
+          <template v-if="canResolve" #append>
+            <div class="d-flex ga-2">
+              <v-btn
+                variant="text"
+                :loading="resolving"
+                data-test="return-transfer"
+                @click="askReturn"
+                >Вернуть товар</v-btn
+              >
+              <v-btn
+                color="primary"
+                variant="flat"
+                :loading="resolving"
+                data-test="resend-transfer"
+                @click="resolve('resend')"
+                >Отправить ТТН повторно</v-btn
               >
             </div>
           </template>
