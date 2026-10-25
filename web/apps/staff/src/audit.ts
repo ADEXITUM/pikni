@@ -52,6 +52,7 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'document.posted': 'Проведение документа',
   'document.cancelled': 'Отмена черновика документа',
   'transfer.approved': 'Согласование перемещения',
+  'stocktake.started': 'Начало подсчёта ревизии',
   'document.submitted': 'Отправка на утверждение',
   'document.approved': 'Утверждение документа',
   'document.returned': 'Возврат документа на доработку',

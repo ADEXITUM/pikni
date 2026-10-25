@@ -2297,6 +2297,225 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /documents/stocktake:
+    post:
+      operationId: createStocktake
+      summary: Создать ревизию
+      description: Полная или выборочная — по зонам, категориям, брендам (СО-6). Подсчёт начинается кнопкой «Старт».
+      tags: [stocktake]
+      x-permission: stocktake.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewStocktake"
+      responses:
+        "201":
+          description: Ревизия создана
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/start:
+    post:
+      operationId: startStocktake
+      summary: Начать подсчёт
+      description: >
+        Учётный остаток зон и марок фиксируется, товары состава ревизии в точке блокируются до её
+        завершения — ни продать, ни переместить их нельзя.
+      tags: [stocktake]
+      x-permission: stocktake.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: Подсчёт начат
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/reconcile:
+    post:
+      operationId: reconcileStocktake
+      summary: Перейти к сличению
+      description: Все зоны закрыты — ведомость готова к проверке и отправке на утверждение.
+      tags: [stocktake]
+      x-permission: stocktake.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVersion"
+      responses:
+        "200":
+          description: Сличение
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/stocktake:
+    get:
+      operationId: getStocktake
+      summary: Ход ревизии и сличительная ведомость
+      description: Зоны с прогрессом «учёт / факт», строки сличения и марки — для живого экрана ревизии.
+      tags: [stocktake]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ход ревизии
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StocktakeState"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/zones/{zoneId}/{action}:
+    post:
+      operationId: stocktakeZone
+      summary: Закрыть зону, открыть снова или пересчитать
+      description: Пересчёт отменяет сканы зоны и начинает её заново (право управлять ревизией).
+      tags: [stocktake]
+      x-permission: stocktake.count
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: zoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [close, reopen, recount]
+      responses:
+        "204":
+          description: Готово
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/zones/{zoneId}/counts/{variantId}:
+    put:
+      operationId: setStocktakeCount
+      summary: Задать посчитанное количество товара без марок
+      tags: [stocktake]
+      x-permission: stocktake.count
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: zoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentLineUpdate"
+      responses:
+        "204":
+          description: Сохранено
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/forms/{form}:
+    get:
+      operationId: getStocktakeForm
+      summary: Печатная форма ревизии
+      description: inv3 — инвентаризационная опись ИНВ-3, inv19 — сличительная ведомость ИНВ-19; PDF или Excel.
+      tags: [stocktake]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: form
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [inv3, inv19]
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [pdf, xlsx]
+            default: pdf
+      responses:
+        "200":
+          description: Файл формы
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
   /documents/{id}:
     parameters:
       - name: id
@@ -2894,6 +3113,169 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /egais/reconciliation/{locationId}:
+    get:
+      operationId: getReconciliation
+      summary: Сверка с ЕГАИС
+      description: >
+        Расхождения последнего снимка остатков ЕГАИС точки с учётом системы (СО-9): продукция без
+        марок по регистрам (1 — склад, 2 — торговый зал) и марки, которые есть только с одной стороны.
+      tags: [egais]
+      x-permission: egais.reconcile
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Сверка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: requestRests
+      summary: Запросить остатки в ЕГАИС
+      description: Ответ придёт обменом с УТМ, обычно за минуту; снимок обновится сам.
+      tags: [egais]
+      x-permission: egais.reconcile
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Запрос поставлен в очередь
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings:
+    post:
+      operationId: openPairing
+      summary: Открыть сопряжение со смартфоном
+      description: ПК показывает QR-код; смартфон того же пользователя сканирует его и становится сканером (СК-6).
+      tags: [pairing]
+      x-permission: authenticated
+      responses:
+        "201":
+          description: Сопряжение ждёт смартфон
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pairing"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings/join:
+    post:
+      operationId: joinPairing
+      summary: Сопрячь смартфон по QR-коду
+      tags: [pairing]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: Сопряжено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pairing"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings/{id}:
+    get:
+      operationId: getPairing
+      summary: Состояние сопряжения
+      tags: [pairing]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Состояние
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pairing"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: closePairing
+      summary: Разорвать сопряжение
+      tags: [pairing]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Разорвано
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /pairings/{id}/scans:
+    post:
+      operationId: sendPairedScan
+      summary: Передать скан со смартфона на ПК
+      description: Идентификатор скана задаёт смартфон; ПК получает код событием paired_scan.
+      tags: [pairing]
+      x-permission: authenticated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scanId, raw]
+              properties:
+                scanId:
+                  type: string
+                  format: uuid
+                raw:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+      responses:
+        "204":
+          description: Передано
+        default:
+          $ref: "#/components/responses/Problem"
+
   /marks/{code}:
     get:
       operationId: getMark
@@ -3068,6 +3450,7 @@ components:
         - reservation.confirmed
         - reservation.cancelled
         - reservation.issued
+        - stocktake.started
 
     AuditEntry:
       type: object
@@ -3587,6 +3970,83 @@ components:
       description: >
         new — оформлена, ждёт подтверждения сканом; confirmed — товар отложен; issued — выдана через кассу;
         cancelled — снята; expired — истёк срок
+
+    Reconciliation:
+      type: object
+      required: [products, marks]
+      properties:
+        takenAt:
+          type: string
+          format: date-time
+          description: Когда получен снимок ЕГАИС; нет — остатки ещё не запрашивали
+        requestedAt:
+          type: string
+          format: date-time
+          description: Последний запрос остатков
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconciliationProduct"
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconciliationMark"
+
+    ReconciliationProduct:
+      type: object
+      required: [alcocode, name, register, ours, egais]
+      properties:
+        alcocode:
+          type: string
+        name:
+          type: string
+        register:
+          type: integer
+          enum: [1, 2]
+        ours:
+          type: integer
+        egais:
+          type: integer
+
+    ReconciliationMark:
+      type: object
+      required: [code, alcocode, name, onlyOurs]
+      properties:
+        code:
+          type: string
+        alcocode:
+          type: string
+        name:
+          type: string
+        onlyOurs:
+          type: boolean
+          description: true — марка в учёте точки, но не на балансе ЕГАИС; false — наоборот
+        status:
+          $ref: "#/components/schemas/MarkStatus"
+          description: Что о марке знает система, если её нет на остатке точки (в пути, продана, списана)
+        documentId:
+          type: string
+          format: uuid
+          description: Последний документ по марке
+        documentNumber:
+          type: string
+
+    Pairing:
+      type: object
+      required: [id, status, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [waiting, active, closed]
+        code:
+          type: string
+          description: Текст QR-кода — только в ответе на открытие
+        expiresAt:
+          type: string
+          format: date-time
 
     Reservation:
       type: object
@@ -5040,14 +5500,14 @@ components:
 
     DocumentKind:
       type: string
-      enum: [opening, floor_transfer, receipt, sale, transfer, writeoff, storno]
+      enum: [opening, floor_transfer, receipt, sale, transfer, writeoff, storno, stocktake]
       description: >
         opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала,
         receipt — поступление по ТТН ЕГАИС, sale — продажа смены кассы, transfer — перемещение между точками
 
     DocumentStatus:
       type: string
-      enum: [requested, rejected, draft, pending_approval, in_transit, awaiting_egais, posted, egais_rejected, cancelled, reversed]
+      enum: [requested, rejected, draft, counting, reconciling, pending_approval, in_transit, awaiting_egais, posted, egais_rejected, cancelled, reversed]
       description: >
         draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС,
         posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён;
@@ -5526,6 +5986,127 @@ components:
           type: string
           format: date-time
 
+    NewStocktake:
+      type: object
+      required: [locationId]
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        zoneIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        categoryIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        brandIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        comment:
+          type: string
+          maxLength: 1000
+
+    StocktakeZone:
+      type: object
+      required: [zoneId, zoneKind, status, bookMarks, foundMarks, bookQty, countedQty]
+      properties:
+        zoneId:
+          type: string
+          format: uuid
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        status:
+          type: string
+          enum: [counting, closed]
+        bookMarks:
+          type: integer
+        foundMarks:
+          type: integer
+        bookQty:
+          type: integer
+          description: Учёт товара без марок, шт.
+        countedQty:
+          type: integer
+        closedByName:
+          type: string
+        closedAt:
+          type: string
+          format: date-time
+
+    StocktakeLine:
+      type: object
+      required: [zoneId, zoneKind, variantId, article, name, label, bookQty, factQty]
+      properties:
+        zoneId:
+          type: string
+          format: uuid
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        variantId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        label:
+          type: string
+        accounting:
+          $ref: "#/components/schemas/EgaisAccounting"
+        bookQty:
+          type: integer
+        factQty:
+          type: integer
+        unitCost:
+          type: number
+          format: double
+          description: Учётная цена единицы, ₽ — тем, кто видит себестоимость
+
+    StocktakeMark:
+      type: object
+      required: [code, zoneKind, kind]
+      properties:
+        code:
+          type: string
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        kind:
+          type: string
+          enum: [not_found, found, moved, foreign]
+          description: >
+            not_found — числится, не найдена; found — найдена в своей зоне; moved — найдена в другой
+            зоне точки; foreign — чужая (нет в учёте зон ревизии)
+        known:
+          type: boolean
+          description: У чужой марки — её знает система (другая точка или продана); такая на учёт не встаёт
+        article:
+          type: string
+        name:
+          type: string
+
+    StocktakeState:
+      type: object
+      required: [zones, lines, marks]
+      properties:
+        zones:
+          type: array
+          items:
+            $ref: "#/components/schemas/StocktakeZone"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/StocktakeLine"
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/StocktakeMark"
+
     NewFloorTransfer:
       type: object
       required: [locationId, direction]
@@ -5554,6 +6135,10 @@ components:
         scannedAt:
           type: string
           format: date-time
+        zoneId:
+          type: string
+          format: uuid
+          description: Зона ревизии, которую сейчас считают
         variantId:
           type: string
           format: uuid

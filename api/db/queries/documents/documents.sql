@@ -23,15 +23,15 @@ where z.location_id = @location_id;
 
 -- name: CreateDocument :one
 insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status,
-                       reason_id, reverses_id, transfer_id)
+                       reason_id, reverses_id, transfer_id, scope)
 values (@kind, @number, @doc_date, @location_id, @zone_id, sqlc.narg(dest_zone_id), sqlc.narg(dest_location_id), @author_id,
         @comment, coalesce(sqlc.narg(status)::text, 'draft'), sqlc.narg(reason_id), sqlc.narg(reverses_id),
-        sqlc.narg(transfer_id))
+        sqlc.narg(transfer_id), sqlc.narg(scope))
 returning id;
 
 -- name: LockDocument :one
 select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
-       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment, reason_id, reverses_id
+       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment, reason_id, reverses_id, scope
 from documents
 where id = @id
 for update;
@@ -154,15 +154,16 @@ select exists (
 
 -- name: InsertScan :exec
 insert into scans (id, document_id, user_id, source, raw, code_kind, variant_id, mark_code, crpt_code, package_code,
-                   qty, status, reason, scanned_at)
+                   qty, status, reason, scanned_at, zone_id)
 values (@id, @document_id, @user_id, @source, @raw, sqlc.narg(code_kind), sqlc.narg(variant_id),
-        sqlc.narg(mark_code), sqlc.narg(crpt_code), sqlc.narg(package_code), @qty, @status, sqlc.narg(reason), @scanned_at);
+        sqlc.narg(mark_code), sqlc.narg(crpt_code), sqlc.narg(package_code), @qty, @status, sqlc.narg(reason), @scanned_at,
+        sqlc.narg(zone_id));
 
 -- name: UndoScan :one
 update scans
 set undone_at = now()
 where id = @id and document_id = @document_id and undone_at is null
-returning variant_id, qty, status, mark_code, package_code;
+returning variant_id, qty, status, mark_code, package_code, zone_id;
 
 -- name: ListScans :many
 select s.id, s.raw, s.status, s.reason, s.variant_id, v.article, p.name, s.mark_code, s.qty, s.scanned_at, s.undone_at
@@ -355,3 +356,160 @@ join users u on u.id = a.user_id
 where a.document_id = @document_id
 order by a.id desc
 limit 1;
+
+-- ---------- ревизия (СО-6)
+
+-- name: ActiveStocktake :one
+-- В точке идёт одна ревизия за раз: иначе блокировки и снимки учёта перепутались бы.
+select number from documents
+where kind = 'stocktake' and location_id = @location_id and id <> @id
+  and status in ('counting', 'reconciling', 'pending_approval')
+limit 1;
+
+-- name: InsertStocktakeZones :exec
+insert into stocktake_zones (document_id, zone_id)
+select @document_id, unnest(@zone_ids::uuid[]);
+
+-- name: SnapshotBook :exec
+-- Учётный остаток в зонах ревизии на момент старта — только товары её состава.
+insert into stocktake_book (document_id, zone_id, variant_id, qty, cost_e4)
+select d.id, b.zone_id, b.variant_id, b.on_hand, coalesce((c.avg_cost * 10000)::bigint, 0)
+from documents d
+join stock_balances b on b.location_id = d.location_id
+join stocktake_zones z on z.document_id = d.id and z.zone_id = b.zone_id
+left join variant_costs c on c.variant_id = b.variant_id
+where d.id = @id and b.on_hand > 0
+  and stocktake_blocks(d.location_id, b.zone_id, b.variant_id, null) = d.number;
+
+-- name: SnapshotMarks :exec
+insert into stocktake_book_marks (document_id, zone_id, mark_code, variant_id)
+select d.id, m.zone_id, m.code, m.variant_id
+from documents d
+join excise_marks m on m.location_id = d.location_id and m.status in ('in_stock', 'reserved')
+join stocktake_zones z on z.document_id = d.id and z.zone_id = m.zone_id
+where d.id = @id
+  and stocktake_blocks(d.location_id, m.zone_id, m.variant_id, null) = d.number;
+
+-- name: InScope :one
+-- Товар входит в состав ревизии (её номер совпадает с блокирующей).
+select coalesce(stocktake_blocks(d.location_id, @zone_id::uuid, @variant_id::uuid, null) = d.number, false)::boolean
+from documents d where d.id = @id;
+
+-- name: StocktakeZones :many
+select z.zone_id, zn.kind, z.status, z.closed_at, u.full_name as closed_by_name,
+       (select count(*) from stocktake_book_marks bm where bm.document_id = z.document_id and bm.zone_id = z.zone_id)::integer as book_marks,
+       (select count(*) from stocktake_marks sm where sm.document_id = z.document_id and sm.zone_id = z.zone_id)::integer as found_marks,
+       (select coalesce(sum(b.qty), 0) from stocktake_book b
+         join variants v on v.id = b.variant_id join products p on p.id = v.product_id
+         left join product_kinds k on k.code = p.kind_code
+         where b.document_id = z.document_id and b.zone_id = z.zone_id
+           and coalesce(k.egais_accounting, '') <> 'marked')::integer as book_qty,
+       (select coalesce(sum(c.qty), 0) from stocktake_counts c
+         where c.document_id = z.document_id and c.zone_id = z.zone_id)::integer as counted_qty
+from stocktake_zones z
+join zones zn on zn.id = z.zone_id
+left join users u on u.id = z.closed_by
+where z.document_id = @document_id
+order by zn.kind desc;
+
+-- name: LockStocktakeZone :one
+select status from stocktake_zones where document_id = @document_id and zone_id = @zone_id for update;
+
+-- name: SetStocktakeZone :exec
+update stocktake_zones
+set status = @status, closed_by = sqlc.narg(closed_by),
+    closed_at = case when @status::text = 'closed' then now() end
+where document_id = @document_id and zone_id = @zone_id;
+
+-- name: ClearZoneCounts :exec
+delete from stocktake_counts where document_id = @document_id and zone_id = @zone_id;
+
+-- name: ClearZoneMarks :exec
+delete from stocktake_marks where document_id = @document_id and zone_id = @zone_id;
+
+-- name: UndoZoneScans :exec
+update scans set undone_at = now()
+where document_id = @document_id and zone_id = @zone_id and undone_at is null;
+
+-- name: AddCount :exec
+insert into stocktake_counts (document_id, zone_id, variant_id, qty)
+values (@document_id, @zone_id, @variant_id, greatest(@delta::integer, 0))
+on conflict (document_id, zone_id, variant_id) do update
+set qty = greatest(stocktake_counts.qty + @delta::integer, 0);
+
+-- name: SetCount :exec
+insert into stocktake_counts (document_id, zone_id, variant_id, qty)
+values (@document_id, @zone_id, @variant_id, @qty)
+on conflict (document_id, zone_id, variant_id) do update set qty = excluded.qty;
+
+-- name: BookMarkZone :one
+select zone_id from stocktake_book_marks where document_id = @document_id and mark_code = @mark_code;
+
+-- name: AddFoundMark :execrows
+insert into stocktake_marks (document_id, zone_id, mark_code, variant_id, kind)
+values (@document_id, @zone_id, @mark_code, sqlc.narg(variant_id), @kind)
+on conflict (document_id, mark_code) do nothing;
+
+-- name: RemoveFoundMark :exec
+delete from stocktake_marks where document_id = @document_id and mark_code = @mark_code;
+
+-- name: StocktakeSheet :many
+-- Сличение по зонам и вариантам: учёт на старте и факт (подсчёт товара без марок или найденные марки).
+with fact as (
+    select c.zone_id, c.variant_id, c.qty from stocktake_counts c where c.document_id = @id
+    union all
+    select m.zone_id, m.variant_id, count(*)::integer from stocktake_marks m
+    where m.document_id = @id and m.variant_id is not null
+      and not (m.kind = 'foreign' and exists (select 1 from excise_marks e where e.code = m.mark_code))
+    group by m.zone_id, m.variant_id
+),
+keys as (
+    select f.zone_id, f.variant_id from fact f
+    union
+    select b.zone_id, b.variant_id from stocktake_book b where b.document_id = @id
+)
+select k.zone_id, zn.kind as zone_kind, k.variant_id, v.article, p.name, v.volume_ml, v.net_weight_g, v.container,
+       v.gift_pack, ke.egais_accounting, v.alcocode,
+       coalesce((select b.qty from stocktake_book b where b.document_id = @id and b.zone_id = k.zone_id and b.variant_id = k.variant_id), 0)::integer as book_qty,
+       coalesce((select sum(f.qty) from fact f where f.zone_id = k.zone_id and f.variant_id = k.variant_id), 0)::integer as fact_qty,
+       coalesce((select b.cost_e4 from stocktake_book b where b.document_id = @id and b.zone_id = k.zone_id and b.variant_id = k.variant_id),
+                (select (c.avg_cost * 10000)::bigint from variant_costs c where c.variant_id = k.variant_id), 0)::bigint as cost_e4
+from keys k
+join zones zn on zn.id = k.zone_id
+join variants v on v.id = k.variant_id
+join products p on p.id = v.product_id
+left join product_kinds ke on ke.code = p.kind_code
+order by p.name, v.article, zn.kind;
+
+-- name: NotFoundMarks :many
+select bm.mark_code, bm.zone_id, zn.kind as zone_kind, bm.variant_id, v.article, p.name
+from stocktake_book_marks bm
+join zones zn on zn.id = bm.zone_id
+join variants v on v.id = bm.variant_id
+join products p on p.id = v.product_id
+where bm.document_id = @id
+  and not exists (select 1 from stocktake_marks sm where sm.document_id = bm.document_id and sm.mark_code = bm.mark_code)
+order by p.name, bm.mark_code;
+
+-- name: FoundMarks :many
+select sm.mark_code, sm.zone_id, zn.kind as zone_kind, sm.kind, sm.variant_id, v.article, p.name,
+       bm.zone_id as book_zone_id, (e.code is not null)::boolean as known
+from stocktake_marks sm
+join zones zn on zn.id = sm.zone_id
+left join variants v on v.id = sm.variant_id
+left join products p on p.id = v.product_id
+left join stocktake_book_marks bm on bm.document_id = sm.document_id and bm.mark_code = sm.mark_code
+left join excise_marks e on e.code = sm.mark_code
+where sm.document_id = @id
+order by sm.kind, p.name, sm.mark_code;
+
+-- name: ReplaceLines :exec
+-- Строки ревизии для журнала и печати: по варианту — учёт (план) и факт.
+delete from document_lines where document_id = @document_id;
+
+-- name: InsertStocktakeLine :exec
+insert into document_lines (document_id, line_no, variant_id, qty, qty_plan)
+values (@document_id, @line_no, @variant_id, @qty, @qty_plan);
+
+-- name: OrganizationName :one
+select coalesce((select value from app_settings where key = 'organization_name'), 'ООО «Чекушка»')::text;

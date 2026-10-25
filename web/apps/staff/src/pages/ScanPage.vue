@@ -3,6 +3,7 @@ import {
   mdiAlertCircleOutline,
   mdiBarcodeScan,
   mdiCameraOutline,
+  mdiCellphoneLink,
   mdiCheckCircleOutline,
   mdiHelpCircleOutline,
   mdiInformationOutline,
@@ -21,13 +22,14 @@ import SimilarProducts from '@/components/SimilarProducts.vue'
 import { playFeedback } from '@/feedback'
 import { formatDateTime } from '@/format'
 import { documentKindLabels, markStatusLabels, zoneLabels } from '@/labels'
+import { joinPairing, leavePairing, phonePairing, sendToPc } from '@/pairing'
 import { load, save } from '@/preferences'
 import { useMe } from '@/session'
 import { ALL_LOCATIONS, useCurrentLocation } from '@/stores/currentLocation'
 import { formatAbv, formatPrice, variantLabel } from '@/products'
 import { codeKindLabels, useScanner } from '@/scanning'
 
-type Outcome = 'found' | 'missing' | 'local' | 'unrecognized' | 'error'
+type Outcome = 'found' | 'missing' | 'local' | 'unrecognized' | 'error' | 'sent'
 
 // Исход скана — сигнал, цвет, значок и слово (СК-3). Цвет всегда продублирован словом и
 // значком, звук — карточкой: информация не передаётся одним каналом.
@@ -48,6 +50,12 @@ const outcomes: Record<Outcome, { sound: SoundEvent; color: string; icon: string
       word: 'Не распознан',
     },
     error: { sound: 'unknown', color: 'error', icon: mdiAlertCircleOutline, word: 'Ошибка' },
+    sent: {
+      sound: 'accepted',
+      color: 'success',
+      icon: mdiCellphoneLink,
+      word: 'Отправлен на компьютер',
+    },
   }
 
 interface Entry {
@@ -94,6 +102,18 @@ const { submit, forget } = useScanner(async ({ event, code }) => {
   })
   recent.value = [entry, ...recent.value].slice(0, 10)
   selectedId.value = undefined
+  // QR-код сопряжения с экрана компьютера: дальше смартфон работает его сканером (СК-6).
+  const pairing = code.kind === 'service_qr' && /^pikni:pair:/i.test(event.raw)
+  if (pairing || phonePairing.value) {
+    try {
+      if (pairing) await joinPairing(event.raw)
+      else await sendToPc(event.raw, event.id)
+      return settle(entry, pairing ? 'local' : 'sent')
+    } catch (e) {
+      entry.error = e instanceof ApiError ? e.message : 'Нет связи с сервером'
+      return settle(entry, 'error')
+    }
+  }
   const mark = code.kind === 'excise_mark' ? loadMark(entry) : undefined
   if (!searchable(code)) {
     await mark
@@ -196,6 +216,20 @@ const title = (e: Entry) =>
       Наведите камеру на штрихкод, марку ЕГАИС или код «Честного знака». Ручной сканер работает без
       нажатия на поле. Повреждённый код можно ввести вручную.
     </p>
+
+    <v-alert
+      v-if="phonePairing"
+      type="success"
+      variant="tonal"
+      :icon="mdiCellphoneLink"
+      class="mb-4"
+      data-test="phone-mode"
+    >
+      Режим сканера для компьютера: коды уходят в экран, открытый на ПК.
+      <template #append>
+        <v-btn variant="text" data-test="leave-pairing" @click="leavePairing()">Отключить</v-btn>
+      </template>
+    </v-alert>
 
     <ScanCamera
       v-if="cameraOn"

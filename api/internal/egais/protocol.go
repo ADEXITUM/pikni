@@ -12,6 +12,8 @@ const (
 	// ActWriteOffShop — списание из торгового зала, для пива — с причиной «Реализация».
 	ActWriteOffShop = "ActWriteOffShop"
 	ActWriteOff     = "ActWriteOff"
+	ActChargeOn     = "ActChargeOn"
+	ActChargeOnShop = "ActChargeOnShop"
 )
 
 // TTN — товарно-транспортная накладная от поставщика.

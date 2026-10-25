@@ -4,6 +4,7 @@ package stock
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -53,6 +54,38 @@ func (e *ShortageError) Error() string {
 	return fmt.Sprintf("not enough stock of %s in zone %s: %d available, %d needed", e.VariantID, e.ZoneID, e.Available, e.Need)
 }
 
+// BlockedError — товар входит в идущую ревизию точки (СО-6): движения по нему ждут её завершения.
+type BlockedError struct {
+	VariantID uuid.UUID
+	Stocktake string
+}
+
+func (e *BlockedError) Error() string {
+	return fmt.Sprintf("variant %s is counted by stocktake %s", e.VariantID, e.Stocktake)
+}
+
+// checkBlocked проверяет все пары движения одним запросом: ревизия, которая сама проводит
+// движения, себя не блокирует.
+func checkBlocked(ctx context.Context, tx pgx.Tx, doc uuid.UUID, moves []Move) error {
+	var locations, zones, variants []uuid.UUID
+	for _, m := range moves {
+		locations, zones, variants = append(locations, m.LocationID), append(zones, m.ZoneID), append(variants, m.VariantID)
+	}
+	var variant uuid.UUID
+	var number string
+	err := tx.QueryRow(ctx, `select t.variant_id, stocktake_blocks(t.location_id, t.zone_id, t.variant_id, $4)
+		from (select unnest($1::uuid[]) as location_id, unnest($2::uuid[]) as zone_id, unnest($3::uuid[]) as variant_id) t
+		where stocktake_blocks(t.location_id, t.zone_id, t.variant_id, $4) is not null
+		limit 1`, locations, zones, variants, doc).Scan(&variant, &number)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return &BlockedError{VariantID: variant, Stocktake: number}
+}
+
 type pair struct{ variant, zone uuid.UUID }
 
 type balance struct {
@@ -86,6 +119,9 @@ func Apply(ctx context.Context, tx pgx.Tx, doc Doc, moves []Move) (map[uuid.UUID
 	q := store.New(tx)
 	if len(moves) == 0 {
 		return map[uuid.UUID]int64{}, nil
+	}
+	if err := checkBlocked(ctx, tx, doc.ID, moves); err != nil {
+		return nil, err
 	}
 
 	locations := map[pair]uuid.UUID{}

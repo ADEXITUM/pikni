@@ -20,6 +20,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/platform/logging"
 	"github.com/ADEXITUM/pikni/api/internal/platform/realtime"
 	"github.com/ADEXITUM/pikni/api/internal/platform/telemetry"
+	"github.com/ADEXITUM/pikni/api/internal/reconcile"
 )
 
 // Подставляется при сборке: -ldflags "-X main.version=1.2.3".
@@ -87,6 +88,7 @@ func run() error {
 	go app.Reservations(pool).Run(ctx, time.Minute, log)
 	if cfg.EgaisURL != "" {
 		go app.Exchanger(pool, cfg.EgaisURL, log).Run(ctx, cfg.EgaisInterval)
+		go reconcile.NewService(pool).Run(ctx, time.Hour, log)
 		log.Info("egais exchange started", "utm", cfg.EgaisURL)
 	}
 

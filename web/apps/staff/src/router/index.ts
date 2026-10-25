@@ -122,6 +122,12 @@ const router = createRouter({
       meta: { title: 'Отложить для покупателя', permission: 'reservations.manage', scans: true },
     },
     {
+      path: '/egais/reconciliation',
+      name: 'reconciliation',
+      component: () => import('@/pages/ReconciliationPage.vue'),
+      meta: { title: 'Сверка с ЕГАИС', permission: 'egais.reconcile' },
+    },
+    {
       path: '/stock',
       name: 'stock',
       component: () => import('@/pages/StockPage.vue'),

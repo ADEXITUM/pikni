@@ -21,6 +21,9 @@ type Event struct {
 	Type   string   `json:"type"`
 	ID     string   `json:"id"`
 	Topics []string `json:"topics"`
+	// Raw и Scan — у кода со смартфона (СК-6): его нечего перезапрашивать, он приходит сам.
+	Raw  string `json:"raw,omitempty"`
+	Scan string `json:"scan,omitempty"`
 }
 
 type subscriber struct {

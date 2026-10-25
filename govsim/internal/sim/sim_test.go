@@ -393,3 +393,41 @@ func TestWriteOffFromWarehouse(t *testing.T) {
 		t.Fatalf("written-off mark: %+v", m)
 	}
 }
+
+func TestChargeOn(t *testing.T) {
+	t.Parallel()
+	s := New(t)
+	ctx := t.Context()
+	type item struct {
+		Alcocode string   `json:"alcocode"`
+		Qty      int      `json:"qty"`
+		Marks    []string `json:"marks,omitempty"`
+	}
+	type act struct {
+		Items []item `json:"items"`
+	}
+	unknown := act{Items: []item{{Alcocode: "0000000000000000000", Qty: 1}}}
+	if tk := ticket(t, s, Store, send(t, s, Store, "ActChargeOnShop", unknown)); tk.Result != "rejected" {
+		t.Fatalf("unknown product: %+v", tk)
+	}
+	found := act{Items: []item{{Alcocode: Beer, Qty: 3}, {Alcocode: Vodka, Qty: 1, Marks: []string{"PKNFOUNDMARK0001"}}}}
+	if tk := ticket(t, s, Store, send(t, s, Store, "ActChargeOnShop", found)); tk.Result != "accepted" {
+		t.Fatalf("charge-on: %+v", tk)
+	}
+	rests, marks, err := s.Rests(ctx, Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beer := 0
+	for _, r := range rests {
+		if r.Alcocode == Beer && r.Register == 2 {
+			beer = r.Qty
+		}
+	}
+	if beer != 3 || len(marks) != 1 || marks[0].Code != "PKNFOUNDMARK0001" {
+		t.Fatalf("rests %+v, marks %+v", rests, marks)
+	}
+	if tk := ticket(t, s, Supplier, send(t, s, Supplier, "ActChargeOn", found)); tk.Result != "rejected" {
+		t.Fatalf("mark on another balance: %+v", tk)
+	}
+}

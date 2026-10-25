@@ -117,6 +117,9 @@ func (s *Service) AddScan(ctx context.Context, docID uuid.UUID, in NewScan) (Sca
 
 // UndoScan отменяет скан: засчитанный уменьшает строку, марка перестаёт числиться в документе.
 func (s *Service) UndoScan(ctx context.Context, docID, scanID uuid.UUID) (ScanResult, error) {
+	if d, err := s.q.GetDocument(ctx, docID); err == nil && d.Kind == Stocktake {
+		return s.UndoStocktakeScan(ctx, docID, scanID)
+	}
 	var res ScanResult
 	err := db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)

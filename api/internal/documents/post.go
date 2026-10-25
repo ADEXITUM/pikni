@@ -39,6 +39,10 @@ func (e *ShortageError) Error() string {
 // в одной транзакции (п. 3.2 backend.md). Документ, который надо отразить в ЕГАИС, получает
 // статус «ожидает ЕГАИС»: учёт уже изменён, сообщение ждёт отправки в очереди.
 func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
+	// Ревизия не «проводится», а отправляет сличительную ведомость на утверждение.
+	if d, err := s.q.GetDocument(ctx, id); err == nil && d.Kind == Stocktake {
+		return s.SubmitStocktake(ctx, id, version)
+	}
 	return db.InTx(ctx, s.pool, func(tx pgx.Tx) error {
 		q := s.q.WithTx(tx)
 		doc, err := lockDraft(ctx, q, id, postPerm)
