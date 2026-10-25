@@ -2059,11 +2059,13 @@ paths:
 
   /documents/{id}/approve:
     post:
-      operationId: approveTransfer
-      summary: Согласовать заявку на перемещение
-      description: После согласования отправитель собирает товар сканированием и отгружает (проведение).
+      operationId: approveDocument
+      summary: Согласовать заявку или утвердить документ
+      description: >
+        Заявку на перемещение согласует точка-отправитель (право transfer.edit). Списание и сторно
+        утверждает другой пользователь с правом docs.approve (ПБ-8) — тогда документ проводится.
       tags: [documents]
-      x-permission: transfer.edit
+      x-permission: availability.view
       parameters:
         - name: id
           in: path
@@ -2076,10 +2078,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DocumentVersion"
+              $ref: "#/components/schemas/DecisionRequest"
       responses:
         "200":
-          description: Заявка согласована
+          description: Решение принято
           content:
             application/json:
               schema:
@@ -2089,10 +2091,10 @@ paths:
 
   /documents/{id}/reject:
     post:
-      operationId: rejectTransfer
-      summary: Отклонить заявку на перемещение
+      operationId: rejectDocument
+      summary: Отклонить заявку или вернуть документ на доработку
       tags: [documents]
-      x-permission: transfer.edit
+      x-permission: availability.view
       parameters:
         - name: id
           in: path
@@ -2105,7 +2107,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TransferRejection"
+              $ref: "#/components/schemas/DocumentRejection"
       responses:
         "200":
           description: Заявка отклонена
@@ -2113,6 +2115,185 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/writeoff:
+    post:
+      operationId: createWriteoff
+      summary: Создать списание
+      description: >
+        Из зоны — бой, порча, истёкший срок (СО-5). С transferId — недостача перемещения, оставшаяся
+        «в пути» после приёмки: строки и марки подставляются сами. Проводится после утверждения (ПБ-8).
+      tags: [documents]
+      x-permission: writeoff.create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewWriteoff"
+      responses:
+        "201":
+          description: Списание создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/storno:
+    post:
+      operationId: createStorno
+      summary: Сторнировать проведённый документ
+      description: >
+        Создаёт черновик сторно; движения отменяются после утверждения другим пользователем (ПБ-8).
+        Сторнируются ввод остатков и передача в зал без пива — у остальных документов есть след в ЕГАИС,
+        их исправляет ответный документ.
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StornoRequest"
+      responses:
+        "201":
+          description: Черновик сторно
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/photos:
+    post:
+      operationId: addDocumentPhoto
+      summary: Прикрепить фотографию к списанию
+      description: JPEG до 3 МБ в base64; клиент уменьшает снимок перед отправкой.
+      tags: [documents]
+      x-permission: writeoff.create
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPhoto"
+      responses:
+        "201":
+          description: Фотография сохранена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPhoto"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /documents/{id}/photos/{photoId}:
+    delete:
+      operationId: deleteDocumentPhoto
+      summary: Убрать фотографию из черновика
+      tags: [documents]
+      x-permission: writeoff.create
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Удалена
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /photos/{photoId}:
+    get:
+      operationId: getPhoto
+      summary: Фотография документа
+      tags: [documents]
+      x-permission: availability.view
+      parameters:
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Снимок
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /zones/{zoneId}/marks:
+    get:
+      operationId: listZoneMarks
+      summary: Марки на остатке зоны
+      description: Для выбора повреждённой марки, которую не считывает сканер (СО-5).
+      tags: [marks]
+      x-permission: writeoff.create
+      parameters:
+        - name: zoneId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: variantId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Марки
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [code, variantId]
+                      properties:
+                        code:
+                          type: string
+                        variantId:
+                          type: string
+                          format: uuid
         default:
           $ref: "#/components/responses/Problem"
 
@@ -2505,6 +2686,122 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
 
+  /reservations:
+    get:
+      operationId: listReservations
+      summary: Брони
+      description: Брони доступных точек, новые сверху. open — только действующие.
+      tags: [reservations]
+      x-permission: reservations.manage
+      parameters:
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: open
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Брони
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reservation"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createReservation
+      summary: Отложить товар для покупателя
+      description: >
+        Покупатель обратился лично или по телефону (НЛ-4). Нужно его согласие на обработку
+        персональных данных. Срок — до конца следующего дня; бронь подтверждают сканом бутылки.
+      tags: [reservations]
+      x-permission: reservations.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewReservation"
+      responses:
+        "201":
+          description: Бронь оформлена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /reservations/{id}/confirm:
+    post:
+      operationId: confirmReservation
+      summary: Подтвердить бронь сканом
+      description: Марки отложенных бутылок или штрихкод товара. Товар уходит в резерв.
+      tags: [reservations]
+      x-permission: reservations.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codes]
+              properties:
+                codes:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Бронь подтверждена
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        default:
+          $ref: "#/components/responses/Problem"
+
+  /reservations/{id}/cancel:
+    post:
+      operationId: cancelReservation
+      summary: Снять бронь
+      tags: [reservations]
+      x-permission: reservations.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Бронь снята
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        default:
+          $ref: "#/components/responses/Problem"
+
   /stock/balances:
     get:
       operationId: listStockBalances
@@ -2764,6 +3061,13 @@ components:
         - document.cancelled
         - transfer.approved
         - transfer.rejected
+        - document.submitted
+        - document.approved
+        - document.returned
+        - reservation.created
+        - reservation.confirmed
+        - reservation.cancelled
+        - reservation.issued
 
     AuditEntry:
       type: object
@@ -3277,6 +3581,96 @@ components:
           items:
             $ref: "#/components/schemas/SimilarItem"
 
+    ReservationStatus:
+      type: string
+      enum: [new, confirmed, issued, cancelled, expired]
+      description: >
+        new — оформлена, ждёт подтверждения сканом; confirmed — товар отложен; issued — выдана через кассу;
+        cancelled — снята; expired — истёк срок
+
+    Reservation:
+      type: object
+      required: [id, number, locationId, locationCode, locationName, variantId, article, name, label, qty,
+                 customerName, customerPhone, status, expiresAt, marks, createdAt, createdByName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        locationId:
+          type: string
+          format: uuid
+        locationCode:
+          type: string
+        locationName:
+          type: string
+        variantId:
+          type: string
+          format: uuid
+        article:
+          type: string
+        name:
+          type: string
+        label:
+          type: string
+        accounting:
+          $ref: "#/components/schemas/EgaisAccounting"
+        qty:
+          type: integer
+          format: int32
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        status:
+          $ref: "#/components/schemas/ReservationStatus"
+        expiresAt:
+          type: string
+          format: date-time
+        zoneKind:
+          $ref: "#/components/schemas/ZoneKind"
+        marks:
+          type: array
+          items:
+            type: string
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdByName:
+          type: string
+        receiptNumber:
+          type: integer
+
+    NewReservation:
+      type: object
+      required: [locationId, variantId, qty, customerName, customerPhone, consent]
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+        qty:
+          type: integer
+          format: int32
+          minimum: 1
+        customerName:
+          type: string
+          maxLength: 200
+        customerPhone:
+          type: string
+          maxLength: 20
+        consent:
+          type: boolean
+          description: Покупатель согласен на обработку персональных данных
+        comment:
+          type: string
+          maxLength: 500
+
     LocationKind:
       type: string
       enum: [warehouse, store]
@@ -3775,6 +4169,9 @@ components:
           example: Бой
         egaisType:
           $ref: "#/components/schemas/EgaisWriteoffType"
+        photoRequired:
+          type: boolean
+          description: При списании нужна фотография (бой)
 
     WriteoffReason:
       allOf:
@@ -4643,18 +5040,19 @@ components:
 
     DocumentKind:
       type: string
-      enum: [opening, floor_transfer, receipt, sale, transfer]
+      enum: [opening, floor_transfer, receipt, sale, transfer, writeoff, storno]
       description: >
         opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала,
         receipt — поступление по ТТН ЕГАИС, sale — продажа смены кассы, transfer — перемещение между точками
 
     DocumentStatus:
       type: string
-      enum: [requested, rejected, draft, in_transit, awaiting_egais, posted, egais_rejected, cancelled]
+      enum: [requested, rejected, draft, pending_approval, in_transit, awaiting_egais, posted, egais_rejected, cancelled, reversed]
       description: >
         draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС,
         posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён;
-        у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути
+        у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути;
+        pending_approval — ждёт утверждения (ПБ-8), reversed — сторнирован
 
     DocumentSummary:
       type: object
@@ -4864,6 +5262,33 @@ components:
               description: У отгруженного перемещения — поступление у получателя
             receiptNumber:
               type: string
+            reasonId:
+              type: string
+              format: uuid
+            reasonName:
+              type: string
+            photoRequired:
+              type: boolean
+            photos:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentPhoto"
+            reversesId:
+              type: string
+              format: uuid
+              description: У сторно — исходный документ
+            reversesNumber:
+              type: string
+            stornoId:
+              type: string
+              format: uuid
+              description: У сторнированного документа — сторно
+            stornoNumber:
+              type: string
+            canStorno:
+              type: boolean
+            approval:
+              $ref: "#/components/schemas/Approval"
             receipt:
               $ref: "#/components/schemas/ReceiptInfo"
             exchange:
@@ -5016,7 +5441,18 @@ components:
                 format: int32
                 minimum: 1
 
-    TransferRejection:
+    DecisionRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          format: int32
+        comment:
+          type: string
+          maxLength: 1000
+
+    DocumentRejection:
       type: object
       required: [version, reason]
       properties:
@@ -5027,6 +5463,68 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+
+    NewWriteoff:
+      type: object
+      required: [reasonId]
+      properties:
+        zoneId:
+          type: string
+          format: uuid
+          description: Зона, откуда списывают; не нужна при списании недостачи перемещения
+        transferId:
+          type: string
+          format: uuid
+        reasonId:
+          type: string
+          format: uuid
+        comment:
+          type: string
+          maxLength: 1000
+
+    StornoRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          maxLength: 1000
+          description: Почему документ отменяется
+
+    NewPhoto:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: string
+          format: byte
+          description: JPEG в base64
+
+    DocumentPhoto:
+      type: object
+      required: [id, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    Approval:
+      type: object
+      required: [decision, userName, at]
+      description: Последнее решение по утверждению
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected]
+        comment:
+          type: string
+        userName:
+          type: string
+        at:
+          type: string
+          format: date-time
 
     NewFloorTransfer:
       type: object

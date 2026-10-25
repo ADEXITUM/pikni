@@ -29,14 +29,16 @@ const (
 	FloorTransfer = "floor_transfer"
 	Transfer      = "transfer"
 
-	StatusDraft         = "draft"
-	StatusAwaitingEgais = "awaiting_egais"
-	StatusPosted        = "posted"
-	StatusEgaisRejected = "egais_rejected"
-	StatusCancelled     = "cancelled"
-	StatusRequested     = "requested"
-	StatusRejected      = "rejected"
-	StatusInTransit     = "in_transit"
+	StatusDraft           = "draft"
+	StatusAwaitingEgais   = "awaiting_egais"
+	StatusPosted          = "posted"
+	StatusEgaisRejected   = "egais_rejected"
+	StatusCancelled       = "cancelled"
+	StatusRequested       = "requested"
+	StatusRejected        = "rejected"
+	StatusInTransit       = "in_transit"
+	StatusPendingApproval = "pending_approval"
+	StatusReversed        = "reversed"
 )
 
 var (
@@ -91,6 +93,21 @@ var kinds = map[string]kindSpec{
 		view:   []apispec.Permission{apispec.PermissionTransferView, apispec.PermissionTransferRequest},
 		edit:   apispec.PermissionTransferEdit,
 		post:   apispec.PermissionTransferEdit,
+	},
+	// Списание создаёт и отправляет на утверждение точка, утверждает другой пользователь с правом
+	// утверждения (ПБ-8) — руководитель; он видит списания всех точек.
+	Writeoff: {
+		prefix: "СП",
+		view:   []apispec.Permission{apispec.PermissionWriteoffCreate, apispec.PermissionDocsApprove},
+		edit:   apispec.PermissionWriteoffCreate,
+		post:   apispec.PermissionWriteoffCreate,
+	},
+	// Сторно проведённого документа — тоже «двумя ключами».
+	Storno: {
+		prefix: "СТ",
+		view:   []apispec.Permission{apispec.PermissionWriteoffCreate, apispec.PermissionDocsApprove, apispec.PermissionOpeningPost},
+		edit:   apispec.PermissionWriteoffCreate,
+		post:   apispec.PermissionWriteoffCreate,
 	},
 	FloorTransfer: {
 		prefix: "ПЗ",
@@ -253,6 +270,9 @@ type Detail struct {
 	CanPost  bool
 	// CanApprove — заявку на перемещение можно согласовать или отклонить.
 	CanApprove bool
+	CanStorno  bool
+	Approval   *store.LastApprovalRow
+	Photos     []store.ListPhotosRow
 	ShowCost   bool
 }
 
@@ -265,7 +285,9 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
 	if err != nil {
 		return d, err
 	}
-	if !canView(ctx, doc.Kind, doc.LocationID, doc.DestLocationID) {
+	// Руководитель с правом утверждения видит документы на утверждении во всех точках.
+	approver := doc.Status == StatusPendingApproval && auth.CheckLocation(ctx, apispec.PermissionDocsApprove, doc.LocationID) == nil
+	if !canView(ctx, doc.Kind, doc.LocationID, doc.DestLocationID) && !approver {
 		return d, ErrNotFound
 	}
 	d.Doc = doc
@@ -280,7 +302,20 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Detail, error) {
 	d.CanEdit = draft && auth.CheckLocation(ctx, spec.edit, doc.LocationID) == nil
 	d.CanPost = draft && auth.CheckLocation(ctx, spec.post, doc.LocationID) == nil
 	d.CanApprove = doc.Kind == Transfer && doc.Status == StatusRequested &&
-		auth.CheckLocation(ctx, apispec.PermissionTransferEdit, doc.LocationID) == nil
+		auth.CheckLocation(ctx, apispec.PermissionTransferEdit, doc.LocationID) == nil ||
+		doc.Status == StatusPendingApproval && auth.CheckLocation(ctx, apispec.PermissionDocsApprove, doc.LocationID) == nil
+	d.CanStorno = (doc.Kind == Opening || doc.Kind == FloorTransfer) && doc.Status == StatusPosted && doc.StornoID == nil &&
+		auth.CheckLocation(ctx, spec.post, doc.LocationID) == nil
+	if a, err := s.q.LastApproval(ctx, id); err == nil {
+		d.Approval = &a
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return d, err
+	}
+	if doc.Kind == Writeoff {
+		if d.Photos, err = s.q.ListPhotos(ctx, id); err != nil {
+			return d, err
+		}
+	}
 	d.ShowCost = auth.Has(ctx, apispec.PermissionCostView)
 	// Факт приёмки считается по сканам, пока документ черновик; у проведённого он уже в строках.
 	if doc.Kind == Receipt && doc.ReceivingMode != nil && doc.Status == StatusDraft {

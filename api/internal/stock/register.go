@@ -166,6 +166,11 @@ func Apply(ctx context.Context, tx pgx.Tx, doc Doc, moves []Move) (map[uuid.UUID
 			b.inTransit += m.Qty
 			b.dInTransit += m.Qty
 			record(m, "in_transit", m.Qty, kopecks(unit, m.Qty))
+			// Списание недостачи «в пути» уменьшает запас организации.
+			if m.External {
+				c.qtyTotal += m.Qty
+				c.changed = true
+			}
 
 		case m.Qty < 0:
 			need := -m.Qty

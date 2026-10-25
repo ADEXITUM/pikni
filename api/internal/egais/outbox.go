@@ -25,6 +25,8 @@ type Item struct {
 	VariantID uuid.UUID `json:"variantId"`
 	Alcocode  *string   `json:"alcocode,omitempty"`
 	Qty       int32     `json:"qty"`
+	// Marks — марки списываемой продукции с помарочным учётом.
+	Marks []string `json:"marks,omitempty"`
 }
 
 // Enqueue ставит сообщение в очередь в транзакции документа (transactional outbox):

@@ -1,6 +1,7 @@
 package documents
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -46,6 +47,13 @@ var problems = map[error]*echo.HTTPError{
 	ErrNotRequested:     echo.NewHTTPError(http.StatusConflict, "Заявка уже согласована или отклонена"),
 	ErrNoFSRAR:          echo.NewHTTPError(http.StatusUnprocessableEntity, "У точки не указан ФСРАР ID — ТТН в ЕГАИС не отправить"),
 	ErrTTNPending:       echo.NewHTTPError(http.StatusConflict, "ТТН ещё не пришла из ЕГАИС — подождите и проведите приёмку позже"),
+	ErrUnknownReason:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Причина списания не найдена или в архиве"),
+	ErrPhotoRequired:    echo.NewHTTPError(http.StatusUnprocessableEntity, "Для этой причины нужна фотография — прикрепите снимок"),
+	ErrNotPending:       echo.NewHTTPError(http.StatusConflict, "Документ не ждёт утверждения"),
+	ErrSameApprover:     echo.NewHTTPError(http.StatusForbidden, "Утвердить должен другой сотрудник — не тот, кто создал или отправил документ"),
+	ErrNoTransitLeft:    echo.NewHTTPError(http.StatusUnprocessableEntity, "По перемещению ничего не осталось «в пути»"),
+	ErrStornoForbidden:  echo.NewHTTPError(http.StatusUnprocessableEntity, "Этот документ не сторнируется: у него есть след в ЕГАИС или сторно уже есть. Исправьте ответным документом"),
+	ErrBadPhoto:         echo.NewHTTPError(http.StatusUnprocessableEntity, "Фотография — JPEG до 3 МБ, только у черновика списания"),
 }
 
 func problem(err error) error {
@@ -146,7 +154,22 @@ func toDocument(d Detail) apispec.Document {
 		Comment: r.Comment, CanEdit: d.CanEdit, CanPost: d.CanPost, CanApprove: &d.CanApprove,
 		DestLocationID: r.DestLocationID, DestLocationName: r.DestLocationName,
 		TransferID: r.TransferID, TransferNumber: r.TransferNumber, ReceiptID: r.ReceiptID, ReceiptNumber: r.ReceiptNumber,
-		Lines: make([]apispec.DocumentLine, len(d.Lines)), Scans: make([]apispec.DocumentScan, len(d.Scans)),
+		ReasonID: r.ReasonID, ReasonName: r.ReasonName, PhotoRequired: r.PhotoRequired,
+		ReversesID: r.ReversesID, ReversesNumber: r.ReversesNumber, StornoID: r.StornoID, StornoNumber: r.StornoNumber,
+		CanStorno: &d.CanStorno,
+		Lines:     make([]apispec.DocumentLine, len(d.Lines)), Scans: make([]apispec.DocumentScan, len(d.Scans)),
+	}
+	if a := d.Approval; a != nil {
+		doc.Approval = &apispec.Approval{
+			Decision: apispec.ApprovalDecision(a.Decision), Comment: &a.Comment, UserName: a.FullName, At: a.CreatedAt,
+		}
+	}
+	if d.Photos != nil {
+		photos := make([]apispec.DocumentPhoto, len(d.Photos))
+		for i, p := range d.Photos {
+			photos[i] = apispec.DocumentPhoto{ID: p.ID, CreatedAt: p.CreatedAt}
+		}
+		doc.Photos = &photos
 	}
 	for i, l := range d.Lines {
 		doc.Lines[i] = toLine(l, d.ShowCost)
@@ -297,26 +320,94 @@ func (h *Handler) CreateTransfer(ctx context.Context, req apispec.CreateTransfer
 	return apispec.CreateTransfer201JSONResponse(doc), nil
 }
 
-func (h *Handler) ApproveTransfer(ctx context.Context, req apispec.ApproveTransferRequestObject) (apispec.ApproveTransferResponseObject, error) {
-	if err := h.svc.DecideTransfer(ctx, req.ID, req.Body.Version, true, ""); err != nil {
+func (h *Handler) ApproveDocument(ctx context.Context, req apispec.ApproveDocumentRequestObject) (apispec.ApproveDocumentResponseObject, error) {
+	if err := h.svc.DecideAny(ctx, req.ID, req.Body.Version, true, comment(req.Body.Comment)); err != nil {
 		return nil, problem(err)
 	}
 	doc, err := h.detail(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
-	return apispec.ApproveTransfer200JSONResponse(doc), nil
+	return apispec.ApproveDocument200JSONResponse(doc), nil
 }
 
-func (h *Handler) RejectTransfer(ctx context.Context, req apispec.RejectTransferRequestObject) (apispec.RejectTransferResponseObject, error) {
-	if err := h.svc.DecideTransfer(ctx, req.ID, req.Body.Version, false, req.Body.Reason); err != nil {
+func (h *Handler) RejectDocument(ctx context.Context, req apispec.RejectDocumentRequestObject) (apispec.RejectDocumentResponseObject, error) {
+	if err := h.svc.DecideAny(ctx, req.ID, req.Body.Version, false, req.Body.Reason); err != nil {
 		return nil, problem(err)
 	}
 	doc, err := h.detail(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
-	return apispec.RejectTransfer200JSONResponse(doc), nil
+	return apispec.RejectDocument200JSONResponse(doc), nil
+}
+
+func (h *Handler) CreateWriteoff(ctx context.Context, req apispec.CreateWriteoffRequestObject) (apispec.CreateWriteoffResponseObject, error) {
+	id, err := h.svc.CreateWriteoff(ctx, req.Body.ZoneID, req.Body.ReasonID, comment(req.Body.Comment), req.Body.TransferID)
+	if err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.CreateWriteoff201JSONResponse(doc), nil
+}
+
+func (h *Handler) CreateStorno(ctx context.Context, req apispec.CreateStornoRequestObject) (apispec.CreateStornoResponseObject, error) {
+	id, err := h.svc.CreateStorno(ctx, req.ID, comment(req.Body.Comment))
+	if err != nil {
+		return nil, problem(err)
+	}
+	doc, err := h.detail(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return apispec.CreateStorno201JSONResponse(doc), nil
+}
+
+func (h *Handler) AddDocumentPhoto(ctx context.Context, req apispec.AddDocumentPhotoRequestObject) (apispec.AddDocumentPhotoResponseObject, error) {
+	id, err := h.svc.AddPhoto(ctx, req.ID, "image/jpeg", req.Body.Data)
+	if err != nil {
+		return nil, problem(err)
+	}
+	return apispec.AddDocumentPhoto201JSONResponse{ID: id, CreatedAt: time.Now()}, nil
+}
+
+func (h *Handler) DeleteDocumentPhoto(ctx context.Context, req apispec.DeleteDocumentPhotoRequestObject) (apispec.DeleteDocumentPhotoResponseObject, error) {
+	if err := h.svc.DeletePhoto(ctx, req.ID, req.PhotoID); err != nil {
+		return nil, problem(err)
+	}
+	return apispec.DeleteDocumentPhoto204Response{}, nil
+}
+
+func (h *Handler) GetPhoto(ctx context.Context, req apispec.GetPhotoRequestObject) (apispec.GetPhotoResponseObject, error) {
+	_, data, err := h.svc.Photo(ctx, req.PhotoID)
+	if err != nil {
+		return nil, problem(err)
+	}
+	return apispec.GetPhoto200ImageJpegResponse{Body: bytes.NewReader(data), ContentLength: int64(len(data))}, nil
+}
+
+func (h *Handler) ListZoneMarks(ctx context.Context, req apispec.ListZoneMarksRequestObject) (apispec.ListZoneMarksResponseObject, error) {
+	rows, err := h.svc.ZoneMarks(ctx, req.ZoneID, req.Params.VariantID)
+	if err != nil {
+		return nil, problem(err)
+	}
+	out := apispec.ListZoneMarks200JSONResponse{}
+	for _, r := range rows {
+		out.Items = append(out.Items, struct {
+			Code      string             `json:"code"`
+			VariantID openapi_types.UUID `json:"variantId"`
+		}{Code: r.Code, VariantID: r.VariantID})
+	}
+	if out.Items == nil {
+		out.Items = []struct {
+			Code      string             `json:"code"`
+			VariantID openapi_types.UUID `json:"variantId"`
+		}{}
+	}
+	return out, nil
 }
 
 func (h *Handler) GetDocument(ctx context.Context, req apispec.GetDocumentRequestObject) (apispec.GetDocumentResponseObject, error) {

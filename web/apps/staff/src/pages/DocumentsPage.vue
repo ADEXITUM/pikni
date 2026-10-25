@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { mdiPlus, mdiStorefrontOutline, mdiTransferRight, mdiTruckDeliveryOutline } from '@mdi/js'
+import {
+  mdiDeleteSweepOutline,
+  mdiPlus,
+  mdiStorefrontOutline,
+  mdiTransferRight,
+  mdiTruckDeliveryOutline,
+} from '@mdi/js'
 import {
   api,
   ApiError,
@@ -7,7 +13,7 @@ import {
   type DocumentStatus,
   type FloorDirection,
 } from '@pikni/api'
-import { useInfiniteQuery, useMutation } from '@tanstack/vue-query'
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -72,19 +78,50 @@ const requestable = computed(() => useLocationChoiceRequest.options.value.length
 const direction = ref<FloorDirection>('to_floor')
 const transferOpen = ref(false)
 
+// Списание (СО-5): точка, зона, откуда списывают, и причина из справочника.
+const writeoff = useLocationChoice('writeoff.create')
+const writeoffZone = ref<string>()
+const writeoffReason = ref<string>()
+const writeoffOpen = ref(false)
+const writeoffZones = computed(() =>
+  (writeoff.selected.value?.zones ?? []).map((z) => ({ value: z.id, title: zoneLabels[z.kind] })),
+)
+const { data: reasons } = useQuery({
+  queryKey: ['ref', 'writeoff-reasons'],
+  queryFn: async () => {
+    const { data, error } = await api.GET('/writeoff-reasons')
+    if (error) throw new ApiError(error)
+    return data.items
+  },
+  enabled: computed(() => writeoffOpen.value),
+})
+const reasonItems = computed(() =>
+  (reasons.value ?? [])
+    .filter((r) => r.isActive)
+    .map((r) => ({ value: r.id, title: r.photoRequired ? `${r.name} — нужно фото` : r.name })),
+)
+function startWriteoff() {
+  writeoffZone.value = writeoffZones.value[0]?.value
+  writeoffOpen.value = true
+}
+
 const {
   mutate: create,
   isPending: creating,
   error: createError,
   reset,
 } = useMutation({
-  mutationFn: async (what: 'opening' | 'transfer') => {
+  mutationFn: async (what: 'opening' | 'transfer' | 'writeoff') => {
     const { data, error } =
       what === 'opening'
         ? await api.POST('/documents/opening', { body: { zoneId: openingZone.value! } })
-        : await api.POST('/documents/floor-transfer', {
-            body: { locationId: transfer.selectedId.value!, direction: direction.value },
-          })
+        : what === 'writeoff'
+          ? await api.POST('/documents/writeoff', {
+              body: { zoneId: writeoffZone.value!, reasonId: writeoffReason.value! },
+            })
+          : await api.POST('/documents/floor-transfer', {
+              body: { locationId: transfer.selectedId.value!, direction: direction.value },
+            })
     if (error) throw new ApiError(error)
     return data
   },
@@ -124,6 +161,15 @@ const zones = (d: (typeof items.value)[number]) =>
         @click="transferOpen = true"
       >
         Передача в зал
+      </v-btn>
+      <v-btn
+        v-if="writeoff.options.value.length"
+        :prepend-icon="mdiDeleteSweepOutline"
+        variant="tonal"
+        data-test="new-writeoff"
+        @click="startWriteoff"
+      >
+        Списание
       </v-btn>
       <v-btn
         v-if="places.options.value.length && requestable"
@@ -227,6 +273,46 @@ const zones = (d: (typeof items.value)[number]) =>
             :loading="creating"
             data-test="create"
             @click="create('opening')"
+          >
+            Создать
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="writeoffOpen" max-width="480" @after-leave="reset()">
+      <v-card title="Списание">
+        <v-card-text>
+          <p class="text-body-medium mb-4">
+            Отсканируйте марки и товар, для боя прикрепите фото. Списание вступит в силу после
+            утверждения руководителем, затем в ЕГАИС уйдёт акт списания.
+          </p>
+          <v-select
+            v-model="writeoff.selectedId.value"
+            :items="writeoff.items.value"
+            label="Точка"
+            class="mb-2"
+            @update:model-value="writeoffZone = writeoffZones[0]?.value"
+          />
+          <v-select v-model="writeoffZone" :items="writeoffZones" label="Откуда" class="mb-2" />
+          <v-select
+            v-model="writeoffReason"
+            :items="reasonItems"
+            label="Причина"
+            data-test="writeoff-reason"
+          />
+          <v-alert v-if="createError" type="error" class="mt-2">{{ createError.message }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="writeoffOpen = false">Отмена</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :disabled="!writeoffZone || !writeoffReason"
+            :loading="creating"
+            data-test="create-writeoff"
+            @click="create('writeoff')"
           >
             Создать
           </v-btn>

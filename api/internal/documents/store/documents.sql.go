@@ -129,9 +129,11 @@ func (q *Queries) CountForeign(ctx context.Context, documentID uuid.UUID) (int32
 }
 
 const createDocument = `-- name: CreateDocument :one
-insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status)
+insert into documents (kind, number, doc_date, location_id, zone_id, dest_zone_id, dest_location_id, author_id, comment, status,
+                       reason_id, reverses_id, transfer_id)
 values ($1, $2, $3, $4, $5, $6, $7, $8,
-        $9, coalesce($10::text, 'draft'))
+        $9, coalesce($10::text, 'draft'), $11, $12,
+        $13)
 returning id
 `
 
@@ -146,6 +148,9 @@ type CreateDocumentParams struct {
 	AuthorID       *uuid.UUID
 	Comment        string
 	Status         *string
+	ReasonID       *uuid.UUID
+	ReversesID     *uuid.UUID
+	TransferID     *uuid.UUID
 }
 
 func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (uuid.UUID, error) {
@@ -160,6 +165,9 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		arg.AuthorID,
 		arg.Comment,
 		arg.Status,
+		arg.ReasonID,
+		arg.ReversesID,
+		arg.TransferID,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -206,6 +214,34 @@ func (q *Queries) CreateReceipt(ctx context.Context, arg CreateReceiptParams) (u
 	return id, err
 }
 
+const deletePhoto = `-- name: DeletePhoto :execrows
+delete from document_photos where id = $1 and document_id = $2
+`
+
+type DeletePhotoParams struct {
+	ID         uuid.UUID
+	DocumentID uuid.UUID
+}
+
+func (q *Queries) DeletePhoto(ctx context.Context, arg DeletePhotoParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePhoto, arg.ID, arg.DocumentID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const documentHasExchange = `-- name: DocumentHasExchange :one
+select exists (select 1 from egais_messages where document_id = $1)
+`
+
+func (q *Queries) DocumentHasExchange(ctx context.Context, documentID *uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, documentHasExchange, documentID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const documentMarks = `-- name: DocumentMarks :many
 select mark_code::text as code, variant_id
 from scans
@@ -238,6 +274,49 @@ func (q *Queries) DocumentMarks(ctx context.Context, documentID uuid.UUID) ([]Do
 	return items, nil
 }
 
+const documentMoves = `-- name: DocumentMoves :many
+select variant_id, location_id, zone_id, bucket, sum(qty)::integer as qty
+from stock_moves
+where document_id = $1
+group by variant_id, location_id, zone_id, bucket
+having sum(qty) <> 0
+`
+
+type DocumentMovesRow struct {
+	VariantID  uuid.UUID
+	LocationID uuid.UUID
+	ZoneID     uuid.UUID
+	Bucket     string
+	Qty        int32
+}
+
+// Итог движений документа по корзинам — для сторно.
+func (q *Queries) DocumentMoves(ctx context.Context, documentID uuid.UUID) ([]DocumentMovesRow, error) {
+	rows, err := q.db.Query(ctx, documentMoves, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DocumentMovesRow
+	for rows.Next() {
+		var i DocumentMovesRow
+		if err := rows.Scan(
+			&i.VariantID,
+			&i.LocationID,
+			&i.ZoneID,
+			&i.Bucket,
+			&i.Qty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDocument = `-- name: GetDocument :one
 select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as location_name,
        d.zone_id, z.kind as zone_kind, d.dest_zone_id, dz.kind as dest_zone_kind,
@@ -246,7 +325,10 @@ select d.id, d.kind, d.number, d.status, d.doc_date, d.location_id, l.name as lo
        (select count(*) from document_lines dl where dl.document_id = d.id and dl.qty > 0)::integer as line_count,
        (select coalesce(sum(dl.qty), 0) from document_lines dl where dl.document_id = d.id)::integer as total_qty,
        d.dest_location_id, dl.name as dest_location_name, d.transfer_id, tr.number as transfer_number,
-       rc.id as receipt_id, rc.number as receipt_number
+       rc.id as receipt_id, rc.number as receipt_number,
+       d.reason_id, wr.name as reason_name, wr.photo_required, d.reverses_id, rv.number as reverses_number,
+       rv.kind as reverses_kind, sn.id as storno_id, sn.number as storno_number,
+       (select count(*) from document_photos ph where ph.document_id = d.id)::integer as photo_count
 from documents d
 join locations l on l.id = d.location_id
 join zones z on z.id = d.zone_id
@@ -254,6 +336,9 @@ left join zones dz on dz.id = d.dest_zone_id
 left join locations dl on dl.id = d.dest_location_id
 left join documents tr on tr.id = d.transfer_id
 left join documents rc on rc.transfer_id = d.id and rc.kind = 'receipt'
+left join writeoff_reasons wr on wr.id = d.reason_id
+left join documents rv on rv.id = d.reverses_id
+left join documents sn on sn.reverses_id = d.id and sn.status <> 'cancelled'
 left join users au on au.id = d.author_id
 left join suppliers sp on sp.id = d.supplier_id
 left join users pu on pu.id = d.posted_by
@@ -290,6 +375,15 @@ type GetDocumentRow struct {
 	TransferNumber   *string
 	ReceiptID        *uuid.UUID
 	ReceiptNumber    *string
+	ReasonID         *uuid.UUID
+	ReasonName       *string
+	PhotoRequired    *bool
+	ReversesID       *uuid.UUID
+	ReversesNumber   *string
+	ReversesKind     *string
+	StornoID         *uuid.UUID
+	StornoNumber     *string
+	PhotoCount       int32
 }
 
 func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (GetDocumentRow, error) {
@@ -325,6 +419,47 @@ func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (GetDocumentRow
 		&i.TransferNumber,
 		&i.ReceiptID,
 		&i.ReceiptNumber,
+		&i.ReasonID,
+		&i.ReasonName,
+		&i.PhotoRequired,
+		&i.ReversesID,
+		&i.ReversesNumber,
+		&i.ReversesKind,
+		&i.StornoID,
+		&i.StornoNumber,
+		&i.PhotoCount,
+	)
+	return i, err
+}
+
+const getPhoto = `-- name: GetPhoto :one
+select p.id, p.document_id, p.content_type, p.data, d.kind, d.location_id, d.dest_location_id
+from document_photos p
+join documents d on d.id = p.document_id
+where p.id = $1
+`
+
+type GetPhotoRow struct {
+	ID             uuid.UUID
+	DocumentID     uuid.UUID
+	ContentType    string
+	Data           []byte
+	Kind           string
+	LocationID     uuid.UUID
+	DestLocationID *uuid.UUID
+}
+
+func (q *Queries) GetPhoto(ctx context.Context, id uuid.UUID) (GetPhotoRow, error) {
+	row := q.db.QueryRow(ctx, getPhoto, id)
+	var i GetPhotoRow
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.ContentType,
+		&i.Data,
+		&i.Kind,
+		&i.LocationID,
+		&i.DestLocationID,
 	)
 	return i, err
 }
@@ -373,6 +508,33 @@ func (q *Queries) GetScan(ctx context.Context, id uuid.UUID) (GetScanRow, error)
 	return i, err
 }
 
+const getWriteoffReason = `-- name: GetWriteoffReason :one
+
+select id, name, egais_type, photo_required, is_active from writeoff_reasons where id = $1
+`
+
+type GetWriteoffReasonRow struct {
+	ID            uuid.UUID
+	Name          string
+	EgaisType     string
+	PhotoRequired bool
+	IsActive      bool
+}
+
+// ---------- списание, утверждение, сторно
+func (q *Queries) GetWriteoffReason(ctx context.Context, id uuid.UUID) (GetWriteoffReasonRow, error) {
+	row := q.db.QueryRow(ctx, getWriteoffReason, id)
+	var i GetWriteoffReasonRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.EgaisType,
+		&i.PhotoRequired,
+		&i.IsActive,
+	)
+	return i, err
+}
+
 const getZone = `-- name: GetZone :one
 select z.id, z.kind, z.location_id, l.kind as location_kind, l.is_active as location_active,
        (now() at time zone l.timezone)::date as local_date
@@ -404,6 +566,28 @@ func (q *Queries) GetZone(ctx context.Context, id uuid.UUID) (GetZoneRow, error)
 	return i, err
 }
 
+const insertApproval = `-- name: InsertApproval :exec
+insert into document_approvals (document_id, user_id, decision, comment)
+values ($1, $2, $3, $4)
+`
+
+type InsertApprovalParams struct {
+	DocumentID uuid.UUID
+	UserID     uuid.UUID
+	Decision   string
+	Comment    string
+}
+
+func (q *Queries) InsertApproval(ctx context.Context, arg InsertApprovalParams) error {
+	_, err := q.db.Exec(ctx, insertApproval,
+		arg.DocumentID,
+		arg.UserID,
+		arg.Decision,
+		arg.Comment,
+	)
+	return err
+}
+
 const insertPackage = `-- name: InsertPackage :exec
 insert into document_packages (document_id, code, variant_id, qty)
 values ($1, $2, $3, $4)
@@ -425,6 +609,36 @@ func (q *Queries) InsertPackage(ctx context.Context, arg InsertPackageParams) er
 		arg.Qty,
 	)
 	return err
+}
+
+const insertPhoto = `-- name: InsertPhoto :one
+insert into document_photos (document_id, content_type, data, created_by)
+values ($1, $2, $3, $4)
+returning id, created_at
+`
+
+type InsertPhotoParams struct {
+	DocumentID  uuid.UUID
+	ContentType string
+	Data        []byte
+	CreatedBy   uuid.UUID
+}
+
+type InsertPhotoRow struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertPhoto(ctx context.Context, arg InsertPhotoParams) (InsertPhotoRow, error) {
+	row := q.db.QueryRow(ctx, insertPhoto,
+		arg.DocumentID,
+		arg.ContentType,
+		arg.Data,
+		arg.CreatedBy,
+	)
+	var i InsertPhotoRow
+	err := row.Scan(&i.ID, &i.CreatedAt)
+	return i, err
 }
 
 const insertPlanLine = `-- name: InsertPlanLine :exec
@@ -544,6 +758,34 @@ func (q *Queries) InsertTTNMarks(ctx context.Context, arg InsertTTNMarksParams) 
 		arg.PackageCodes,
 	)
 	return err
+}
+
+const lastApproval = `-- name: LastApproval :one
+select a.decision, a.comment, u.full_name, a.created_at
+from document_approvals a
+join users u on u.id = a.user_id
+where a.document_id = $1
+order by a.id desc
+limit 1
+`
+
+type LastApprovalRow struct {
+	Decision  string
+	Comment   string
+	FullName  string
+	CreatedAt time.Time
+}
+
+func (q *Queries) LastApproval(ctx context.Context, documentID uuid.UUID) (LastApprovalRow, error) {
+	row := q.db.QueryRow(ctx, lastApproval, documentID)
+	var i LastApprovalRow
+	err := row.Scan(
+		&i.Decision,
+		&i.Comment,
+		&i.FullName,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const listDocuments = `-- name: ListDocuments :many
@@ -746,6 +988,36 @@ func (q *Queries) ListLines(ctx context.Context, arg ListLinesParams) ([]ListLin
 	return items, nil
 }
 
+const listPhotos = `-- name: ListPhotos :many
+select id, content_type, created_at from document_photos where document_id = $1 order by created_at
+`
+
+type ListPhotosRow struct {
+	ID          uuid.UUID
+	ContentType string
+	CreatedAt   time.Time
+}
+
+func (q *Queries) ListPhotos(ctx context.Context, documentID uuid.UUID) ([]ListPhotosRow, error) {
+	rows, err := q.db.Query(ctx, listPhotos, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPhotosRow
+	for rows.Next() {
+		var i ListPhotosRow
+		if err := rows.Scan(&i.ID, &i.ContentType, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listScans = `-- name: ListScans :many
 select s.id, s.raw, s.status, s.reason, s.variant_id, v.article, p.name, s.mark_code, s.qty, s.scanned_at, s.undone_at
 from scans s
@@ -876,7 +1148,7 @@ func (q *Queries) LocationZones(ctx context.Context, locationID uuid.UUID) ([]Lo
 
 const lockDocument = `-- name: LockDocument :one
 select id, kind, number, status, doc_date, location_id, zone_id, dest_zone_id, author_id, version,
-       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment
+       receiving_mode, ttn_id, unmapped, dest_location_id, transfer_id, comment, reason_id, reverses_id
 from documents
 where id = $1
 for update
@@ -899,6 +1171,8 @@ type LockDocumentRow struct {
 	DestLocationID *uuid.UUID
 	TransferID     *uuid.UUID
 	Comment        string
+	ReasonID       *uuid.UUID
+	ReversesID     *uuid.UUID
 }
 
 func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentRow, error) {
@@ -921,6 +1195,8 @@ func (q *Queries) LockDocument(ctx context.Context, id uuid.UUID) (LockDocumentR
 		&i.DestLocationID,
 		&i.TransferID,
 		&i.Comment,
+		&i.ReasonID,
+		&i.ReversesID,
 	)
 	return i, err
 }
@@ -1198,6 +1474,18 @@ func (q *Queries) StorageZone(ctx context.Context, locationID uuid.UUID) (Storag
 	return i, err
 }
 
+const submitter = `-- name: Submitter :one
+select posted_by from documents where id = $1
+`
+
+// Кто отправил документ на утверждение: он не может сам его утвердить.
+func (q *Queries) Submitter(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, submitter, id)
+	var posted_by *uuid.UUID
+	err := row.Scan(&posted_by)
+	return posted_by, err
+}
+
 const supplierByFSRAR = `-- name: SupplierByFSRAR :one
 select id, default_receiving_mode
 from suppliers
@@ -1229,6 +1517,69 @@ func (q *Queries) TransferByTTN(ctx context.Context, externalID *string) (uuid.U
 	var m_document_id uuid.UUID
 	err := row.Scan(&m_document_id)
 	return m_document_id, err
+}
+
+const transitLeft = `-- name: TransitLeft :many
+select l.variant_id, (coalesce(l.qty_plan, 0) - l.qty)::integer as qty
+from document_lines l
+join documents r on r.id = l.document_id
+where r.transfer_id = $1 and r.kind = 'receipt' and r.status in ('awaiting_egais', 'posted')
+  and coalesce(l.qty_plan, 0) > l.qty
+`
+
+type TransitLeftRow struct {
+	VariantID uuid.UUID
+	Qty       int32
+}
+
+// Что из отгруженного по перемещению так и не принято: остаётся «в пути» у получателя.
+func (q *Queries) TransitLeft(ctx context.Context, transferID *uuid.UUID) ([]TransitLeftRow, error) {
+	rows, err := q.db.Query(ctx, transitLeft, transferID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TransitLeftRow
+	for rows.Next() {
+		var i TransitLeftRow
+		if err := rows.Scan(&i.VariantID, &i.Qty); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const transitMarks = `-- name: TransitMarks :many
+select code, variant_id from excise_marks where last_document_id = $1 and status = 'in_transit'
+`
+
+type TransitMarksRow struct {
+	Code      string
+	VariantID uuid.UUID
+}
+
+func (q *Queries) TransitMarks(ctx context.Context, transferID *uuid.UUID) ([]TransitMarksRow, error) {
+	rows, err := q.db.Query(ctx, transitMarks, transferID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TransitMarksRow
+	for rows.Next() {
+		var i TransitMarksRow
+		if err := rows.Scan(&i.Code, &i.VariantID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const undoScan = `-- name: UndoScan :one

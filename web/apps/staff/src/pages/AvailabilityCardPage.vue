@@ -181,7 +181,10 @@ function requestTransfer(article: string, from: string) {
                         v-if="router.hasRoute('reservation-new')"
                         :prepend-icon="mdiBookmarkOutline"
                         title="Отложить для покупателя"
-                        :to="{ name: 'reservation-new', query: { variant: v.id, location: l.id } }"
+                        :to="{
+                          name: 'reservation-new',
+                          query: { article: v.article, location: l.id },
+                        }"
                       />
                     </v-list>
                   </v-menu>

@@ -110,6 +110,18 @@ const router = createRouter({
       meta: { title: 'Наличие', permission: 'availability.view' },
     },
     {
+      path: '/reservations',
+      name: 'reservations',
+      component: () => import('@/pages/ReservationsPage.vue'),
+      meta: { title: 'Брони', permission: 'reservations.manage', scans: true },
+    },
+    {
+      path: '/reservations/new',
+      name: 'reservation-new',
+      component: () => import('@/pages/ReservationNewPage.vue'),
+      meta: { title: 'Отложить для покупателя', permission: 'reservations.manage', scans: true },
+    },
+    {
       path: '/stock',
       name: 'stock',
       component: () => import('@/pages/StockPage.vue'),

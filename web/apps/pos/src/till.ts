@@ -127,6 +127,10 @@ export function check(raw: string): Promise<PosCheck> {
   return call(() => posApi.POST('/checks', { body: { raw } }))
 }
 
+export function reservations() {
+  return call(() => posApi.GET('/reservations')).then((r) => r.items)
+}
+
 export function findReceipts(query: { number?: number; mark?: string }): Promise<PosReceipt[]> {
   return call(() => posApi.GET('/receipts', { params: { query } })).then((r) => r.items)
 }

@@ -1300,10 +1300,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Согласовать заявку на перемещение
-         * @description После согласования отправитель собирает товар сканированием и отгружает (проведение).
+         * Согласовать заявку или утвердить документ
+         * @description Заявку на перемещение согласует точка-отправитель (право transfer.edit). Списание и сторно утверждает другой пользователь с правом docs.approve (ПБ-8) — тогда документ проводится.
          */
-        post: operations["approveTransfer"];
+        post: operations["approveDocument"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1319,8 +1319,122 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отклонить заявку на перемещение */
-        post: operations["rejectTransfer"];
+        /** Отклонить заявку или вернуть документ на доработку */
+        post: operations["rejectDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/writeoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать списание
+         * @description Из зоны — бой, порча, истёкший срок (СО-5). С transferId — недостача перемещения, оставшаяся «в пути» после приёмки: строки и марки подставляются сами. Проводится после утверждения (ПБ-8).
+         */
+        post: operations["createWriteoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/storno": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Сторнировать проведённый документ
+         * @description Создаёт черновик сторно; движения отменяются после утверждения другим пользователем (ПБ-8). Сторнируются ввод остатков и передача в зал без пива — у остальных документов есть след в ЕГАИС, их исправляет ответный документ.
+         */
+        post: operations["createStorno"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Прикрепить фотографию к списанию
+         * @description JPEG до 3 МБ в base64; клиент уменьшает снимок перед отправкой.
+         */
+        post: operations["addDocumentPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{id}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Убрать фотографию из черновика */
+        delete: operations["deleteDocumentPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Фотография документа */
+        get: operations["getPhoto"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/zones/{zoneId}/marks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Марки на остатке зоны
+         * @description Для выбора повреждённой марки, которую не считывает сканер (СО-5).
+         */
+        get: operations["listZoneMarks"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1520,6 +1634,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Брони
+         * @description Брони доступных точек, новые сверху. open — только действующие.
+         */
+        get: operations["listReservations"];
+        put?: never;
+        /**
+         * Отложить товар для покупателя
+         * @description Покупатель обратился лично или по телефону (НЛ-4). Нужно его согласие на обработку персональных данных. Срок — до конца следующего дня; бронь подтверждают сканом бутылки.
+         */
+        post: operations["createReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Подтвердить бронь сканом
+         * @description Марки отложенных бутылок или штрихкод товара. Товар уходит в резерв.
+         */
+        post: operations["confirmReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reservations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Снять бронь */
+        post: operations["cancelReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stock/balances": {
         parameters: {
             query?: never;
@@ -1595,7 +1770,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -1856,6 +2031,53 @@ export interface components {
             /** @description Другие разновидности той же линейки */
             line: components["schemas"]["SimilarItem"][];
             analogs: components["schemas"]["SimilarItem"][];
+        };
+        /**
+         * @description new — оформлена, ждёт подтверждения сканом; confirmed — товар отложен; issued — выдана через кассу; cancelled — снята; expired — истёк срок
+         * @enum {string}
+         */
+        ReservationStatus: "new" | "confirmed" | "issued" | "cancelled" | "expired";
+        Reservation: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            /** Format: uuid */
+            locationId: string;
+            locationCode: string;
+            locationName: string;
+            /** Format: uuid */
+            variantId: string;
+            article: string;
+            name: string;
+            label: string;
+            accounting?: components["schemas"]["EgaisAccounting"];
+            /** Format: int32 */
+            qty: number;
+            customerName: string;
+            customerPhone: string;
+            status: components["schemas"]["ReservationStatus"];
+            /** Format: date-time */
+            expiresAt: string;
+            zoneKind?: components["schemas"]["ZoneKind"];
+            marks: string[];
+            comment?: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdByName: string;
+            receiptNumber?: number;
+        };
+        NewReservation: {
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            variantId: string;
+            /** Format: int32 */
+            qty: number;
+            customerName: string;
+            customerPhone: string;
+            /** @description Покупатель согласен на обработку персональных данных */
+            consent: boolean;
+            comment?: string;
         };
         /** @enum {string} */
         LocationKind: "warehouse" | "store";
@@ -2121,6 +2343,8 @@ export interface components {
             /** @example Бой */
             name: string;
             egaisType: components["schemas"]["EgaisWriteoffType"];
+            /** @description При списании нужна фотография (бой) */
+            photoRequired?: boolean;
         };
         WriteoffReason: components["schemas"]["WriteoffReasonFields"] & {
             /** Format: uuid */
@@ -2645,12 +2869,12 @@ export interface components {
          * @description opening — ввод начальных остатков, floor_transfer — передача в торговый зал или из зала, receipt — поступление по ТТН ЕГАИС, sale — продажа смены кассы, transfer — перемещение между точками
          * @enum {string}
          */
-        DocumentKind: "opening" | "floor_transfer" | "receipt" | "sale" | "transfer";
+        DocumentKind: "opening" | "floor_transfer" | "receipt" | "sale" | "transfer" | "writeoff" | "storno";
         /**
-         * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён; у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути
+         * @description draft — черновик, awaiting_egais — проведён в учёте и ждёт ответа ЕГАИС, posted — проведён, egais_rejected — ЕГАИС отказала, cancelled — черновик отменён; у перемещения requested — заявка, rejected — отклонена, in_transit — отгружено, в пути; pending_approval — ждёт утверждения (ПБ-8), reversed — сторнирован
          * @enum {string}
          */
-        DocumentStatus: "requested" | "rejected" | "draft" | "in_transit" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled";
+        DocumentStatus: "requested" | "rejected" | "draft" | "pending_approval" | "in_transit" | "awaiting_egais" | "posted" | "egais_rejected" | "cancelled" | "reversed";
         DocumentSummary: {
             /** Format: uuid */
             id: string;
@@ -2789,6 +3013,25 @@ export interface components {
              */
             receiptId?: string;
             receiptNumber?: string;
+            /** Format: uuid */
+            reasonId?: string;
+            reasonName?: string;
+            photoRequired?: boolean;
+            photos?: components["schemas"]["DocumentPhoto"][];
+            /**
+             * Format: uuid
+             * @description У сторно — исходный документ
+             */
+            reversesId?: string;
+            reversesNumber?: string;
+            /**
+             * Format: uuid
+             * @description У сторнированного документа — сторно
+             */
+            stornoId?: string;
+            stornoNumber?: string;
+            canStorno?: boolean;
+            approval?: components["schemas"]["Approval"];
             receipt?: components["schemas"]["ReceiptInfo"];
             /** @description Журнал обмена с ЕГАИС по документу (ИН-3) */
             exchange?: components["schemas"]["ExchangeMessage"][];
@@ -2873,10 +3116,53 @@ export interface components {
                 qty: number;
             }[];
         };
-        TransferRejection: {
+        DecisionRequest: {
+            /** Format: int32 */
+            version: number;
+            comment?: string;
+        };
+        DocumentRejection: {
             /** Format: int32 */
             version: number;
             reason: string;
+        };
+        NewWriteoff: {
+            /**
+             * Format: uuid
+             * @description Зона, откуда списывают; не нужна при списании недостачи перемещения
+             */
+            zoneId?: string;
+            /** Format: uuid */
+            transferId?: string;
+            /** Format: uuid */
+            reasonId: string;
+            comment?: string;
+        };
+        StornoRequest: {
+            /** @description Почему документ отменяется */
+            comment?: string;
+        };
+        NewPhoto: {
+            /**
+             * Format: byte
+             * @description JPEG в base64
+             */
+            data: string;
+        };
+        DocumentPhoto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Последнее решение по утверждению */
+        Approval: {
+            /** @enum {string} */
+            decision: "approved" | "rejected";
+            comment?: string;
+            userName: string;
+            /** Format: date-time */
+            at: string;
         };
         NewFloorTransfer: {
             /** Format: uuid */
@@ -5248,7 +5534,7 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
-    approveTransfer: {
+    approveDocument: {
         parameters: {
             query?: never;
             header?: never;
@@ -5259,11 +5545,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DocumentVersion"];
+                "application/json": components["schemas"]["DecisionRequest"];
             };
         };
         responses: {
-            /** @description Заявка согласована */
+            /** @description Решение принято */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5275,7 +5561,7 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
-    rejectTransfer: {
+    rejectDocument: {
         parameters: {
             query?: never;
             header?: never;
@@ -5286,7 +5572,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TransferRejection"];
+                "application/json": components["schemas"]["DocumentRejection"];
             };
         };
         responses: {
@@ -5297,6 +5583,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createWriteoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewWriteoff"];
+            };
+        };
+        responses: {
+            /** @description Списание создано */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createStorno: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StornoRequest"];
+            };
+        };
+        responses: {
+            /** @description Черновик сторно */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    addDocumentPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPhoto"];
+            };
+        };
+        responses: {
+            /** @description Фотография сохранена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPhoto"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteDocumentPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Удалена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Снимок */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listZoneMarks: {
+        parameters: {
+            query?: {
+                variantId?: string;
+            };
+            header?: never;
+            path: {
+                zoneId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Марки */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            code: string;
+                            /** Format: uuid */
+                            variantId: string;
+                        }[];
+                    };
                 };
             };
             default: components["responses"]["Problem"];
@@ -5578,6 +6019,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimilarGroups"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listReservations: {
+        parameters: {
+            query?: {
+                locationId?: string;
+                open?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Брони */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Reservation"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewReservation"];
+            };
+        };
+        responses: {
+            /** @description Бронь оформлена */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    confirmReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    codes: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Бронь подтверждена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    cancelReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Бронь снята */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
                 };
             };
             default: components["responses"]["Problem"];

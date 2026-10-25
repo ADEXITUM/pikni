@@ -278,7 +278,7 @@ func (h *Handler) UpdateVolume(ctx context.Context, req apispec.UpdateVolumeRequ
 }
 
 func toWriteoffReason(r store.WriteoffReason) apispec.WriteoffReason {
-	return apispec.WriteoffReason{ID: r.ID, Name: r.Name, EgaisType: apispec.EgaisWriteoffType(r.EgaisType), IsActive: r.IsActive}
+	return apispec.WriteoffReason{ID: r.ID, Name: r.Name, EgaisType: apispec.EgaisWriteoffType(r.EgaisType), IsActive: r.IsActive, PhotoRequired: &r.PhotoRequired}
 }
 
 func (h *Handler) ListWriteoffReasons(ctx context.Context, _ apispec.ListWriteoffReasonsRequestObject) (apispec.ListWriteoffReasonsResponseObject, error) {

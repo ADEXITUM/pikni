@@ -55,5 +55,12 @@ order by m.id;
 
 -- name: SetMarksStatus :exec
 update excise_marks
-set status = @status, zone_id = sqlc.narg(zone_id), last_document_id = @document_id, updated_at = now()
+set status = @status, zone_id = sqlc.narg(zone_id), last_document_id = coalesce(sqlc.narg(document_id), last_document_id), updated_at = now()
 where code = any(@codes::text[]);
+
+-- name: ZoneMarks :many
+-- Марки на остатке зоны — для выбора повреждённой марки при списании (СО-5).
+select code, variant_id from excise_marks
+where zone_id = @zone_id and status = 'in_stock' and (sqlc.narg(variant_id)::uuid is null or variant_id = sqlc.narg(variant_id)::uuid)
+order by code
+limit 500;

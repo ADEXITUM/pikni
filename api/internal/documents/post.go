@@ -59,7 +59,8 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 		if err != nil {
 			return err
 		}
-		if doc.Kind != Receipt {
+		// У сторно марки — исходного документа, у поступления они считаются по ТТН.
+		if doc.Kind != Receipt && doc.Kind != Storno {
 			if err := checkMarkCounts(lines, docMarks); err != nil {
 				return err
 			}
@@ -111,6 +112,12 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 			}
 			status = StatusInTransit
 
+		case Writeoff, Storno:
+			if err := s.submit(ctx, q, doc); err != nil {
+				return err
+			}
+			status = StatusPendingApproval
+
 		case FloorTransfer:
 			dest := *doc.DestZoneID
 			var items []egais.Item
@@ -145,7 +152,7 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 			}
 		}
 
-		if doc.Kind != Receipt && doc.Kind != Transfer {
+		if doc.Kind != Receipt && doc.Kind != Transfer && status != StatusPendingApproval {
 			unitCosts, err = stock.Apply(ctx, tx, stock.Doc{ID: id, Date: doc.DocDate}, moves)
 			if se, ok := errors.AsType[*stock.ShortageError](err); ok {
 				return s.describeShortage(ctx, q, lines, se)
@@ -170,8 +177,12 @@ func (s *Service) Post(ctx context.Context, id uuid.UUID, version int32) error {
 		for _, l := range lines {
 			total += l.Qty
 		}
+		action := apispec.AuditActionDocumentPosted
+		if status == StatusPendingApproval {
+			action = apispec.AuditActionDocumentSubmitted
+		}
 		return audit.Record(ctx, tx, audit.Event{
-			Action: apispec.AuditActionDocumentPosted, EntityType: audit.EntityDocument, EntityID: id.String(),
+			Action: action, EntityType: audit.EntityDocument, EntityID: id.String(),
 			Data: map[string]any{"number": doc.Number, "kind": doc.Kind, "lines": len(lines), "qty": total, "status": status},
 		})
 	})

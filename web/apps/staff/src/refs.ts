@@ -305,6 +305,7 @@ export function buildRefs(lookup: {
     columns: [
       { key: 'name', title: 'Причина' },
       { key: 'egaisType', title: 'Тип списания в ЕГАИС' },
+      { key: 'photo', title: 'Фото', value: (r) => (r.photoRequired ? 'нужно' : '') },
     ],
     fields: [
       { key: 'name', label: 'Причина' },
@@ -318,13 +319,31 @@ export function buildRefs(lookup: {
             title: `${value} — ${hint}`,
           })),
       },
+      {
+        key: 'photoRequired',
+        label: 'Фотография при списании',
+        type: 'select',
+        initial: 'no',
+        items: () => [
+          { value: 'no', title: 'не нужна' },
+          { value: 'yes', title: 'нужна — например, при бое' },
+        ],
+      },
     ],
     hasActive: true,
-    toForm: (r) => ({ name: r.name, egaisType: r.egaisType }),
+    toForm: (r) => ({
+      name: r.name,
+      egaisType: r.egaisType,
+      photoRequired: r.photoRequired ? 'yes' : 'no',
+    }),
     create: (v) =>
       call(
         api.POST('/writeoff-reasons', {
-          body: { name: text(v.name), egaisType: text(v.egaisType) as EgaisWriteoffType },
+          body: {
+            name: text(v.name),
+            egaisType: text(v.egaisType) as EgaisWriteoffType,
+            photoRequired: v.photoRequired === 'yes',
+          },
         }),
       ),
     update: (r, v) =>
@@ -334,6 +353,7 @@ export function buildRefs(lookup: {
           body: {
             name: text(v.name),
             egaisType: text(v.egaisType) as EgaisWriteoffType,
+            photoRequired: v.photoRequired === 'yes',
             isActive: Boolean(v.isActive),
           },
         }),

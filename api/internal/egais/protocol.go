@@ -11,6 +11,7 @@ const (
 	ReplyRests = "ReplyRests"
 	// ActWriteOffShop — списание из торгового зала, для пива — с причиной «Реализация».
 	ActWriteOffShop = "ActWriteOffShop"
+	ActWriteOff     = "ActWriteOff"
 )
 
 // TTN — товарно-транспортная накладная от поставщика.

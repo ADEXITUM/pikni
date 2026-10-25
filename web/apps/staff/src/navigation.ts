@@ -1,6 +1,7 @@
 import {
   mdiAccountGroupOutline,
   mdiBarcodeScan,
+  mdiBookmarkOutline,
   mdiBookshelf,
   mdiMapSearchOutline,
   mdiBottleWineOutline,
@@ -22,6 +23,7 @@ export const navItems: { title: string; icon: string; route: string; forEditors?
   { title: 'Товары', icon: mdiBottleWineOutline, route: 'products' },
   { title: 'Остатки', icon: mdiPackageVariantClosed, route: 'stock' },
   { title: 'Документы', icon: mdiFileDocumentMultipleOutline, route: 'documents' },
+  { title: 'Брони', icon: mdiBookmarkOutline, route: 'reservations' },
   { title: 'Точки сети', icon: mdiStorefrontOutline, route: 'locations' },
   { title: 'Правила продажи', icon: mdiClockAlertOutline, route: 'sale-rules', forEditors: true },
   { title: 'Категории', icon: mdiFileTreeOutline, route: 'categories', forEditors: true },

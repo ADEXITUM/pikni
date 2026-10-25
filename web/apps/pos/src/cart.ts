@@ -72,6 +72,7 @@ export function toReceipt(
     now: Date
     offline?: boolean
     returnOf?: string
+    reservationId?: string
   },
 ): PosNewReceipt {
   return {
@@ -82,6 +83,7 @@ export function toReceipt(
     ageConfirmed: opts.ageConfirmed,
     createdOnDeviceAt: opts.now.toISOString(),
     offline: opts.offline || undefined,
+    reservationId: opts.reservationId,
     lines: lines.map((l) => ({
       variantId: l.item.variantId,
       qty: l.qty,

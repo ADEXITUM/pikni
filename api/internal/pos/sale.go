@@ -19,6 +19,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/marks"
 	"github.com/ADEXITUM/pikni/api/internal/platform/db"
 	"github.com/ADEXITUM/pikni/api/internal/pos/store"
+	"github.com/ADEXITUM/pikni/api/internal/reservations"
 )
 
 // strongAbv — порог крепкого алкоголя для региональных часов продажи (scope strong, НСИ-5).
@@ -171,12 +172,13 @@ func (s *Service) Check(ctx context.Context, pc Context, raw string) (Check, err
 	}
 	c.Item = it
 	c.Price = salePrice(it.PriceKopecks, c.MaxPrice)
-	c.Refusals, err = s.refusals(ctx, pc, *it, c.Mark, c.Crpt, c.Price, s.now(), false)
+	c.Refusals, err = s.refusals(ctx, pc, *it, c.Mark, c.Crpt, c.Price, s.now(), false, nil)
 	return c, err
 }
 
 // refusals — проверки позиции. Их повторяет и приём чека: касса могла проверить устаревшие данные.
-func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code string, price int64, at time.Time, offline bool) ([]Refusal, error) {
+// reserved — марки брони, которую выдаёт этот чек: их отложенный статус продаже не мешает.
+func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code string, price int64, at time.Time, offline bool, reserved map[string]bool) ([]Refusal, error) {
 	var out []Refusal
 	code, maxPrice := crptUnit(code)
 	if it.alcohol() {
@@ -212,6 +214,9 @@ func (s *Service) refusals(ctx context.Context, pc Context, it Item, mark, code 
 				out = append(out, Refusal{"mark.unknown", "Марки нет в учёте сети. Отложите бутылку и сообщите управляющему"})
 			case m.VariantID != it.ID:
 				out = append(out, Refusal{"mark.unknown", "Марка относится к другому товару"})
+			case m.Status == marks.Reserved && reserved[mark] && m.LocationID == pc.Device.LocationID:
+			case m.Status == marks.Reserved:
+				out = append(out, Refusal{"mark.reserved", "Бутылка отложена для покупателя по брони — выдайте её через «Брони»"})
 			case m.Status == marks.Sold:
 				out = append(out, Refusal{"mark.sold", "Бутылка с этой маркой уже продана. Отложите её и сообщите управляющему"})
 			case m.Status != marks.InStock || m.LocationID != pc.Device.LocationID:
@@ -388,6 +393,8 @@ type NewReceipt struct {
 	CreatedAt    time.Time
 	Offline      bool
 	Lines        []NewLine
+	// ReservationID — чек выдаёт бронь (НЛ-4).
+	ReservationID *uuid.UUID
 }
 
 type NewLine struct {
@@ -413,6 +420,17 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 	if len(r.Lines) == 0 {
 		return uuid.Nil, &RefusalError{Refusal{"receipt.empty", "В чеке нет позиций"}}
 	}
+	var reserved map[string]bool
+	if r.ReservationID != nil {
+		res, err := s.reservations.Peek(ctx, *r.ReservationID)
+		if err != nil || r.Refund || r.Offline || res.LocationID != pc.Device.LocationID || res.Status != reservations.StatusConfirmed {
+			return uuid.Nil, &RefusalError{Refusal{"reservation.not_ready", "Бронь не найдена, не подтверждена или оформлена в другой точке"}}
+		}
+		reserved = map[string]bool{}
+		for _, m := range res.Marks {
+			reserved[m] = true
+		}
+	}
 	// Без связи касса пробивает чек по своему времени; сервер проверяет продажу по нему.
 	at := s.now()
 	if r.Offline {
@@ -436,7 +454,7 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 			return uuid.Nil, &RefusalError{Refusal{"mark.required", "Каждую бутылку с маркой пробивают отдельно"}}
 		}
 		if !r.Refund {
-			refusals, err := s.refusals(ctx, pc, *it, l.Mark, raw, l.Price, at, r.Offline)
+			refusals, err := s.refusals(ctx, pc, *it, l.Mark, raw, l.Price, at, r.Offline, reserved)
 			if err != nil {
 				return uuid.Nil, err
 			}
@@ -469,6 +487,15 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 		if r.Refund {
 			if err := s.checkReturn(ctx, q, pc, r); err != nil {
 				return err
+			}
+		}
+		if r.ReservationID != nil {
+			taken, err := s.reservations.TakeForSale(ctx, tx, *r.ReservationID, pc.Device.LocationID, pc.Cashier.ID)
+			if err != nil {
+				return &RefusalError{Refusal{"reservation.not_ready", "Бронь уже выдана, снята или истекла"}}
+			}
+			if !covers(r.Lines, taken) {
+				return &RefusalError{Refusal{"reservation.lines", "В чеке должен быть товар брони " + taken.Number + " — отсканируйте отложенные бутылки"}}
 			}
 		}
 		lines := make([]documents.SaleLine, len(r.Lines))
@@ -536,7 +563,13 @@ func (s *Service) CreateReceipt(ctx context.Context, pc Context, r NewReceipt) (
 			ins.MarkCodes = append(ins.MarkCodes, l.Mark)
 			ins.CrptCodes = append(ins.CrptCodes, l.Crpt)
 		}
-		return q.InsertReceiptLines(ctx, ins)
+		if err := q.InsertReceiptLines(ctx, ins); err != nil {
+			return err
+		}
+		if r.ReservationID != nil {
+			return s.reservations.Issued(ctx, tx, *r.ReservationID, r.ID)
+		}
+		return nil
 	})
 	if err != nil {
 		return uuid.Nil, err
@@ -655,4 +688,24 @@ func (s *Service) FindReceipts(ctx context.Context, pc Context, number *int32, c
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// covers — в чеке весь товар брони: её марки и не меньше её количества.
+func covers(lines []NewLine, t reservations.Taken) bool {
+	marksIn := map[string]bool{}
+	var qty int32
+	for _, l := range lines {
+		if l.VariantID == t.VariantID {
+			qty += l.Qty
+			if l.Mark != "" {
+				marksIn[l.Mark] = true
+			}
+		}
+	}
+	for _, m := range t.Marks {
+		if !marksIn[m] {
+			return false
+		}
+	}
+	return qty >= t.Qty
 }

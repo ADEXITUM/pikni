@@ -117,6 +117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Подтверждённые брони точки для выдачи
+         * @description Отложенный товар выдаётся через кассу с обычными проверками продажи (НЛ-4): касса пробивает чек со ссылкой на бронь, резерв снимается в той же транзакции.
+         */
+        get: operations["posReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/receipts": {
         parameters: {
             query?: never;
@@ -247,7 +267,7 @@ export interface components {
             raw: string;
         };
         PosRefusal: {
-            /** @description sale.alcohol_time — продажа алкоголя запрещена сейчас; sale.age — не подтверждён возраст; mark.required — нужна марка; mark.not_here — марка не числится в точке; mark.sold — уже продана; mark.unknown — марки нет в учёте; crpt.required — нужен код «Честного знака»; crpt.unknown, crpt.sold, crpt.blocked, crpt.expired, crpt.not_owner — отказ разрешительного режима; price.missing, price.below_min, price.above_max — цена; utm.unavailable — УТМ недоступен; item.unknown — товара нет в каталоге */
+            /** @description sale.alcohol_time — продажа алкоголя запрещена сейчас; sale.age — не подтверждён возраст; mark.required — нужна марка; mark.not_here — марка не числится в точке; mark.sold — уже продана; mark.unknown — марки нет в учёте; mark.reserved — бутылка отложена по брони; crpt.required — нужен код «Честного знака»; crpt.unknown, crpt.sold, crpt.blocked, crpt.expired, crpt.not_owner — отказ разрешительного режима; price.missing, price.below_min, price.above_max — цена; utm.unavailable — УТМ недоступен; item.unknown — товара нет в каталоге */
             code: string;
             /** @description Что нельзя, почему и что делать — для кассира */
             message: string;
@@ -268,6 +288,19 @@ export interface components {
              */
             maxPrice?: number;
             refusals: components["schemas"]["PosRefusal"][];
+        };
+        PosReservation: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            customerName: string;
+            /** @description Последние 4 цифры телефона — чтобы сверить с покупателем */
+            phoneTail: string;
+            item: components["schemas"]["PosItem"];
+            qty: number;
+            marks: string[];
+            /** Format: date-time */
+            expiresAt: string;
         };
         PosNewLine: {
             /** Format: uuid */
@@ -293,6 +326,11 @@ export interface components {
             createdOnDeviceAt: string;
             /** @description Чек пробит без связи и отправлен позже */
             offline?: boolean;
+            /**
+             * Format: uuid
+             * @description Выдача брони — её товар должен быть в чеке
+             */
+            reservationId?: string;
             lines: components["schemas"]["PosNewLine"][];
         };
         PosReceiptLine: {
@@ -514,6 +552,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PosCheck"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    posReservations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Брони */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PosReservation"][];
+                    };
                 };
             };
             default: components["responses"]["Problem"];

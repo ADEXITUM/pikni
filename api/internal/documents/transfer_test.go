@@ -127,4 +127,29 @@ func TestTransferBetweenStores(t *testing.T) {
 	if d, _ := f.svc.Get(f.keeper, doc); d.Doc.Status != documents.StatusPosted {
 		t.Fatalf("transfer after the act: %s", d.Doc.Status)
 	}
+
+	// Недостачу, оставшуюся «в пути», получатель списывает актом; ЕГАИС вернула бутылку отправителю,
+	// поэтому акт уходит от отправителя.
+	wo, err := f.svc.CreateWriteoff(receiver, nil, f.reason(t, "Потери при перевозке"), "", &doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Post(receiver, wo, f.version(t, wo)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Decide(f.manager, wo, f.version(t, wo), true, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.db.App.QueryRow(ctx, `select in_transit from stock_balances where variant_id = $1 and zone_id = $2`,
+		f.vodka.variant, otherBackroom).Scan(&inTransit); err != nil || inTransit != 0 {
+		t.Fatalf("vodka still in transit %d %v", inTransit, err)
+	}
+	if m, _ := f.marks.Find(ctx, "PKN0000000000002"); m.Status != "written_off" {
+		t.Fatalf("lost bottle: %s", m.Status)
+	}
+	var from uuid.UUID
+	if err := f.db.App.QueryRow(ctx, `select location_id from egais_messages where document_id = $1`, wo).Scan(&from); err != nil || from != f.store {
+		t.Fatalf("act sent from %s, want the sender %s (%v)", from, f.store, err)
+	}
+	f.integrity(t)
 }

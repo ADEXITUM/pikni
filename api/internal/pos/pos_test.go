@@ -19,6 +19,7 @@ import (
 	"github.com/ADEXITUM/pikni/api/internal/locations"
 	"github.com/ADEXITUM/pikni/api/internal/marks"
 	"github.com/ADEXITUM/pikni/api/internal/platform/dbtest"
+	"github.com/ADEXITUM/pikni/api/internal/reservations"
 	"github.com/ADEXITUM/pikni/api/internal/stock"
 )
 
@@ -113,7 +114,7 @@ func newFixture(t *testing.T) *fixture {
 	mk := marks.NewService(db.App)
 	f := &fixture{db: db, utm: &fakeUTM{}, docs: documents.NewService(db.App, cat, mk)}
 	f.stock = stock.NewService(db.App, mk)
-	f.svc = NewService(db.App, cat, mk, f.docs, locations.NewService(db.App), f.utm, fakeCRPT{})
+	f.svc = NewService(db.App, cat, mk, f.docs, locations.NewService(db.App), f.utm, fakeCRPT{}, reservations.NewService(db.App, cat, mk))
 	f.svc.now = func() time.Time { return daytime }
 
 	must(db.App.QueryRow(ctx, `insert into locations (code, name, kind, city, timezone, subject_code, fsrar_id)
@@ -548,5 +549,96 @@ func TestDevicePermissions(t *testing.T) {
 	}
 	if _, err := f.svc.Devices(f.session(t, "cashier", f.store)); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatalf("cashier lists tills: %v", err)
+	}
+}
+
+func TestReservationIssuedAtTill(t *testing.T) {
+	f := newFixture(t)
+	ctx := t.Context()
+	staff := f.session(t, "store_manager", f.store)
+	res := f.svc.reservations
+
+	if _, err := res.Create(staff, reservations.New{LocationID: f.store, VariantID: f.vodka, Qty: 1, CustomerName: "Анна",
+		Phone: "+7 914 000-11-22"}); !errors.Is(err, reservations.ErrConsent) {
+		t.Fatalf("no consent: %v", err)
+	}
+	id, err := res.Create(staff, reservations.New{LocationID: f.store, VariantID: f.vodka, Qty: 1, CustomerName: "Анна",
+		Phone: "+7 914 000-11-22", Consent: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := res.Confirm(staff, id, []string{mark1}); err != nil {
+		t.Fatal(err)
+	}
+	var reserved int32
+	if err := f.db.App.QueryRow(ctx, `select sum(reserved)::integer from stock_balances where variant_id = $1`, f.vodka).Scan(&reserved); err != nil || reserved != 1 {
+		t.Fatalf("reserved %d %v", reserved, err)
+	}
+
+	pc := f.till(t)
+	if c, _ := f.svc.Check(ctx, pc, mark1); len(c.Refusals) == 0 || c.Refusals[0].Code != "mark.reserved" {
+		t.Fatalf("reserved bottle scanned at the till: %+v", c.Refusals)
+	}
+	sale := NewReceipt{ID: uuid.New(), AgeConfirmed: true, CreatedAt: daytime, Lines: []NewLine{vodkaLine(f, mark1)}}
+	if _, err := f.svc.CreateReceipt(ctx, pc, sale); refusalCode(err) != "mark.reserved" {
+		t.Fatalf("reserved bottle without the reservation: %v", err)
+	}
+	list, err := f.svc.Reservations(ctx, pc)
+	if err != nil || len(list) != 1 || list[0].PhoneTail != "1-22" {
+		t.Fatalf("reservations at the till: %+v %v", list, err)
+	}
+	sale.ID, sale.ReservationID = uuid.New(), &id
+	if _, err := f.svc.CreateReceipt(ctx, pc, sale); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := res.Peek(ctx, id)
+	if r.Status != reservations.StatusIssued || r.ReceiptNumber == nil {
+		t.Fatalf("issued: %+v", r)
+	}
+	if err := f.db.App.QueryRow(ctx, `select sum(reserved)::integer from stock_balances where variant_id = $1`, f.vodka).Scan(&reserved); err != nil || reserved != 0 {
+		t.Fatalf("reserve released %d %v", reserved, err)
+	}
+	if s := f.markStatus(t, mark1); s != marks.Sold {
+		t.Fatalf("mark %s", s)
+	}
+	f.integrity(t)
+}
+
+func TestReservationExpiresAndIsAnonymized(t *testing.T) {
+	f := newFixture(t)
+	ctx := t.Context()
+	staff := f.session(t, "cashier", f.store)
+	res := f.svc.reservations
+	id, err := res.Create(staff, reservations.New{LocationID: f.store, VariantID: f.beer, Qty: 2, CustomerName: "Пётр",
+		Phone: "89140001122", Consent: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := res.Confirm(staff, id, []string{ean("460000000001")}); !errors.Is(err, reservations.ErrWrongItem) {
+		t.Fatalf("wrong item: %v", err)
+	}
+	if err := res.Confirm(staff, id, []string{ean("460000000002")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.App.Exec(ctx, `update reservations set expires_at = now() - interval '1 minute' where id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := res.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := res.Peek(ctx, id)
+	var reserved int32
+	_ = f.db.App.QueryRow(ctx, `select coalesce(sum(reserved), 0)::integer from stock_balances where variant_id = $1`, f.beer).Scan(&reserved)
+	if r.Status != reservations.StatusExpired || reserved != 0 {
+		t.Fatalf("expired: %s, reserved %d", r.Status, reserved)
+	}
+	if _, err := f.db.App.Exec(ctx, `update reservations set closed_at = now() - interval '31 days' where id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := res.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if r, _ := res.Peek(ctx, id); r.CustomerName != "Покупатель" || r.CustomerPhone != "" {
+		t.Fatalf("anonymized: %q %q", r.CustomerName, r.CustomerPhone)
 	}
 }

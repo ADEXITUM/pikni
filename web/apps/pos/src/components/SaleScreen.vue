@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   mdiAccountCircleOutline,
+  mdiBookmarkOutline,
   mdiCameraOffOutline,
   mdiCameraOutline,
   mdiCash,
@@ -10,7 +11,7 @@ import {
   mdiLanDisconnect,
   mdiStoreClockOutline,
 } from '@mdi/js'
-import type { PosReceipt } from '@pikni/api/pos'
+import type { PosReceipt, PosReservation } from '@pikni/api/pos'
 import { createDeduper, listenWedge } from '@pikni/scanner'
 import { createSounds } from '@pikni/ui'
 import ScanCamera from '@pikni/ui/ScanCamera.vue'
@@ -34,6 +35,7 @@ import { catalogIndex, findOffline } from '../catalog'
 import { local } from '../storage'
 import { check, closeShift, enqueue, logout, sendReceipt, till, TillError } from '../till'
 import ReceiptDialog from './ReceiptDialog.vue'
+import ReservationsDialog from './ReservationsDialog.vue'
 import ReturnDialog from './ReturnDialog.vue'
 
 const sounds = createSounds({ volume: 0.8, muted: false, haptics: false })
@@ -55,6 +57,18 @@ const qtyOpen = ref(false)
 const qtyValue = ref('1')
 const printed = ref<{ receipt: PosReceipt | null; offline: boolean; total: number } | null>(null)
 const returnOpen = ref(false)
+// Выдача брони: чек ссылается на бронь, сервер снимает резерв в той же транзакции.
+const reservationsOpen = ref(false)
+const reservation = ref<PosReservation | null>(null)
+function loadReservation(r: PosReservation) {
+  if (lines.value.length && !confirm('Заменить текущий чек выдачей брони?')) return
+  resetReceipt()
+  reservation.value = r
+  lines.value = r.marks.length
+    ? r.marks.map((m) => ({ item: r.item, qty: 1, markCode: m }))
+    : [{ item: r.item, qty: r.qty }]
+  selected.value = 0
+}
 
 // Камера — для планшета и телефона; включённая остаётся включённой и после перезагрузки.
 const cameraOn = ref(local.get('pikni.pos.camera') === '1')
@@ -129,6 +143,7 @@ async function scan(raw: string) {
 }
 
 function resetReceipt() {
+  reservation.value = null
   lines.value = []
   selected.value = -1
   receiptId.value = crypto.randomUUID()
@@ -153,6 +168,7 @@ async function submit(payment: Payment, ageConfirmed: boolean) {
     payment,
     ageConfirmed,
     now: new Date(),
+    reservationId: reservation.value?.id,
   })
   try {
     const res = await sendReceipt(receipt)
@@ -161,7 +177,7 @@ async function submit(payment: Payment, ageConfirmed: boolean) {
       resetReceipt()
     } else if ('refusal' in res) {
       refuse(res.refusal.message)
-    } else if (canSellOffline(lines.value)) {
+    } else if (canSellOffline(lines.value) && !reservation.value) {
       enqueue(receipt)
       printed.value = { receipt: null, offline: true, total: sum }
       resetReceipt()
@@ -341,6 +357,16 @@ const alcohol = computed(() => {
           @scan="(c) => onCamera(c.raw)"
           @close="setCamera(false)"
         />
+        <v-chip
+          v-if="reservation"
+          color="primary"
+          class="mb-2"
+          closable
+          data-test="reservation-chip"
+          @click:close="resetReceipt()"
+        >
+          Выдача брони {{ reservation.number }} · {{ reservation.customerName }}
+        </v-chip>
         <v-alert
           v-if="refusal"
           type="error"
@@ -437,6 +463,13 @@ const alcohol = computed(() => {
         </div>
         <v-btn variant="text" :disabled="!lines.length" @click="cancel()">Отменить чек · Esc</v-btn>
         <v-spacer />
+        <v-btn
+          variant="outlined"
+          :prepend-icon="mdiBookmarkOutline"
+          data-test="pos-reservations"
+          @click="reservationsOpen = true"
+          >Брони</v-btn
+        >
         <v-btn variant="outlined" :prepend-icon="mdiKeyboardReturn" @click="returnOpen = true"
           >Возврат</v-btn
         >
@@ -486,6 +519,7 @@ const alcohol = computed(() => {
   </v-dialog>
 
   <ReceiptDialog v-model="printed" />
+  <ReservationsDialog v-model="reservationsOpen" @pick="loadReservation" />
   <ReturnDialog
     v-model="returnOpen"
     @refused="refuse"

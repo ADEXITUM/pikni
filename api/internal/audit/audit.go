@@ -14,17 +14,18 @@ import (
 )
 
 const (
-	EntityAssortment = "assortment"
-	EntityDocument   = "document"
-	EntityLocation   = "location"
-	EntityMinPrice   = "min_price"
-	EntityPosDevice  = "pos_device"
-	EntityProduct    = "product"
-	EntitySaleBan    = "sale_ban"
-	EntitySaleRule   = "sale_rule"
-	EntitySession    = "session"
-	EntityUser       = "user"
-	EntityVariant    = "variant"
+	EntityAssortment  = "assortment"
+	EntityDocument    = "document"
+	EntityLocation    = "location"
+	EntityMinPrice    = "min_price"
+	EntityPosDevice   = "pos_device"
+	EntityReservation = "reservation"
+	EntityProduct     = "product"
+	EntitySaleBan     = "sale_ban"
+	EntitySaleRule    = "sale_rule"
+	EntitySession     = "session"
+	EntityUser        = "user"
+	EntityVariant     = "variant"
 )
 
 // DB — пул или транзакция. Запись передают транзакцию самого изменения,
