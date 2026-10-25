@@ -1971,6 +1971,344 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/price-tags/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ценники к перепечатке
+         * @description Товары торгового зала точки, у которых розничная цена изменилась после печати ценника или ценник ещё не печатался (ЭТ-3).
+         */
+        get: operations["listStalePriceTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/price-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Напечатать ценники
+         * @description PDF с ценниками выбранных товаров или всех строк документа (например, поступления) на листе A4 с сеткой или на термоэтикетках 58 × 40 мм (ЭТ-2). Напечатанное запоминается по точке.
+         */
+        post: operations["printPriceTags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Категории имущества */
+        get: operations["listAssetCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ведомость имущества
+         * @description Объекты доступных точек (ИМ-6). Списанные — только с фильтром status=written_off.
+         */
+        get: operations["listAssets"];
+        put?: never;
+        /**
+         * Принять объект к учёту
+         * @description Инвентарный номер INV-000001 присваивает система.
+         */
+        post: operations["createAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ведомость имущества в Excel */
+        get: operations["getAssetRegister"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Напечатать инвентарные наклейки
+         * @description Code 128 и QR-код с инвентарным номером (ИМ-2), на A4 или термоэтикетках 58 × 40 мм.
+         */
+        post: operations["printAssetLabels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/responsibles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Кому можно передать имущество под ответственность */
+        get: operations["listAssetResponsibles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка объекта с историей */
+        get: operations["getAsset"];
+        /** Изменить карточку */
+        put: operations["updateAsset"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Переместить в другую точку или сменить МОЛ
+         * @description Каждое изменение записывается в историю объекта (ИМ-3).
+         */
+        post: operations["moveAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** В эксплуатации или в ремонте */
+        post: operations["setAssetStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Фотография объекта */
+        get: operations["getAssetPhoto"];
+        /**
+         * Сфотографировать объект
+         * @description JPEG до 3 МБ в base64; клиент уменьшает снимок перед отправкой.
+         */
+        put: operations["setAssetPhoto"];
+        post?: never;
+        /** Убрать фотографию */
+        delete: operations["deleteAssetPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}/writeoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Оформить списание объекта
+         * @description Объект остаётся в учёте, пока списание не утвердит другой сотрудник с правом утверждения (ИМ-5, ПБ-8).
+         */
+        post: operations["requestAssetWriteoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}/writeoff/{decision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Утвердить или отклонить списание */
+        post: operations["decideAssetWriteoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assets/{id}/writeoff-act": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Акт о списании */
+        get: operations["getAssetWriteoffAct"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-audits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Инвентаризации имущества */
+        get: operations["listAssetAudits"];
+        put?: never;
+        /** Начать инвентаризацию имущества в точке */
+        post: operations["startAssetAudit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-audits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ход и результат инвентаризации имущества */
+        get: operations["getAssetAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-audits/{id}/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отсканировать наклейку */
+        post: operations["scanAssetLabel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/asset-audits/{id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Завершить или отменить инвентаризацию имущества
+         * @description relocate — найденное здесь, но числящееся в другой точке, перевести в эту точку.
+         */
+        post: operations["finishAssetAudit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/marks/{code}": {
         parameters: {
             query?: never;
@@ -2006,7 +2344,7 @@ export interface components {
          * @description Вид события. Русские названия — в словаре клиента.
          * @enum {string}
          */
-        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started";
+        AuditAction: "auth.login" | "auth.login_failed" | "auth.logout" | "auth.password_changed" | "auth.session_ended" | "user.created" | "user.updated" | "user.blocked" | "user.unblocked" | "user.password_reset" | "user.pin_set" | "pos_device.created" | "pos_device.revoked" | "location.created" | "location.updated" | "sale_rule.created" | "sale_rule.deleted" | "sale_ban.created" | "sale_ban.deleted" | "ref.created" | "ref.updated" | "product.created" | "product.updated" | "variant.created" | "variant.updated" | "barcode.created" | "barcode.deleted" | "price.created" | "price.deleted" | "min_price.created" | "min_price.deleted" | "assortment.set" | "assortment.removed" | "assortment.copied" | "document.created" | "document.posted" | "document.cancelled" | "transfer.approved" | "transfer.rejected" | "document.submitted" | "document.approved" | "document.returned" | "reservation.created" | "reservation.confirmed" | "reservation.cancelled" | "reservation.issued" | "stocktake.started" | "asset.created" | "asset.updated" | "asset.moved" | "asset.status_changed" | "asset.writeoff_requested" | "asset.written_off" | "asset.writeoff_rejected" | "asset.audit_finished";
         AuditEntry: {
             /** Format: int64 */
             id: number;
@@ -2319,6 +2657,198 @@ export interface components {
             code?: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        PriceTagItem: {
+            /** Format: uuid */
+            variantId: string;
+            article: string;
+            name: string;
+            label: string;
+            /** Format: double */
+            abv?: number;
+            /**
+             * Format: int64
+             * @description Текущая розничная цена, коп.
+             */
+            priceKopecks: number;
+            /**
+             * Format: int64
+             * @description Цена на последнем напечатанном ценнике, коп.
+             */
+            printedKopecks?: number;
+            /** Format: date-time */
+            printedAt?: string;
+            barcode?: string;
+        };
+        /**
+         * @description a4 — лист A4 с сеткой 3 × 7, thermal — термоэтикетка 58 × 40 мм
+         * @enum {string}
+         */
+        LabelFormat: "a4" | "thermal";
+        PriceTagRequest: {
+            /** Format: uuid */
+            locationId: string;
+            variantIds?: string[];
+            /**
+             * Format: uuid
+             * @description Все товары документа, например поступления
+             */
+            documentId?: string;
+            format: components["schemas"]["LabelFormat"];
+        };
+        AssetCategory: {
+            code: string;
+            name: string;
+        };
+        /** @enum {string} */
+        AssetStatus: "in_use" | "repair" | "written_off";
+        AssetFields: {
+            name: string;
+            categoryCode: string;
+            serial?: string;
+            /** Format: date */
+            acceptedAt: string;
+            /** Format: int64 */
+            costKopecks: number;
+        };
+        NewAsset: components["schemas"]["AssetFields"] & {
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            responsibleId?: string;
+        };
+        AssetUpdate: components["schemas"]["AssetFields"] & {
+            version: number;
+        };
+        AssetMove: {
+            version: number;
+            /** Format: uuid */
+            locationId: string;
+            /**
+             * Format: uuid
+             * @description МОЛ после перемещения; нет — снять ответственность
+             */
+            responsibleId?: string;
+            comment?: string;
+        };
+        AssetStatusChange: {
+            version: number;
+            /** @enum {string} */
+            status: "in_use" | "repair";
+            comment?: string;
+        };
+        AssetWriteoffRequest: {
+            version: number;
+            reason: string;
+        };
+        AssetLabelRequest: {
+            assetIds: string[];
+            format: components["schemas"]["LabelFormat"];
+        };
+        Asset: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            name: string;
+            categoryCode: string;
+            categoryName: string;
+            serial: string;
+            /** Format: date */
+            acceptedAt: string;
+            /** Format: int64 */
+            costKopecks: number;
+            /** Format: uuid */
+            locationId: string;
+            locationCode: string;
+            locationName: string;
+            /** Format: uuid */
+            responsibleId?: string;
+            responsibleName?: string;
+            status: components["schemas"]["AssetStatus"];
+            hasPhoto: boolean;
+            version: number;
+        };
+        AssetEvent: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "created" | "moved" | "responsible" | "status" | "writeoff_requested" | "writeoff_rejected" | "written_off" | "found_elsewhere";
+            /** Format: date-time */
+            at: string;
+            comment: string;
+            fromStatus?: string;
+            toStatus?: string;
+            fromLocationName?: string;
+            toLocationName?: string;
+            fromUserName?: string;
+            toUserName?: string;
+            userName?: string;
+        };
+        AssetWriteoff: {
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            /** Format: date-time */
+            requestedAt: string;
+            requestedByName: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            decidedByName?: string;
+            decisionComment: string;
+        };
+        AssetCard: {
+            asset: components["schemas"]["Asset"];
+            events: components["schemas"]["AssetEvent"][];
+            writeoff?: components["schemas"]["AssetWriteoff"];
+            canEdit: boolean;
+            /** @description Можно утвердить или отклонить ожидающее списание — не тому, кто его оформил */
+            canApprove: boolean;
+        };
+        AssetResponsible: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            role: components["schemas"]["Role"];
+        };
+        AssetAudit: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            locationName: string;
+            /** @enum {string} */
+            status: "counting" | "finished" | "cancelled";
+            /** Format: date-time */
+            startedAt: string;
+            startedByName: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            finishedByName?: string;
+        };
+        AssetAuditResult: {
+            /** Format: uuid */
+            assetId: string;
+            number: string;
+            name: string;
+            categoryName: string;
+            /** @description Где объект числится */
+            locationName: string;
+            responsibleName?: string;
+            /** @enum {string} */
+            result: "found" | "not_found" | "elsewhere";
+            /** Format: date-time */
+            scannedAt?: string;
+        };
+        AssetAuditState: {
+            audit: components["schemas"]["AssetAudit"];
+            results: components["schemas"]["AssetAuditResult"][];
+        };
+        AssetAuditScan: {
+            /** Format: uuid */
+            assetId: string;
+            /** @enum {string} */
+            result: "found" | "elsewhere";
+            duplicate: boolean;
         };
         Reservation: {
             /** Format: uuid */
@@ -3689,6 +4219,11 @@ export interface components {
         };
     };
     parameters: {
+        AssetLocation: string;
+        AssetResponsibleFilter: string;
+        AssetCategoryCode: string;
+        AssetStatusParam: components["schemas"]["AssetStatus"];
+        AssetQuery: string;
         /** @description Начало периода включительно */
         AuditFrom: string;
         /** @description Конец периода, не включая */
@@ -6870,6 +7405,592 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listStalePriceTags: {
+        parameters: {
+            query: {
+                locationId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PriceTagItem"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    printPriceTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceTagRequest"];
+            };
+        };
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAssetCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Категории */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AssetCategory"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAssets: {
+        parameters: {
+            query?: {
+                locationId?: components["parameters"]["AssetLocation"];
+                responsibleId?: components["parameters"]["AssetResponsibleFilter"];
+                category?: components["parameters"]["AssetCategoryCode"];
+                status?: components["parameters"]["AssetStatusParam"];
+                q?: components["parameters"]["AssetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Объекты */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Asset"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAsset"];
+            };
+        };
+        responses: {
+            /** @description Объект принят к учёту */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAssetRegister: {
+        parameters: {
+            query?: {
+                locationId?: components["parameters"]["AssetLocation"];
+                responsibleId?: components["parameters"]["AssetResponsibleFilter"];
+                category?: components["parameters"]["AssetCategoryCode"];
+                status?: components["parameters"]["AssetStatusParam"];
+                q?: components["parameters"]["AssetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description XLSX */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    printAssetLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetLabelRequest"];
+            };
+        };
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAssetResponsibles: {
+        parameters: {
+            query: {
+                locationId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сотрудники */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AssetResponsible"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Карточка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Сохранено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    moveAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetMove"];
+            };
+        };
+        responses: {
+            /** @description Перемещено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setAssetStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetStatusChange"];
+            };
+        };
+        responses: {
+            /** @description Состояние изменено */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAssetPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JPEG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    setAssetPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPhoto"];
+            };
+        };
+        responses: {
+            /** @description Сохранено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteAssetPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Удалена */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    requestAssetWriteoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetWriteoffRequest"];
+            };
+        };
+        responses: {
+            /** @description Списание ждёт утверждения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    decideAssetWriteoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                decision: "approve" | "reject";
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Решение принято */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetCard"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAssetWriteoffAct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAssetAudits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Последние инвентаризации */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AssetAudit"][];
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    startAssetAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    locationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Начата */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetAuditState"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAssetAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат по каждому объекту */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetAuditState"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    scanAssetLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    raw: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Исход скана */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetAuditScan"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    finishAssetAudit: {
+        parameters: {
+            query?: {
+                relocate?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+                action: "finish" | "cancel";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Готово */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetAuditState"];
+                };
             };
             default: components["responses"]["Problem"];
         };

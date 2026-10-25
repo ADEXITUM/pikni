@@ -10,7 +10,7 @@ import {
   mdiMagnify,
   mdiUndoVariant,
 } from '@mdi/js'
-import { api, ApiError, type CodeResolution, type Mark } from '@pikni/api'
+import { api, ApiError, type Asset, type CodeResolution, type Mark } from '@pikni/api'
 import type { RecognizedCode, ScanSource } from '@pikni/scanner'
 import type { SoundEvent } from '@pikni/ui'
 import { computed, reactive, ref, watch } from 'vue'
@@ -68,6 +68,7 @@ interface Entry {
   result?: CodeResolution
   // Марка ЕГАИС: где числится и как туда попала (СО-8); null — марки нет в учёте.
   mark?: Mark | null
+  asset?: Asset
   error?: string
 }
 
@@ -115,6 +116,12 @@ const { submit, forget } = useScanner(async ({ event, code }) => {
     }
   }
   const mark = code.kind === 'excise_mark' ? loadMark(entry) : undefined
+  // Инвентарная наклейка — карточка объекта имущества, если сотруднику доступен учёт имущества.
+  if (code.kind === 'asset') {
+    const { data } = await api.GET('/assets', { params: { query: { q: code.code } } })
+    entry.asset = data?.items.find((a) => a.number === code.code)
+    return settle(entry, entry.asset ? 'found' : 'local')
+  }
   if (!searchable(code)) {
     await mark
     if (entry.mark) return settle(entry, 'found')
@@ -203,6 +210,7 @@ const sourceLabels: Record<ScanSource, string> = {
 const title = (e: Entry) =>
   e.result?.product?.name ??
   e.mark?.name ??
+  e.asset?.name ??
   (e.status === 'loading' ? 'Ищем…' : codeKindLabels[e.code.kind])
 </script>
 
@@ -402,7 +410,18 @@ const title = (e: Entry) =>
             >. Его содержимое покажет документ приёмки.
           </template>
           <template v-else-if="current.code.kind === 'asset'">
-            Инвентарный номер {{ current.code.code }}. Учёт имущества в системе пока не подключён.
+            <template v-if="current.asset">
+              <router-link :to="{ name: 'asset', params: { id: current.asset.id } }">{{
+                current.asset.number
+              }}</router-link>
+              · {{ current.asset.name }}, {{ current.asset.locationName
+              }}<template v-if="current.asset.responsibleName"
+                >, МОЛ {{ current.asset.responsibleName }}</template
+              >.
+            </template>
+            <template v-else
+              >Инвентарный номер {{ current.code.code }} — объект не найден.</template
+            >
           </template>
           <template v-else>
             Служебный код Пикни. Откройте его на экране, где он нужен, — например, при сопряжении

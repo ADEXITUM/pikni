@@ -180,3 +180,28 @@ sql:
         sql_package: pgx/v5
         omit_unused_structs: true
         emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/assets
+    gen:
+      go:
+        package: store
+        out: internal/assets/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/labels
+    gen:
+      go:
+        package: store
+        out: internal/labels/store
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: products.abv
+            go_type:
+              type: float64
+              pointer: true

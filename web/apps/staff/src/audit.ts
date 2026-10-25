@@ -61,6 +61,14 @@ export const auditActionLabels: Record<AuditAction, string> = {
   'reservation.cancelled': 'Снятие брони',
   'reservation.issued': 'Выдача брони',
   'transfer.rejected': 'Отклонение заявки на перемещение',
+  'asset.created': 'Принятие имущества к учёту',
+  'asset.updated': 'Изменение карточки имущества',
+  'asset.moved': 'Перемещение имущества, смена МОЛ',
+  'asset.status_changed': 'Смена состояния имущества',
+  'asset.writeoff_requested': 'Оформление списания имущества',
+  'asset.written_off': 'Списание имущества',
+  'asset.writeoff_rejected': 'Отклонение списания имущества',
+  'asset.audit_finished': 'Завершение инвентаризации имущества',
 }
 
 export const auditActionColors: Partial<Record<AuditAction, string>> = {

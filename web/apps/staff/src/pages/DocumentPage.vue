@@ -9,6 +9,7 @@ import {
   mdiHelpCircleOutline,
   mdiInformationOutline,
   mdiMagnify,
+  mdiTagOutline,
   mdiUndoVariant,
 } from '@mdi/js'
 import {
@@ -19,6 +20,7 @@ import {
   type DocumentScan,
   type DocumentScanResult,
   type DocumentScanStatus,
+  type LabelFormat,
 } from '@pikni/api'
 import type { SoundEvent } from '@pikni/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
@@ -33,6 +35,7 @@ import StocktakePanel from '@/components/StocktakePanel.vue'
 import ScanCamera from '@pikni/ui/ScanCamera.vue'
 import { confirm } from '@/confirm'
 import { playFeedback } from '@/feedback'
+import { openPdf } from '@/print'
 import { formatDateTime } from '@/format'
 import {
   documentKindLabels,
@@ -403,6 +406,21 @@ function submitManual() {
   manual.value = ''
 }
 const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw)
+
+// Ценники на принятый товар (ЭТ-2) — прямо из поступления.
+async function printTags(format: LabelFormat) {
+  actionError.value = undefined
+  try {
+    await openPdf(
+      api.POST('/price-tags', {
+        body: { locationId: doc.value!.locationId, documentId: id.value, format },
+        parseAs: 'blob',
+      }),
+    )
+  } catch (e) {
+    actionError.value = (e as Error).message
+  }
+}
 </script>
 
 <template>
@@ -561,9 +579,27 @@ const short = (raw: string) => (raw.length > 32 ? `${raw.slice(0, 32)}…` : raw
           >
         </template>
       </v-alert>
-      <p v-if="doc.kind === 'receipt'" class="text-body-medium mb-3" data-test="ttn">
-        {{ doc.ttnNumber }} · {{ doc.supplierName ?? 'поставщик не найден в справочнике' }}
-      </p>
+      <div v-if="doc.kind === 'receipt'" class="d-flex flex-wrap align-center ga-2 mb-3">
+        <p class="text-body-medium" data-test="ttn">
+          {{ doc.ttnNumber }} · {{ doc.supplierName ?? 'поставщик не найден в справочнике' }}
+        </p>
+        <v-spacer />
+        <v-menu v-if="doc.status === 'posted' || doc.status === 'awaiting_egais'">
+          <template #activator="{ props: menu }">
+            <v-btn
+              v-bind="menu"
+              :prepend-icon="mdiTagOutline"
+              variant="tonal"
+              data-test="price-tags"
+              >Ценники</v-btn
+            >
+          </template>
+          <v-list>
+            <v-list-item title="На листе A4" @click="printTags('a4')" />
+            <v-list-item title="На термоэтикетках 58 × 40" @click="printTags('thermal')" />
+          </v-list>
+        </v-menu>
+      </div>
 
       <StocktakePanel v-if="doc.kind === 'stocktake'" :doc="doc" />
       <template v-else>

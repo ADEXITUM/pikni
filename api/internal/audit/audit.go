@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	EntityAsset       = "asset"
 	EntityAssortment  = "assortment"
 	EntityDocument    = "document"
 	EntityLocation    = "location"
