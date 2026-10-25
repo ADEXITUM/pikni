@@ -1717,8 +1717,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Печатная форма ревизии
-         * @description inv3 — инвентаризационная опись ИНВ-3, inv19 — сличительная ведомость ИНВ-19; PDF или Excel.
+         * Печатная форма документа
+         * @description inv3 и inv19 — опись и сличительная ведомость ревизии (PDF или Excel); torg2 — акт о расхождении при приёмке, torg13 — накладная на внутреннее перемещение, torg16 — акт о списании (PDF).
          */
         get: operations["getStocktakeForm"];
         put?: never;
@@ -7564,7 +7564,7 @@ export interface operations {
             header?: never;
             path: {
                 id: string;
-                form: "inv3" | "inv19";
+                form: "inv3" | "inv19" | "torg2" | "torg13" | "torg16";
             };
             cookie?: never;
         };
