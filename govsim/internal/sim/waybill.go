@@ -15,8 +15,15 @@ import (
 // «входящие» получателя. Идентификатор ТТН — идентификатор этого документа: по нему получатель
 // пришлёт акт.
 func wayBill(ctx context.Context, tx pgx.Tx, fsrar string, doc uuid.UUID, payload []byte) error {
+	// Идентификатор ТТН присваивает ЕГАИС: присланный отправителем не учитывается.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		return reject("ТТН не разобрана: %v", err)
+	}
+	delete(raw, "ttn_id")
+	clean, _ := json.Marshal(raw)
 	var ttn TTN
-	if err := json.Unmarshal(payload, &ttn); err != nil {
+	if err := json.Unmarshal(clean, &ttn); err != nil {
 		return reject("ТТН не разобрана: %v", err)
 	}
 	if ttn.Consignee == "" || ttn.Consignee == fsrar {
