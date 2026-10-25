@@ -324,7 +324,9 @@ const facts = computed(() => {
     { label: changeLabels.region, value: display(d.region) },
     ...visibleSchema.value.map((a) => ({
       label: a.name,
-      value: display(form.attributes[a.code]) + (a.unit && !isEmpty(form.attributes[a.code]) ? ` ${a.unit}` : ''),
+      value:
+        display(form.attributes[a.code]) +
+        (a.unit && !isEmpty(form.attributes[a.code]) ? ` ${a.unit}` : ''),
     })),
   ]
   return rows.filter((r) => r.value !== '—')
